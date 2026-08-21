@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "Copy to console.json. This file is WHAT this deployment is \u2014 branding and",
+    "which modules exist. It holds no secrets, so a private deployment repo can",
+    "commit it. Secrets live in .env.",
+    "",
+    "Each module runs as its own service from its own repo. `origin` is how the",
+    "console reaches it; MODULE_<ID>_ORIGIN in the environment overrides it, which",
+    "is how docker-compose points at container names without editing this file."
+  ],
+  "branding": {
+    "name": "console",
+    "wordmark": "ojee",
+    "wordmarkAccent": ".",
+    "wordmarkTail": "console",
+    "tagline": "local control \u00b7 no cloud",
+    "theme": null,
+    "favicon": "/favicon.svg"
+  },
+  "modules": [
+    {
+      "id": "home",
+      "name": "Home",
+      "origin": "http://home:8110",
+      "enabled": true
+    },
+    {
+      "id": "remote",
+      "name": "Remote",
+      "origin": "http://remote:8200",
+      "enabled": true
+    },
+    {
+      "id": "loq",
+      "name": "LOQ",
+      "origin": "http://100.81.241.55:8300",
+      "enabled": true
+    },
+    {
+      "id": "agent",
+      "name": "Agent",
+      "origin": "http://dashboard:8080",
+      "enabled": false
+    }
+  ]
+}

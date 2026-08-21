@@ -1,0 +1,6 @@
+node_modules/
+data/
+.env
+config/console.json
+*.log
+.DS_Store

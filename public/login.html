@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#08080e">
+<title>sign in · console</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;700;900&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/ojee-ui.css">
+<link id="theme-link" rel="stylesheet" href="">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="grid-bg login-body">
+
+<main class="login-wrap">
+  <div class="sheet login-sheet">
+    <div class="sheet-inner">
+      <div class="sheet-header">
+        <span>auth <b>totp</b></span>
+        <span class="right">tailnet <em id="peer">verified</em></span>
+      </div>
+
+      <h1 class="display login-logo" id="logo">console</h1>
+
+      <p class="login-note" id="note">
+        You are on the tailnet. Enter the six-digit code from your authenticator.
+      </p>
+
+      <form id="form" class="stack" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="code">Authenticator code</label>
+          <!--
+            inputmode=numeric + autocomplete=one-time-code is what makes iOS
+            offer the code from Messages and Android autofill it, and what
+            brings up the digit keypad instead of the full keyboard.
+          -->
+          <input class="input code-input" id="code" name="code" type="text"
+                 inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                 autocomplete="one-time-code" enterkeyhint="go"
+                 aria-describedby="err" placeholder="000000" required>
+          <span class="err-msg" id="err" role="alert" hidden></span>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="trust" checked>
+          <span>Trust this device for <b id="trust-days">30</b> days</span>
+        </label>
+
+        <button class="btn powerbtn" id="submit" type="submit">Sign in</button>
+      </form>
+
+      <div class="titleblock login-facts">
+        <div class="tb"><span class="tb-k">gate 1</span><span class="tb-v tb-v--accent">tailscale</span></div>
+        <div class="tb"><span class="tb-k">gate 2</span><span class="tb-v">totp</span></div>
+        <div class="tb"><span class="tb-k">gate 3</span><span class="tb-v">device trust</span></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const err = $('#err');
+const code = $('#code');
+
+// Branding is public within the tailnet — the gate already ran, so anyone
+// who can load this page is an authenticated peer.
+fetch('/api/branding').then((r) => r.json()).then((b) => {
+  document.title = `sign in · ${b.name}`;
+  $('#logo').textContent = `${b.wordmark}${b.wordmarkAccent}${b.wordmarkTail}`;
+  if (b.theme) $('#theme-link').href = `/themes/${b.theme}.css`;
+  if (b.peer) $('#peer').textContent = b.peer;
+}).catch(() => {});
+
+const show = (msg) => { err.textContent = msg; err.hidden = false; code.setAttribute('aria-invalid', 'true'); };
+const clear = () => { err.hidden = true; code.removeAttribute('aria-invalid'); };
+
+// Strip anything non-numeric as it is typed — pasting "123 456" from a
+// password manager is the common case, and rejecting it as malformed would
+// be an own goal.
+code.addEventListener('input', () => {
+  const cleaned = code.value.replace(/\D/g, '').slice(0, 6);
+  if (cleaned !== code.value) code.value = cleaned;
+  clear();
+  // Six digits is unambiguous — submit rather than making them reach for a
+  // button they cannot see under the keypad.
+  if (cleaned.length === 6) $('#form').requestSubmit();
+});
+
+const MESSAGES = {
+  malformed: 'That is not a six-digit code.',
+  invalid: 'Incorrect code. Check your authenticator and try the next one.',
+  replayed: 'That code was already used. Wait for the next one.',
+  rate_limited: 'Too many attempts. Wait a minute and try again.',
+};
+
+$('#form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('#submit');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  clear();
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        code: code.value,
+        trustDevice: $('#trust').checked,
+        deviceLabel: '',
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      btn.textContent = 'Signed in';
+      location.href = '/';
+      return;
+    }
+
+    show(MESSAGES[body.error] || `Sign-in failed (${body.error || res.status}).`);
+    code.value = '';
+    code.focus();
+  } catch {
+    show('Could not reach the console. Is Tailscale still connected?');
+  } finally {
+    if (btn.textContent !== 'Signed in') {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+});
+
+code.focus();
+</script>
+</body>
+</html>

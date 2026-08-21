@@ -1,0 +1,29 @@
+# ojee-console — minimal compose.
+#
+# The console is one container; each module is its own project with its own
+# compose file. This one only needs to reach them, so modules are referenced
+# by URL rather than pulled in here — that is what keeps them independent
+# repos rather than a monolith wearing a modular hat.
+
+services:
+  console:
+    build: .
+    container_name: ojee-console
+    restart: unless-stopped
+    env_file: .env
+    # Bind to the tailnet address, not 0.0.0.0. The tailnet gate is the
+    # security boundary, but there is no reason to also be listening on the
+    # LAN while it does its job.
+    ports:
+      - "${BIND_IP:-127.0.0.1}:8100:8100"
+    volumes:
+      - ./config:/app/config:ro
+      - console_data:/data
+      # `tailscale whois` needs the daemon's socket. Without it the gate falls
+      # back to CIDR matching, which still works but cannot name the user.
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  console_data:

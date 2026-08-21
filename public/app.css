@@ -1,0 +1,86 @@
+/* ============================================================
+   ojee-console — shell layer on top of ojee-ui.
+   Every value resolves to an ojee-ui token. No new colours, no
+   border radius, no non-mono type: the system stays the system.
+   Modules ship their own CSS for their own views; nothing here
+   is module-specific.
+   ============================================================ */
+
+/* ---------- nav ---------- */
+/* The settings button sits outside .nav-links so it survives the
+   860px breakpoint, where the links collapse into the tab bar.
+   Settings has no tab-bar slot — five module tabs is already the
+   limit — so this is the only way to reach it on a phone. */
+.nav-settings { margin-left: auto; }
+.nav-links + .nav-settings { margin-left: var(--s-3); }
+.nav-logo { color: var(--ink); }
+.nav-logo:hover { color: var(--ink); }
+
+/* A module that is down keeps its nav entry, marked. Strikethrough
+   plus colour, never colour alone. */
+.nav-link--down { color: var(--warn); text-decoration: line-through; }
+.nav-link--down:hover { color: var(--warn); }
+.nav-link--down::after { background: var(--warn); }
+
+.tabitem[data-down="1"] { color: var(--warn); }
+
+/* ---------- hud ---------- */
+/* The live pip is cyan when everything is up and amber when it is
+   not — but the text next to it also changes ("nominal" vs "2 down"),
+   so the colour is reinforcement, not the message. */
+.hudbar .seg--degraded::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+.hudbar .seg--degraded, .hudbar .seg--degraded b { color: var(--warn); }
+.statusbar .warn { color: var(--warn); }
+.statusbar .warn::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+
+/* ---------- login ---------- */
+.login-body {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100dvh;
+  padding: var(--s-4);
+  padding-bottom: max(var(--s-4), env(safe-area-inset-bottom));
+}
+.login-wrap { width: 100%; max-width: 420px; }
+.login-sheet { width: 100%; }
+
+.login-logo {
+  font-size: clamp(1.8rem, 9vw, 2.6rem);
+  margin: var(--s-3) 0 var(--s-2);
+}
+
+.login-note {
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  margin-bottom: var(--s-4);
+}
+
+/* The code field is the whole page — make it the size of the task.
+   Tabular figures so the six digits do not shuffle as they are typed. */
+.code-input {
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 16px 14px;
+  font-variant-numeric: tabular-nums;
+  /* The trailing letter-space pushes the visual centre left; pull it
+     back so "000000" actually looks centred. */
+  text-indent: 0.4em;
+}
+.code-input::placeholder { color: var(--line-strong); letter-spacing: 0.4em; }
+
+.login-facts { margin-top: var(--s-4); }
+.login-facts .tb { padding: 8px 11px; }
+
+@media (max-width: 480px) {
+  .login-body { padding: var(--s-2); align-items: flex-start; padding-top: var(--s-5); }
+  .login-facts { display: none; }   /* decorative; the keypad needs the room */
+}
+
+/* ---------- module viewport ---------- */
+/* Modules render inside #view and are responsible for their own
+   layout. The shell only guarantees the box. */
+#view { min-height: 40vh; }
+
+/* A module may append <symbol>s to the shared sprite on mount. */
+#sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
