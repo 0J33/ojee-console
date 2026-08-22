@@ -33,7 +33,7 @@
     {
       "id": "loq",
       "name": "LOQ",
-      "origin": "http://100.81.241.55:8300",
+      "origin": "http://your-loq-box:8300",
       "enabled": true
     },
     {

@@ -349,7 +349,7 @@ describe('tailnet gate', () => {
   });
 
   test('CIDR maths', () => {
-    assert.equal(inCidr('100.81.241.55', '100.64.0.0/10'), true);
+    assert.equal(inCidr('100.100.100.100', '100.64.0.0/10'), true);
     assert.equal(inCidr('100.127.255.255', '100.64.0.0/10'), true);
     assert.equal(inCidr('100.128.0.1', '100.64.0.0/10'), false);
     assert.equal(inCidr('100.63.255.255', '100.64.0.0/10'), false);
@@ -363,10 +363,10 @@ describe('tailnet gate', () => {
   test('normalises IPv4-mapped IPv6, or the whole tailnet is locked out', () => {
     // Node hands back ::ffff:100.x.y.z on a dual-stack listener. Without this
     // every v4 peer fails the v4 CIDR test and the gate rejects everyone.
-    assert.equal(normalizeAddr('::ffff:100.81.241.55'), '100.81.241.55');
+    assert.equal(normalizeAddr('::ffff:100.100.100.100'), '100.100.100.100');
     assert.equal(normalizeAddr('fe80::1%eth0'), 'fe80::1');
     assert.equal(normalizeAddr(undefined), '');
-    assert.equal(inCidr(normalizeAddr('::ffff:100.81.241.55'), '100.64.0.0/10'), true);
+    assert.equal(inCidr(normalizeAddr('::ffff:100.100.100.100'), '100.64.0.0/10'), true);
   });
 
   test('404s a public address — never 403', async () => {
@@ -379,7 +379,7 @@ describe('tailnet gate', () => {
 
   test('admits a tailnet address via CIDR fallback', async () => {
     const gate = tailnetGate({ cliPath: '/nonexistent-tailscale' });
-    const r = await run(gate, '::ffff:100.81.241.55');
+    const r = await run(gate, '::ffff:100.100.100.100');
     assert.equal(r.blocked, false);
     assert.equal(r.req.peer.source, 'cidr');
   });
