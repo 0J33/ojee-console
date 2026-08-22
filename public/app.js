@@ -23,6 +23,10 @@ import {
   esc, icon, toast, modal, relTime, clock, ModuleHost, parseHash,
 } from '/chrome.js';
 
+// The native bridge. Every export is a no-op in a browser, so the shell has
+// one code path rather than a web build and an app build.
+import * as nativeBridge from '/native.js';
+
 const $ = (sel) => document.querySelector(sel);
 
 const state = {
@@ -365,9 +369,23 @@ async function boot() {
     await refreshModules();
     renderNav();
     renderChrome();
+    // Rides along with the poll the nav already needs, rather than adding
+    // a second timer that asks the same question.
+    nativeBridge.noteModuleHealth(state.modules);
   }, 20000);
 
   clock($('#hud-clock'));
+
+  // Inside the app only: dismiss the splash, forward module `notify` events
+  // as local notifications, and post location to the home hub.
+  if (nativeBridge.isNative) {
+    await nativeBridge.ready();
+    nativeBridge.noteModuleHealth(state.modules);   // baseline, notifies nothing
+    nativeBridge.watchModules(state.modules);
+    if (state.modules.some((m) => m.id === 'home' && m.enabled)) {
+      nativeBridge.startLocation({ moduleId: 'home' });
+    }
+  }
 }
 
 window.addEventListener('hashchange', route);

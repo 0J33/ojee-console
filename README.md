@@ -136,6 +136,34 @@ modular app has.
 
 ---
 
+### Notifications (optional)
+
+A module can raise a notification on the phone by emitting an SSE event named
+`notify` on its existing `/api/events` stream:
+
+```
+event: notify
+data: {"title":"LOQ is throttling","body":"CPU held at 97°C for 30s","tag":"loq:thermal"}
+```
+
+The console forwards it to the native app as a local notification, dedupli-
+cated to one per `tag` per five minutes. This is deliberately one-directional:
+the console never parses module state or knows what a module's events *mean*,
+so a module that never emits `notify` never notifies and costs nothing.
+
+Only modules that declare `"sse"` in `capabilities` are subscribed to. In a
+browser this does nothing at all — see [`native/`](native/).
+
+## The phone app
+
+[`native/`](native/) wraps this same shell as a Capacitor app pointed at your
+tailnet origin. There is no second frontend: the app loads what the browser
+loads. It adds local notifications, first-party background location replacing
+OwnTracks, a persistent device-trust cookie, and an offline screen that says
+"Tailscale is not connected" rather than "could not connect to server".
+
+Android builds today; iOS needs a Mac for `npx cap add ios` and signing.
+
 ## Setup
 
 ```bash

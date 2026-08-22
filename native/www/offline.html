@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>console · not connected</title>
+<link rel="stylesheet" href="ojee-ui.css">
+
+<style>
+  /* The one screen this wrapper owns. Everything past it is the console
+     itself, served over the tailnet. */
+  .gate {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: max(var(--s-4), env(safe-area-inset-top))
+             max(var(--s-4), env(safe-area-inset-right))
+             max(var(--s-4), env(safe-area-inset-bottom))
+             max(var(--s-4), env(safe-area-inset-left));
+  }
+  .gate-box { width: min(440px, 100%); }
+  .gate-steps { counter-reset: step; display: flex; flex-direction: column; gap: 2px; margin-top: var(--s-3); }
+  .gate-step {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 11px 13px;
+    background: var(--panel); border: 1px solid var(--line-2);
+    font-size: 0.7rem; color: var(--ink-2);
+  }
+  .gate-step::before {
+    counter-increment: step; content: counter(step);
+    font-family: var(--mono); font-weight: 900; color: var(--accent);
+    flex: none; min-width: 1.5ch;
+  }
+  .gate-origin {
+    margin-top: var(--s-3);
+    font-family: var(--mono); font-size: 0.62rem;
+    color: var(--dim); word-break: break-all;
+  }
+  .gate-box .btn { width: 100%; justify-content: center; margin-top: var(--s-4); }
+</style>
+
+<div class="gate">
+  <main class="gate-box panel panel--glowtop stack">
+    <div class="titleblock">
+      <h1 class="h2">console</h1>
+      <p class="meta">not connected</p>
+    </div>
+
+    <!-- This is the whole reason the wrapper ships a page of its own. A
+         tailnet-only console is unreachable whenever Tailscale is off, which
+         is most of the time on a phone — and the platform's own failure page
+         says "could not connect to server", which sends people looking for a
+         server problem that does not exist. -->
+    <div class="alert alert--info" role="status">
+      This console lives on your tailnet. It is not on the public internet, so
+      it is unreachable until Tailscale is connected.
+    </div>
+
+    <div class="gate-steps">
+      <div class="gate-step">Open Tailscale and make sure it is connected.</div>
+      <div class="gate-step">Check this device is signed in to the same tailnet as the console.</div>
+      <div class="gate-step">Come back here and retry.</div>
+    </div>
+
+    <p class="gate-origin" id="origin"></p>
+
+    <button class="btn" id="retry" type="button">RETRY</button>
+  </main>
+</div>
+
+<script>
+  // The wrapper navigates here on a load failure, so "back" is the thing that
+  // failed. Reloading it is the correct retry, and it is also what the user
+  // expects the button to do.
+  const btn = document.getElementById('retry');
+  const originEl = document.getElementById('origin');
+
+  const target = sessionStorage.getItem('console-origin') || document.referrer || '';
+  originEl.textContent = target ? `trying ${target}` : '';
+
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    btn.textContent = 'RETRYING…';
+    if (target) location.replace(target);
+    else location.reload();
+    // If the origin is still unreachable the wrapper lands back here, so the
+    // button has to come back rather than staying disabled forever.
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'RETRY'; }, 4000);
+  });
+
+  // Retry by itself when the device regains a network — coming out of a
+  // tunnel or turning Tailscale on should not need a tap.
+  window.addEventListener('online', () => btn.click());
+</script>

@@ -1,0 +1,21 @@
+{
+  "appId": "net.ojee.console",
+  "appName": "console",
+  "webDir": "www",
+  "server": {
+    "url": "http://ojee-hp-zorin:8080",
+    "cleartext": true,
+    "errorPath": "offline.html"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#08080e",
+      "androidSplashResourceName": "splash"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#00ffff"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ojee-console-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper for the ojee-console shell. Points a native WebView at the tailnet origin — there is no second frontend.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "configure": "node scripts/configure.mjs",
+    "add:ios": "npm run configure && npx cap add ios",
+    "add:android": "npm run configure && npx cap add android",
+    "sync": "npm run configure && npx cap sync",
+    "open:ios": "npx cap open ios",
+    "open:android": "npx cap open android",
+    "run:android": "npm run sync && npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/device": "^6.0.2",
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/local-notifications": "^6.1.2",
+    "@capacitor/splash-screen": "^6.0.3",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}
