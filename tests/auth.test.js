@@ -412,6 +412,34 @@ describe('tailnet gate', () => {
     assert.equal(peerAddress(req(null, '172.18.0.4'), 1), '172.18.0.4');
   });
 
+  test('revoking a device invalidates the session it was enrolled with', () => {
+    // The enrolment session used to be issued BEFORE the device existed, so it
+    // carried no deviceId — and only sessions naming a device are revocable.
+    // Revoking then killed every future redemption while leaving the browser
+    // that enrolled the device logged in for the rest of the session's life.
+    const dir = mkdtempSync(join(tmpdir(), 'ojc-rev-'));
+    const store = new DeviceStore({ file: join(dir, 'devices.json'), trustDays: 30 });
+    const peer = { login: 'me', display: 'Me', node: 'n', nodeId: 'n1' };
+    const { device } = store.issue({ peer, label: 'phone', userAgent: 'ua' });
+
+    // A session bound to that device is valid only while the device exists.
+    const bound = { user: 'me', via: 'totp', deviceId: device.id };
+    const stillValid = (sess) => {
+      if (sess.user && peer.login && sess.user !== peer.login) return false;
+      if (sess.deviceId && !store.exists(sess.deviceId)) return false;
+      return true;
+    };
+
+    assert.equal(stillValid(bound), true, 'valid before revocation');
+    store.revoke(device.id);
+    assert.equal(stillValid(bound), false, 'revocation must log the device out');
+
+    // A session with no deviceId is NOT revocable this way — that is the
+    // limitation the enrolment binding exists to avoid re-introducing.
+    assert.equal(stillValid({ user: 'me', via: 'totp' }), true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test('CIDR maths', () => {
     assert.equal(inCidr('100.100.100.100', '100.64.0.0/10'), true);
     assert.equal(inCidr('100.127.255.255', '100.64.0.0/10'), true);

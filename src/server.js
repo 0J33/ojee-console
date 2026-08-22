@@ -199,8 +199,14 @@ app.post('/api/login', (req, res) => {
     return res.status(status).json({ error: r.reason });
   }
 
-  issueSession(res, req.peer, 'totp');
-
+  // Enrol the device FIRST, then bind the session to it.
+  //
+  // The session used to be issued before the device existed, so the one minted
+  // at enrolment carried no deviceId — and sessionStillValid only revokes
+  // sessions that name a device. Revoking that device therefore killed every
+  // future redemption while leaving the browser that enrolled it logged in for
+  // the rest of the session's life. Revocation that does not log out the
+  // device you just revoked is not revocation.
   if (req.body?.trustDevice) {
     const { cookie, device } = devices.issue({
       peer: req.peer,
@@ -208,9 +214,11 @@ app.post('/api/login', (req, res) => {
       userAgent: req.get('user-agent') || '',
     });
     setCookie(res, DEVICE_COOKIE, cookie, cfg.auth.trustDays * 24 * 60 * 60 * 1000);
+    issueSession(res, req.peer, 'totp', device.id);
     return res.json({ ok: true, trusted: true, device, trustDays: cfg.auth.trustDays });
   }
 
+  issueSession(res, req.peer, 'totp');
   res.json({ ok: true, trusted: false });
 });
 
