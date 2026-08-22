@@ -26,10 +26,22 @@ import { authenticator } from 'otplib';
 
 // Tolerate clock drift between the phone and the server: accept the previous
 // and next 30-second step as well as the current one.
-authenticator.options = { window: 1 };
+// How many 30-second steps either side of "now" are accepted.
+//
+// 1 (±30s) is the right default and what RFC 6238 recommends. Raise it only
+// to tolerate a phone whose clock is genuinely off — and understand the
+// trade: each step widens the window a code stays valid in, so 2 means a
+// shoulder-surfed code is usable for up to 2.5 minutes rather than 1.5.
+//
+// Fixing the phone's clock is the better answer. This exists because a
+// hardcoded security parameter that legitimately varies is worse than a
+// documented one, not because widening it is free.
+const WINDOW = Math.max(0, Math.min(4, Number(process.env.TOTP_WINDOW ?? 1)));
+
+authenticator.options = { window: WINDOW };
 
 const STEP_SECONDS = 30;
-const REPLAY_TTL_MS = (STEP_SECONDS * 3 + 5) * 1000;   // widest window + slack
+const REPLAY_TTL_MS = (STEP_SECONDS * (WINDOW * 2 + 1) + 5) * 1000;  // widest window + slack
 
 /* ── replay guard ───────────────────────────────────────────────────────── */
 
@@ -48,7 +60,13 @@ function pruneConsumed(now) {
  */
 function matchedStep(secret, token, now) {
   const current = Math.floor(now / 1000 / STEP_SECONDS);
-  for (const delta of [0, -1, 1]) {
+  // The scan MUST cover the same range otplib accepts. If it is narrower, a
+  // code accepted at the edge yields no replay key, and an unkeyed code can
+  // be replayed for the rest of its validity — the exact hole the guard
+  // exists to close. Derived from WINDOW so the two cannot drift apart.
+  const deltas = [0];
+  for (let d = 1; d <= WINDOW; d++) deltas.push(-d, d);
+  for (const delta of deltas) {
     const step = current + delta;
     try {
       // otplib generates for "now", so shift the epoch to reach other steps.

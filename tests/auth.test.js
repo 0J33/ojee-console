@@ -47,6 +47,25 @@ describe('TOTP', () => {
     assert.equal(second.reason, 'replayed');
   });
 
+  test('a code at the far edge of the window is still replay-guarded', () => {
+    // The guard keys on the MATCHED timestep, found by re-deriving each step
+    // in range. If that scan is narrower than the range otplib accepts, an
+    // edge code yields no key and can be replayed for the rest of its
+    // validity. TOTP_WINDOW made the range configurable, so this pins the
+    // two together.
+    const step = 30_000;
+    for (const delta of [-1, 1]) {
+      _resetTotpState();
+      const v = new TotpVerifier({ secret: SECRET });
+      const code = authenticator.generate(SECRET, new Date(Date.now() + delta * step));
+      const first = v.verify(code, 'u');
+      if (!first.ok) continue;          // outside the configured window
+      const second = v.verify(code, 'u');
+      assert.equal(second.ok, false, `delta ${delta} was not replay-guarded`);
+      assert.equal(second.reason, 'replayed');
+    }
+  });
+
   test('a replay from a DIFFERENT peer is still rejected', () => {
     // The replay guard keys on the time step, not the caller — otherwise a
     // code shoulder-surfed on one device could be spent on another.
