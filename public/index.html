@@ -40,7 +40,7 @@
 -->
 <svg class="sprite" id="sprite" aria-hidden="true" focusable="false">
   <symbol id="i-grid" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></symbol>
-  <symbol id="i-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 24 24"><path d="M10.71 5.94 L10.09 3.00 L13.91 3.00 L13.29 5.94 L15.38 6.80 L17.01 4.28 L19.72 6.99 L17.20 8.62 L18.06 10.71 L21.00 10.09 L21.00 13.91 L18.06 13.29 L17.20 15.38 L19.72 17.01 L17.01 19.72 L15.38 17.20 L13.29 18.06 L13.91 21.00 L10.09 21.00 L10.71 18.06 L8.62 17.20 L6.99 19.72 L4.28 17.01 L6.80 15.38 L5.94 13.29 L3.00 13.91 L3.00 10.09 L5.94 10.71 L6.80 8.62 L4.28 6.99 L6.99 4.28 L8.62 6.80 Z"/><circle cx="12" cy="12" r="2.6"/></symbol>
   <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3zM12 9v5M12 17h.01"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></symbol>
   <symbol id="i-log" viewBox="0 0 24 24"><path d="M4 4h16M4 9h16M4 14h10M4 19h7"/></symbol>
@@ -66,6 +66,11 @@
     <svg class="ic" aria-hidden="true"><use href="#i-cog"></use></svg>
   </a>
 </nav>
+
+<!-- Mobile only: the ACTIVE module's views. The bottom tab bar switches
+     MODULES, so without this strip a module's other views are unreachable
+     on a phone. -->
+<div class="viewstrip" id="viewstrip" role="tablist" aria-label="Views"></div>
 
 <main class="wrap" id="main">
   <div id="view"></div>

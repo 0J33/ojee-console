@@ -141,6 +141,38 @@ export function clearWhoisCache() {
  * @param {boolean}  opts.allowLoopback       let 127.0.0.1 through (dev only)
  * @param {string}   opts.cliPath             path to the tailscale binary
  */
+/**
+ * The client address, honouring a fixed number of trusted proxy hops.
+ *
+ * Express computes this for normal requests, but a WebSocket upgrade arrives
+ * on the server's `upgrade` event with a RAW request that has no req.ip — so
+ * the upgrade path silently fell back to the socket, saw the reverse proxy's
+ * own container address, and refused every real client with a 404. The
+ * remote-desktop module depends on that endpoint, so "the remote desktop will
+ * not connect" was the whole visible symptom.
+ *
+ * Exported and used by BOTH paths deliberately: two hand-rolled copies of
+ * this logic is exactly how they drifted apart in the first place.
+ *
+ * With hops > 0 the LAST X-Forwarded-For entry wins, because the immediate
+ * proxy APPENDS the true peer — anything a client puts there is to the left
+ * of it and ignored. With hops = 0 the header is not consulted at all, or a
+ * direct client could simply name itself.
+ *
+ * @param {object} req
+ * @param {number} hops  trusted proxy hops; mirrors app.set('trust proxy', n)
+ */
+export function peerAddress(req, hops = 0) {
+  if (hops > 0) {
+    const xff = req.headers?.['x-forwarded-for'];
+    if (xff) {
+      const list = String(xff).split(',').map((v) => v.trim()).filter(Boolean);
+      if (list.length) return list[list.length - 1];
+    }
+  }
+  return req.socket?.remoteAddress;
+}
+
 export function tailnetGate({
   trustedCidrs = DEFAULT_CIDRS,
   trustProxyIdentity = false,

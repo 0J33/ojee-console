@@ -183,6 +183,13 @@ export function proxyUpgrade({ registry, identitySecret, req, socket, head, peer
   const headers = { ...req.headers };
   for (const h of IDENTITY_HEADERS) delete headers[h];
   delete headers.cookie;
+  // Same two rules as the HTTP path, and they were missing here: an upgrade
+  // is a request like any other. Without the token the WebSocket to a guarded
+  // module is rejected — which is what "the remote desktop will not connect"
+  // looked like — and without the delete, a browser could pick what the
+  // module sees by sending its own Authorization on the upgrade.
+  delete headers.authorization;
+  if (mod.token) headers.authorization = `Bearer ${mod.token}`;
   const ts = String(Date.now());
   const user = session?.user || peer?.login || 'unknown';
   headers['x-console-user'] = user;

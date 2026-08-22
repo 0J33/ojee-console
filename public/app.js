@@ -109,6 +109,20 @@ function renderNav() {
   $('#tabbar').querySelectorAll('.tabitem').forEach((b) => {
     b.addEventListener('click', () => { location.hash = b.dataset.goto; });
   });
+
+  // The level the bottom bar cannot carry: the ACTIVE module's views. Hidden
+  // above 860px, where nav-links already lists everything, and hidden for a
+  // single-view module, where there is nothing to choose.
+  const strip = $('#viewstrip');
+  if (strip) {
+    const mine = entries.filter((e) => e.moduleId === state.active.module && e.viewId);
+    strip.dataset.single = mine.length > 1 ? '0' : '1';
+    strip.innerHTML = mine.map((e) => `
+      <a class="${e.viewId === state.active.view ? 'active' : ''}"
+         role="tab" aria-selected="${e.viewId === state.active.view}"
+         href="#/${esc(e.moduleId)}/${esc(e.viewId)}">${esc(e.label)}</a>`).join('');
+    strip.querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
 }
 
 function renderChrome() {

@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
 import { loadConfig, ROOT } from './config.js';
-import { tailnetGate } from './auth/tailscale.js';
+import { tailnetGate, peerAddress } from './auth/tailscale.js';
 import { TotpVerifier } from './auth/totp.js';
 import { DeviceStore } from './auth/devices.js';
 import { SessionCodec, parseCookies, cookieHeader } from './auth/session.js';
@@ -58,7 +58,8 @@ app.disable('x-powered-by');
 // We are behind Caddy in production. Only one hop — trusting the whole chain
 // would let a client forge X-Forwarded-For and, with it, anything derived
 // from the client address.
-app.set('trust proxy', 1);
+const TRUST_PROXY_HOPS = 1;
+app.set('trust proxy', TRUST_PROXY_HOPS);
 
 /* ── gate 1: the tailnet ────────────────────────────────────────────────── */
 app.use(tailnetGate({
@@ -344,6 +345,9 @@ server.on('upgrade', async (req, socket, head) => {
   };
   let passed = false;
   req.get = (h) => req.headers[String(h).toLowerCase()];
+    // Give the gate the same address Express would have computed for a normal
+    // request. Without it the gate sees the reverse proxy and refuses everyone.
+    req.ip = peerAddress(req, TRUST_PROXY_HOPS);
   await gate(req, fakeRes, () => { passed = true; });
   if (!passed) return;
 

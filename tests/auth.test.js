@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { TotpVerifier, _resetTotpState, authenticator } from '../src/auth/totp.js';
 import { DeviceStore } from '../src/auth/devices.js';
 import { SessionCodec, parseCookies, cookieHeader } from '../src/auth/session.js';
-import { tailnetGate, normalizeAddr, _internals as tsInternals } from '../src/auth/tailscale.js';
+import { tailnetGate, normalizeAddr, peerAddress, _internals as tsInternals } from '../src/auth/tailscale.js';
 import { ModuleRegistry, validateManifest } from '../src/modules/registry.js';
 import { signIdentity, verifyIdentity } from '../src/modules/proxy.js';
 
@@ -394,6 +394,22 @@ describe('tailnet gate', () => {
     const bad = await run(gate, '8.8.8.8');
     assert.equal(bad.blocked, true);
     assert.equal(bad.code, 404);
+  });
+
+  test('peerAddress honours exactly the trusted hops', () => {
+    const req = (xff, sock) => ({ headers: xff ? { 'x-forwarded-for': xff } : {}, socket: { remoteAddress: sock } });
+
+    // No trusted proxy: the header is not consulted at all, or a direct
+    // client could simply name itself.
+    assert.equal(peerAddress(req('1.2.3.4', '8.8.8.8'), 0), '8.8.8.8');
+
+    // One trusted hop: the proxy APPENDS the true peer, so the LAST entry
+    // wins and anything the client injected sits to its left, ignored.
+    assert.equal(peerAddress(req('100.100.100.100', '172.18.0.4'), 1), '100.100.100.100');
+    assert.equal(peerAddress(req('9.9.9.9, 100.100.100.100', '172.18.0.4'), 1), '100.100.100.100');
+
+    // No header behind a proxy: fall back to the socket rather than guessing.
+    assert.equal(peerAddress(req(null, '172.18.0.4'), 1), '172.18.0.4');
   });
 
   test('CIDR maths', () => {
