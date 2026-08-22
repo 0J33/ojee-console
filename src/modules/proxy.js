@@ -102,7 +102,12 @@ export function createModuleProxy({ registry, identitySecret }) {
     //    seeing the session or device-trust tokens, and a module that started
     //    honouring them would quietly become a second auth surface.
     delete headers.cookie;
-    // 3. Assert who this is.
+    // 3. Strip any Authorization the CLIENT sent, then attach the console's
+    //    own upstream credential if this module has one. Order matters: a
+    //    browser must never be able to choose what the module sees here.
+    delete headers.authorization;
+    if (mod.token) headers.authorization = `Bearer ${mod.token}`;
+    // 4. Assert who this is.
     const ts = String(Date.now());
     const user = req.session?.user || req.peer?.login || 'unknown';
     headers['x-console-user'] = user;
@@ -111,12 +116,12 @@ export function createModuleProxy({ registry, identitySecret }) {
     headers['x-console-module'] = mod.id;
     headers['x-console-ts'] = ts;
     headers['x-console-auth'] = signIdentity({ user, moduleId: mod.id, ts, secret: identitySecret });
-    // 4. Standard forwarding context.
+    // 5. Standard forwarding context.
     headers.host = target.host;
     headers['x-forwarded-proto'] = req.protocol;
     headers['x-forwarded-host'] = req.get('host') || '';
     headers['x-forwarded-prefix'] = `/${mod.id}`;
-    // 5. SSE must not be compressed. `encode gzip` holds frames until its
+    // 6. SSE must not be compressed. `encode gzip` holds frames until its
     //    window fills, which stalls a stream for tens of seconds.
     if (String(req.headers.accept || '').includes('text/event-stream')) {
       headers['accept-encoding'] = 'identity';

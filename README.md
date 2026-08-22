@@ -136,6 +136,30 @@ modular app has.
 
 ---
 
+### Modules that guard their own API
+
+A module on the same host can trust `X-Console-Auth`. A module on a *different*
+machine cannot: anything able to reach its port could send those headers. Such
+a module keeps its own bearer token, and the console holds the credential:
+
+```jsonc
+{ "id": "loq", "name": "LOQ", "origin": "http://100.x.y.z:8300", "token": "..." }
+```
+
+`MODULE_<ID>_TOKEN` overrides it, which is how the token stays in the
+environment rather than in a config file that a private deployment repo would
+commit.
+
+The console attaches it as `Authorization: Bearer` on every proxied request
+**and** on the registry's manifest and health probes — without the latter a
+guarded module reports itself unreachable and shows as down in the nav. Two
+properties are enforced and tested:
+
+- any `Authorization` the **browser** sends is stripped before the console
+  attaches its own, so a client can never choose what the module sees;
+- the token never appears in `/api/modules`, so reading the nav does not leak
+  a module's upstream credential.
+
 ### Notifications (optional)
 
 A module can raise a notification on the phone by emitting an SSE event named

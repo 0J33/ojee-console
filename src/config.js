@@ -111,6 +111,13 @@ export function loadConfig() {
       // Env override per module, so compose can point at container names
       // without editing the JSON: MODULE_HOME_ORIGIN=http://home:8110
       origin: env(`MODULE_${String(m.id || '').toUpperCase().replace(/-/g, '_')}_ORIGIN`) || m.origin,
+      // Optional bearer token for modules that guard their own API — a host
+      // agent on another machine cannot trust X-Console-Auth alone, because
+      // anything able to reach its port could send those headers. The console
+      // holds the credential and attaches it upstream; the browser never sees
+      // it. MODULE_LOQ_TOKEN=... overrides, so it can come from the
+      // environment rather than the config file.
+      token: env(`MODULE_${String(m.id || '').toUpperCase().replace(/-/g, '_')}_TOKEN`) || m.token || '',
       enabled: m.enabled !== false,
     })),
 

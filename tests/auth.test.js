@@ -476,13 +476,48 @@ describe('module registry', () => {
     ui: '/ui/index.js', health: '/api/health', ...over,
   });
 
-  const fakeFetch = (routes) => async (url) => {
+  // `seen` records the options each probe was called with, so a test can
+  // assert on the Authorization header the registry sent.
+  const fakeFetch = (routes, seen = []) => async (url, opts = {}) => {
     const path = new URL(url).pathname;
+    seen.push({ path, headers: opts.headers || {} });
     const r = routes[path];
     if (r === undefined) return { ok: false, status: 404, json: async () => ({}) };
     if (r instanceof Error) throw r;
     return { ok: true, status: 200, json: async () => r };
   };
+
+  test('a module token is sent upstream and never exposed downstream', async () => {
+    const seen = [];
+    const reg = new ModuleRegistry({
+      configured: [{ id: 'loq', origin: 'http://loq:8300', token: 'super-secret' }],
+      fetchImpl: fakeFetch({ '/module.json': manifest({ id: 'loq' }), '/api/health': { ok: true } }, seen),
+    });
+    await reg.refreshAll();
+
+    // Both probes must carry it, or a guarded module reports itself down.
+    assert.ok(seen.length >= 2, 'manifest and health should both be probed');
+    for (const call of seen) {
+      assert.equal(call.headers.authorization, 'Bearer super-secret', `${call.path} missing auth`);
+    }
+
+    // And it must not reach the browser just because it can read the nav.
+    const [pub] = reg.publicList();
+    assert.equal(pub.token, undefined);
+    assert.ok(!JSON.stringify(pub).includes('super-secret'));
+  });
+
+  test('a module without a token sends no Authorization at all', async () => {
+    const seen = [];
+    const reg = new ModuleRegistry({
+      configured: [{ id: 'home', origin: 'http://home:8110' }],
+      fetchImpl: fakeFetch({ '/module.json': manifest(), '/api/health': { ok: true } }, seen),
+    });
+    await reg.refreshAll();
+    for (const call of seen) {
+      assert.equal(call.headers.authorization, undefined);
+    }
+  });
 
   test('a healthy module becomes ready', async () => {
     const reg = new ModuleRegistry({

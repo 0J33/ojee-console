@@ -63,6 +63,9 @@ export class ModuleRegistry {
         // module that has never answered still has something to render.
         name: c.name || c.id,
         origin: String(c.origin || '').replace(/\/+$/, ''),
+        // Never appears in publicList() — the browser must not learn a
+        // module's upstream credential just because it can read the nav.
+        token: c.token || '',
         enabled: c.enabled !== false,
         manifest: null,
         status: c.enabled === false ? 'disabled' : 'unknown',
@@ -97,12 +100,20 @@ export class ModuleRegistry {
     }));
   }
 
-  async #getJson(url, timeoutMs) {
+  async #getJson(url, timeoutMs, token = '') {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), timeoutMs);
     try {
       const started = Date.now();
-      const res = await this.fetch(url, { signal: ac.signal, headers: { accept: 'application/json' } });
+      const res = await this.fetch(url, {
+        signal: ac.signal,
+        headers: {
+          accept: 'application/json',
+          // Without this a tokened module reports itself unreachable: the
+          // health probe gets a 401 and the nav shows it as down.
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const latencyMs = Date.now() - started;
       if (!res.ok) return { error: `HTTP ${res.status}`, latencyMs };
       return { json: await res.json(), latencyMs };
@@ -130,7 +141,7 @@ export class ModuleRegistry {
 
     m.lastCheck = Date.now();
 
-    const manifest = await this.#getJson(`${m.origin}/module.json`, timeoutMs);
+    const manifest = await this.#getJson(`${m.origin}/module.json`, timeoutMs, m.token);
     if (manifest.error) {
       m.status = 'unreachable';
       m.reason = `${m.origin} — ${manifest.error}`;
@@ -153,7 +164,7 @@ export class ModuleRegistry {
     // can do its job. A module can absolutely serve its own manifest while its
     // device is unplugged, and the nav should say so.
     const healthPath = manifest.json.health || '/api/health';
-    const health = await this.#getJson(`${m.origin}${healthPath}`, timeoutMs);
+    const health = await this.#getJson(`${m.origin}${healthPath}`, timeoutMs, m.token);
     if (health.error) {
       m.status = 'degraded';
       m.reason = `Health check failed — ${health.error}`;
