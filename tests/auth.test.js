@@ -337,8 +337,12 @@ describe('sessions', () => {
 describe('tailnet gate', () => {
   const { inCidr } = tsInternals;
 
-  const run = (gate, remoteAddress, headers = {}) => new Promise((resolve) => {
-    const req = { socket: { remoteAddress }, headers, get: (h) => headers[String(h).toLowerCase()] };
+  // `ip` models what Express computes from X-Forwarded-For under
+  // `trust proxy`. Behind Caddy the socket is the PROXY and only req.ip is
+  // the real peer, so a helper that could not express that was how the
+  // proxy bug shipped.
+  const run = (gate, remoteAddress, headers = {}, ip = undefined) => new Promise((resolve) => {
+    const req = { ip, socket: { remoteAddress }, headers, get: (h) => headers[String(h).toLowerCase()] };
     const res = {
       code: null, body: null,
       status(c) { this.code = c; return this; },
@@ -346,6 +350,31 @@ describe('tailnet gate', () => {
       send(b) { this.body = b; resolve({ blocked: true, code: this.code, req }); },
     };
     gate(req, res, () => resolve({ blocked: false, req }));
+  });
+
+  test('behind a reverse proxy, the gate reads the forwarded peer', async () => {
+    const gate = tailnetGate({ cliPath: '/nonexistent/tailscale' });
+
+    // Caddy's container address on the socket, the real tailnet peer in
+    // req.ip. Reading the socket here is what 404'd every real user.
+    const ok = await run(gate, '172.18.0.5', {}, '100.100.100.100');
+    assert.equal(ok.blocked, false, 'a tailnet peer behind a proxy must pass');
+    assert.equal(ok.req.peer.source, 'cidr');
+
+    // And a non-tailnet client behind the same proxy must still be refused,
+    // so the fix cannot have turned the proxy into a bypass.
+    const bad = await run(gate, '172.18.0.5', {}, '8.8.8.8');
+    assert.equal(bad.blocked, true);
+    assert.equal(bad.code, 404);
+  });
+
+  test('with no proxy, the socket address is still used', async () => {
+    const gate = tailnetGate({ cliPath: '/nonexistent/tailscale' });
+    const ok = await run(gate, '100.100.100.100');
+    assert.equal(ok.blocked, false, 'standalone behaviour must not change');
+    const bad = await run(gate, '8.8.8.8');
+    assert.equal(bad.blocked, true);
+    assert.equal(bad.code, 404);
   });
 
   test('CIDR maths', () => {

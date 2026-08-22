@@ -148,7 +148,17 @@ export function tailnetGate({
   cliPath = 'tailscale',
 } = {}) {
   return async function gate(req, res, next) {
-    const addr = normalizeAddr(req.socket?.remoteAddress);
+    // req.ip, NOT req.socket.remoteAddress.
+    //
+    // Behind a reverse proxy the TCP peer is the PROXY, so reading the socket
+    // directly meant the gate saw 172.x and 404'd every real tailnet user —
+    // the console was unreachable behind the very Caddy it is meant to sit
+    // behind. Express derives req.ip from X-Forwarded-For according to the
+    // `trust proxy` setting, which server.js pins to exactly one hop; a client
+    // cannot forge it, because the proxy APPENDS the true peer and only that
+    // last entry is honoured. With no proxy configured req.ip is the socket
+    // address anyway, so standalone behaviour is unchanged.
+    const addr = normalizeAddr(req.ip || req.socket?.remoteAddress);
 
     // `tailscale serve` terminates TLS and forwards with identity headers.
     // Only trusted when explicitly enabled — otherwise anything that can

@@ -65,6 +65,48 @@
   }
 }
 
+# ojee console — the shell. Every module is reached THROUGH this, so the old
+# per-app subdomains stop being entry points once this is live.
+{$CONSOLE_DOMAIN} {
+  import cf_tls
+
+  # Server-Sent Events, for any module. `encode` holds gzip frames until its
+  # window fills, which stalls a live stream for tens of seconds and makes the
+  # UI look frozen; flush_interval -1 turns off response buffering. The path
+  # is matched loosely because every module mounts its own stream under its
+  # own id — /home/api/events, /loq/api/events, and so on.
+  @sse path_regexp sse ^/[^/]+/api/events
+  handle @sse {
+    reverse_proxy console:8100 {
+      flush_interval -1
+    }
+  }
+
+  # The remote-desktop module tunnels video over a WebSocket. Caddy upgrades
+  # these automatically, but they must not be compressed or buffered either.
+  @ws {
+    header Connection *Upgrade*
+    header Upgrade    websocket
+  }
+  handle @ws {
+    reverse_proxy console:8100 {
+      flush_interval -1
+    }
+  }
+
+  handle {
+    encode gzip
+    reverse_proxy console:8100
+  }
+
+  log {
+    output file /var/log/caddy/console.log {
+      roll_size 10mb
+      roll_keep 5
+    }
+  }
+}
+
 # CouchDB for Obsidian (Self-hosted LiveSync plugin).  LiveSync does
 # attachment streaming, so don't gzip — let CouchDB send raw JSON.
 # Comment this block out if you don't run the Obsidian sync backend.
