@@ -440,6 +440,26 @@ describe('tailnet gate', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  test('revoke-all invalidates sessions that name no device', () => {
+    // The enrolment binding only reaches sessions WITH a deviceId. A session
+    // created without trusting a device has none, so before the epoch existed
+    // "revoke all" left it valid for its whole lifetime — which is precisely
+    // the button you press when something has gone wrong.
+    const dir = mkdtempSync(join(tmpdir(), 'ojc-epoch-'));
+    const store = new DeviceStore({ file: join(dir, 'devices.json'), trustDays: 30 });
+    const valid = (sess) => (sess.epoch ?? 0) === store.epoch;
+
+    const totpOnly = { user: 'me', via: 'totp', epoch: store.epoch };
+    assert.equal(valid(totpOnly), true, 'valid before revoke-all');
+    store.revokeAll();
+    assert.equal(valid(totpOnly), false, 'revoke-all must kill it');
+
+    // And it persists: a restart must not resurrect what was revoked.
+    const reopened = new DeviceStore({ file: join(dir, 'devices.json'), trustDays: 30 });
+    assert.equal(reopened.epoch, store.epoch, 'epoch survives a restart');
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test('CIDR maths', () => {
     assert.equal(inCidr('100.100.100.100', '100.64.0.0/10'), true);
     assert.equal(inCidr('100.127.255.255', '100.64.0.0/10'), true);

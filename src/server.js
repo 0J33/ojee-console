@@ -89,6 +89,8 @@ const setCookie = (res, name, value, maxAgeMs) =>
 
 function issueSession(res, peer, via, deviceId = null) {
   const value = sessions.issue({
+    // Stamped so revoke-all can invalidate sessions that name no device.
+    epoch: devices.epoch,
     user: peer?.login || 'unknown',
     display: peer?.display || '',
     node: peer?.node || '',
@@ -118,6 +120,9 @@ function sessionStillValid(session, peer) {
   // to another tailnet machine would keep working until it expired.
   if (session.user && peer?.login && session.user !== peer.login) return false;
   if (session.deviceId && !devices.exists(session.deviceId)) return false;
+  // Issued before the last revoke-all. This is what reaches the sessions that
+  // carry no deviceId — without it, "revoke all" left them running.
+  if ((session.epoch ?? 0) !== devices.epoch) return false;
   return true;
 }
 

@@ -54,6 +54,17 @@ export class DeviceStore {
     this.file = file;
     this.trustMs = trustDays * 24 * 60 * 60 * 1000;
     this.devices = new Map();
+    /**
+     * Bumped by revokeAll(). Sessions carry the epoch they were issued under
+     * and are rejected once it moves.
+     *
+     * Without it "revoke all devices" could not touch a session created
+     * WITHOUT trusting a device: those carry no deviceId, so there was nothing
+     * to revoke them by, and they stayed valid for their full lifetime. A
+     * revoke-all that leaves sessions alive is not a revoke-all — and it is
+     * the button you reach for when something has actually gone wrong.
+     */
+    this.epoch = 0;
     this.#load();
   }
 
@@ -61,6 +72,8 @@ export class DeviceStore {
     try {
       const raw = JSON.parse(readFileSync(this.file, 'utf8'));
       for (const d of raw.devices || []) this.devices.set(d.id, d);
+      // Persisted: a restart must not resurrect sessions that revoke-all killed.
+      this.epoch = Number(raw.epoch) || 0;
     } catch {
       // Missing or unreadable store is the normal first-run state. Anything
       // else (corrupt JSON) also lands here and starts clean — the cost is
@@ -75,7 +88,8 @@ export class DeviceStore {
     const dir = dirname(this.file);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     const tmp = join(dir, `.devices.${process.pid}.tmp`);
-    const body = JSON.stringify({ version: 1, devices: [...this.devices.values()] }, null, 2);
+    const body = JSON.stringify(
+      { version: 1, epoch: this.epoch, devices: [...this.devices.values()] }, null, 2);
     writeFileSync(tmp, body, { mode: 0o600 });
     renameSync(tmp, this.file);
   }
@@ -211,6 +225,10 @@ export class DeviceStore {
   revokeAll() {
     const n = this.devices.size;
     this.devices.clear();
+    // Bumping the epoch is what kills sessions that name no device — the ones
+    // created without ticking "trust this device". Clearing the map alone
+    // left those alive for their full lifetime.
+    this.epoch += 1;
     this.#save();
     return n;
   }
