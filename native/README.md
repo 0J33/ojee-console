@@ -31,12 +31,20 @@ nothing.
 The generated `capacitor.config.json` is gitignored: it holds your hostname,
 which is deployment configuration rather than source.
 
-### Android — builds today
+### Android — verified building
 
 ```bash
 npm run add:android
-npm run run:android          # device or emulator
+cd android && echo "sdk.dir=$ANDROID_HOME" > local.properties
+./gradlew assembleDebug      # -> app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Built and checked: 4.2 MB, appId `net.ojee.console`, `server.url` baked to the
+configured origin, `errorPath` wired to the offline page, and all five plugins
+compiled in. `npm run run:android` installs it on a connected device.
+
+Gradle downloads itself via the wrapper; the SDK needs platform 34, which the
+build installs on first run if the licence is already accepted.
 
 Needs Android Studio and a JDK. Tailscale must be installed and connected on
 the device, or the app opens straight to the offline screen — correctly.
