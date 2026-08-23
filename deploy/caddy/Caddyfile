@@ -11,19 +11,6 @@
   }
 }
 
-# Dashboard
-{$DASHBOARD_DOMAIN} {
-  import cf_tls
-  reverse_proxy dashboard:8080
-  encode gzip
-  log {
-    output file /var/log/caddy/access.log {
-      roll_size 10mb
-      roll_keep 5
-    }
-  }
-}
-
 # Odysseus — self-hosted AI workspace (separate docker-compose project at
 # /home/ojee/odysseus, binds 7000 to host).  Comment this out if you don't
 # run Odysseus on the host.
@@ -45,24 +32,29 @@
   encode gzip
 }
 
-# Home hub — device control, scenes and automations.
+# ── retired: home is a MODULE of the console now ──────────────────────
+# Redirected rather than deleted. A 308 keeps every bookmark and QR code
+# working while making it unambiguous that the app moved; removing the DNS
+# record would strand them with a resolver error that explains nothing.
+# Reversing this is one block, not a propagation wait.
 {$HOME_DOMAIN} {
   import cf_tls
+  redir https://{$CONSOLE_DOMAIN}{uri} 308
+}
 
-  # The live state stream must not be compressed or buffered: `encode` holds gzip frames
-  # until its window fills, which stalls Server-Sent Events for tens of seconds and makes
-  # the UI look frozen. flush_interval -1 disables response buffering for this route.
-  @sse path /api/events
-  handle @sse {
-    reverse_proxy home:8110 {
-      flush_interval -1
-    }
-  }
+# ── retired: the old dashboard is the `agent` module now ──────────────
+{$DASHBOARD_DOMAIN} {
+  import cf_tls
+  redir https://{$CONSOLE_DOMAIN}{uri} 308
+}
 
-  handle {
-    encode gzip
-    reverse_proxy home:8110
-  }
+# ── retired: remote desktop ───────────────────────────────────────────
+# This one pointed at the LAPTOP, which is exactly why it died whenever that
+# laptop slept or booted into Windows. The console reaches it over the
+# tailnet from the always-on box instead.
+{$RDP_DOMAIN} {
+  import cf_tls
+  redir https://{$CONSOLE_DOMAIN}{uri} 308
 }
 
 # ojee console — the shell. Every module is reached THROUGH this, so the old

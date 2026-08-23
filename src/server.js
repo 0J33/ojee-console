@@ -61,6 +61,20 @@ app.disable('x-powered-by');
 const TRUST_PROXY_HOPS = 1;
 app.set('trust proxy', TRUST_PROXY_HOPS);
 
+/**
+ * Liveness, BEFORE the tailnet gate.
+ *
+ * The container healthcheck runs inside the container and reaches the app on
+ * 127.0.0.1. The gate correctly refuses loopback in production, so a probe
+ * pointed at the gated /api/health could never pass and the container sat
+ * permanently unhealthy — which makes `depends_on: service_healthy` unusable
+ * and makes a working deployment look broken.
+ *
+ * Deliberately says nothing: whether the process is up is not a secret, and
+ * the detailed /api/health stays behind all three gates.
+ */
+app.get('/healthz', (req, res) => res.json({ ok: true }));
+
 /* ── gate 1: the tailnet ────────────────────────────────────────────────── */
 app.use(tailnetGate({
   trustedCidrs: cfg.auth.trustedCidrs,
