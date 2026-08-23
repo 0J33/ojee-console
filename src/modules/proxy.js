@@ -156,7 +156,20 @@ export function createModuleProxy({ registry, identitySecret }) {
     // leaves the module streaming into a dead socket forever.
     res.on('close', () => { if (!upstream.destroyed) upstream.destroy(); });
 
-    req.pipe(upstream);
+    // Belt and braces: if anything upstream of here already consumed the
+    // stream, re-serialise what it parsed rather than sending an empty body.
+    // A silently empty write is far worse than a slightly redundant check.
+    if (req.readableEnded || req._body) {
+      if (req.body !== undefined && req.body !== null) {
+        const raw = Buffer.isBuffer(req.body) || typeof req.body === 'string'
+          ? req.body : JSON.stringify(req.body);
+        upstream.setHeader?.('content-length', Buffer.byteLength(raw));
+        upstream.write(raw);
+      }
+      upstream.end();
+    } else {
+      req.pipe(upstream);
+    }
   };
 }
 

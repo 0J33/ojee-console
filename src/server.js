@@ -69,7 +69,19 @@ app.use(tailnetGate({
   cliPath: cfg.auth.tailscaleCli,
 }));
 
-app.use(express.json({ limit: '64kb' }));
+// JSON-parse the CONSOLE's own routes only.
+//
+// express.json() consumes the request stream. Applied globally it also drained
+// every request destined for a MODULE, and the proxy then piped a stream that
+// had nothing left in it — so modules received an empty body. Reads worked and
+// every write silently did nothing, which is what "home can only read" was.
+//
+// Module traffic is /{moduleId}/..., the console's own is /api/..., so the
+// split is exact rather than a guess.
+const parseJson = express.json({ limit: '64kb' });
+app.use((req, res, next) => (
+  req.path.startsWith('/api/') ? parseJson(req, res, next) : next()
+));
 
 /* ── cookies + session ──────────────────────────────────────────────────── */
 const setCookie = (res, name, value, maxAgeMs) =>
