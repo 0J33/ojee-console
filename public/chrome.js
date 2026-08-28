@@ -70,15 +70,38 @@ export function toast(kind, title, detail = '', { stack = '#toasts', ms } = {}) 
   node.className = `toast toast--${kind}`;
   node.setAttribute('role', kind === 'err' ? 'alert' : 'status');
 
+  // A status dot, the same one device rows, the entity header and the status
+  // bar use. The toast used to signal its kind with a coloured left border
+  // alone — a device that appears nowhere else in the console, and the one
+  // channel a colour-blind reader cannot use. The dot carries the same accent
+  // and sits in the vocabulary everything else already speaks.
+  const dot = document.createElement('span');
+  dot.className = `dot dot--${kind === 'err' ? 'err' : kind === 'warn' ? 'warn' : kind === 'ok' ? 'ok' : 'info'}`;
+
+  const txt = document.createElement('div');
+  txt.className = 'toast-txt';
   const b = document.createElement('b');
   b.textContent = title;
-  const s = document.createElement('span');
-  s.textContent = detail;
-  node.append(b, s);
+  const sp = document.createElement('span');
+  sp.textContent = detail;
+  txt.append(b, sp);
+
+  // Dismissable. Everything else that covers content — the palette, the modal
+  // — can be closed deliberately; a toast that can only be waited out is the
+  // odd one, and an error toast is exactly the one you want to keep or clear
+  // on your own terms.
+  const x = document.createElement('button');
+  x.className = 'toast-x';
+  x.type = 'button';
+  x.setAttribute('aria-label', 'Dismiss');
+  x.textContent = '\u00d7';
+  x.addEventListener('click', () => { clearTimeout(timer); node.remove(); });
+
+  node.append(dot, txt, x);
   host.appendChild(node);
 
   const life = ms ?? (kind === 'err' ? 7000 : 4200);
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     node.style.opacity = '0';
     setTimeout(() => node.remove(), 250);
   }, life);

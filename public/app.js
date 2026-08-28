@@ -214,18 +214,24 @@ function paletteItems() {
   const out = [];
   for (const m of state.modules.filter((x) => x.enabled)) {
     const views = m.views || [];
+    const down = m.status !== 'ready';
+    const hint = m.status === 'ready' ? null : (m.reason || 'unavailable');
     if (!views.length) {
-      out.push({ label: m.name, hint: m.status === 'ready' ? 'module' : (m.reason || 'unavailable'),
-                 href: `#/${m.id}`, icon: 'i-grid', down: m.status !== 'ready' });
+      out.push({ group: m.name, label: m.name, hint: hint || 'module',
+                 href: `#/${m.id}`, icon: 'i-grid', down });
       continue;
     }
+    // The row carries the VIEW name only; the module name is the group
+    // header above it. Repeating "Home · " on five consecutive rows spent
+    // the widest column in the panel saying the same word five times.
     for (const v of views) {
-      out.push({ label: `${m.name} · ${v.label}`, hint: m.status === 'ready' ? 'view' : (m.reason || 'unavailable'),
-                 href: `#/${m.id}/${v.id}`, icon: v.icon || 'i-grid', down: m.status !== 'ready' });
+      out.push({ group: m.name, label: v.label, hint: hint || 'view',
+                 href: `#/${m.id}/${v.id}`, icon: v.icon || 'i-grid', down });
     }
   }
-  out.push({ label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
-  out.push({ label: 'Settings', hint: 'devices, session', href: '#/settings', icon: 'i-cog' });
+  out.push({ group: 'Console', label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
+  out.push({ group: 'Console', label: 'Settings', hint: 'devices, session',
+             href: '#/settings', icon: 'i-cog' });
   return out;
 }
 
@@ -243,7 +249,7 @@ function openPalette() {
         ${icon('i-search', 'ic')}
         <input class="cp-input" type="text" placeholder="Jump to…" aria-label="Jump to"
                autocomplete="off" spellcheck="false">
-        <kbd class="kbd">esc</kbd>
+        <kbd class="kbd">ESC</kbd>
       </div>
       <ul class="cp-list" role="listbox"></ul>
     </div>`;
@@ -262,13 +268,22 @@ function openPalette() {
   const paint = () => {
     shown = matches(input.value);
     if (sel >= shown.length) sel = Math.max(0, shown.length - 1);
-    list.innerHTML = shown.length ? shown.map((i, n) => `
+    // Rows are grouped under the module they belong to, using the same
+    // indexed section header home puts above every section — so the palette
+    // reads as part of the console rather than as a generic launcher.
+    let group = null;
+    list.innerHTML = shown.length ? shown.map((i, n) => {
+      const head = i.group !== group
+        ? `<li class="cp-group" role="presentation">${esc(i.group)}</li>` : '';
+      group = i.group;
+      return `${head}
       <li role="option" aria-selected="${n === sel}"
           class="cp-item${n === sel ? ' is-sel' : ''}${i.down ? ' cp-item--down' : ''}" data-n="${n}">
         ${icon(i.icon, 'ic')}
         <span class="cp-label">${esc(i.label)}</span>
         <span class="cp-hint">${esc(i.hint)}</span>
-      </li>`).join('')
+      </li>`;
+    }).join('')
       : `<li class="cp-empty">Nothing matches that.</li>`;
     list.querySelector('.is-sel')?.scrollIntoView({ block: 'nearest' });
   };
