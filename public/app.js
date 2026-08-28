@@ -90,9 +90,18 @@ function renderNav() {
   const isActive = (e) =>
     e.moduleId === state.active.module && (e.viewId === state.active.view || e.viewId === null);
 
-  $('#nav-links').innerHTML = entries.map((e) => `
+  // Only the ACTIVE module's views. Listing every module's views side by side
+  // produced twelve undifferentiated links with no indication which app each
+  // belonged to — and it grows with every module. Switching apps is the
+  // launcher's job, or the palette's; this row is for moving inside one.
+  const mine = state.active.module
+    ? entries.filter((e) => e.moduleId === state.active.module && e.viewId)
+    : [];
+  const nav = $('#nav-links');
+  nav.hidden = mine.length < 2;
+  nav.innerHTML = mine.map((e) => `
     <a class="nav-link${isActive(e) ? ' active' : ''}${e.unavailable ? ' nav-link--down' : ''}"
-       href="#/${esc(e.moduleId)}${e.viewId ? `/${esc(e.viewId)}` : ''}"
+       href="#/${esc(e.moduleId)}/${esc(e.viewId)}"
        ${e.unavailable ? `title="${esc(e.module.reason || 'unavailable')}"` : ''}
        >${esc(e.label)}</a>`).join('');
 
@@ -184,6 +193,191 @@ async function mountModule(m, viewId) {
 }
 
 /* ── settings (shell-owned, not a module) ─────────────────────────────── */
+
+/* ── command palette ──────────────────────────────────────────────────── */
+
+/**
+ * Jump to any module, any view, or Settings — by typing.
+ *
+ * Tab bars and strips do not scale: four modules with twelve views between
+ * them is already a wall of links, and every new module makes it worse. A
+ * palette is O(1) to use no matter how many destinations exist, and it gives
+ * the keyboard a first-class path that clicking through two nav levels never
+ * did.
+ *
+ * `/` opens it (and Ctrl/Cmd+K, which is what people try first). Typing
+ * filters; Enter goes.
+ */
+let paletteOpen = false;
+
+function paletteItems() {
+  const out = [];
+  for (const m of state.modules.filter((x) => x.enabled)) {
+    const views = m.views || [];
+    if (!views.length) {
+      out.push({ label: m.name, hint: m.status === 'ready' ? 'module' : (m.reason || 'unavailable'),
+                 href: `#/${m.id}`, icon: 'i-grid', down: m.status !== 'ready' });
+      continue;
+    }
+    for (const v of views) {
+      out.push({ label: `${m.name} · ${v.label}`, hint: m.status === 'ready' ? 'view' : (m.reason || 'unavailable'),
+                 href: `#/${m.id}/${v.id}`, icon: v.icon || 'i-grid', down: m.status !== 'ready' });
+    }
+  }
+  out.push({ label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
+  out.push({ label: 'Settings', hint: 'devices, session', href: '#/settings', icon: 'i-cog' });
+  return out;
+}
+
+function openPalette() {
+  if (paletteOpen) return;
+  paletteOpen = true;
+  const all = paletteItems();
+  let sel = 0;
+
+  const host = document.createElement('div');
+  host.className = 'cp-backdrop';
+  host.innerHTML = `
+    <div class="cp" role="dialog" aria-modal="true" aria-label="Jump to">
+      <div class="cp-field">
+        ${icon('i-search', 'ic')}
+        <input class="cp-input" type="text" placeholder="Jump to…" aria-label="Jump to"
+               autocomplete="off" spellcheck="false">
+        <kbd class="kbd">esc</kbd>
+      </div>
+      <ul class="cp-list" role="listbox"></ul>
+    </div>`;
+  document.body.appendChild(host);
+
+  const input = host.querySelector('.cp-input');
+  const list = host.querySelector('.cp-list');
+
+  const matches = (q) => {
+    const t = q.trim().toLowerCase();
+    if (!t) return all;
+    return all.filter((i) => i.label.toLowerCase().includes(t) || i.hint.toLowerCase().includes(t));
+  };
+
+  let shown = all;
+  const paint = () => {
+    shown = matches(input.value);
+    if (sel >= shown.length) sel = Math.max(0, shown.length - 1);
+    list.innerHTML = shown.length ? shown.map((i, n) => `
+      <li role="option" aria-selected="${n === sel}"
+          class="cp-item${n === sel ? ' is-sel' : ''}${i.down ? ' cp-item--down' : ''}" data-n="${n}">
+        ${icon(i.icon, 'ic')}
+        <span class="cp-label">${esc(i.label)}</span>
+        <span class="cp-hint">${esc(i.hint)}</span>
+      </li>`).join('')
+      : `<li class="cp-empty">Nothing matches that.</li>`;
+    list.querySelector('.is-sel')?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const close = () => {
+    paletteOpen = false;
+    document.removeEventListener('keydown', onKey, true);
+    host.remove();
+  };
+  const go = () => {
+    const item = shown[sel];
+    if (!item) return;
+    close();
+    location.hash = item.href;
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, shown.length - 1); paint(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); paint(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); go(); }
+  };
+
+  input.addEventListener('input', () => { sel = 0; paint(); });
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('[data-n]');
+    if (!li) return;
+    sel = Number(li.dataset.n);
+    go();
+  });
+  host.addEventListener('mousedown', (e) => { if (e.target === host) close(); });
+  document.addEventListener('keydown', onKey, true);
+
+  paint();
+  input.focus();
+}
+
+/** `/` and Ctrl/Cmd+K, but never while the user is typing into something. */
+function wirePalette() {
+  document.addEventListener('keydown', (e) => {
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openPalette(); return; }
+    if (e.key === '/' && !typing && !paletteOpen) { e.preventDefault(); openPalette(); }
+  });
+}
+
+/* ── launcher ─────────────────────────────────────────────────────────── */
+
+/**
+ * The front door.
+ *
+ * Every module as a card, with what it actually is and whether it is live —
+ * so the first screen answers "what have I got and is it working", which is
+ * the question you have on opening this. Previously there was no home at all:
+ * the router picked whichever module happened to be ready and dropped you in
+ * it, which is disorienting and hides everything else.
+ *
+ * Cards, not a list: each one carries a status lamp, a view count and a live
+ * detail line, and that is more than a row can hold legibly.
+ */
+function launcherCards() {
+  const mods = state.modules.filter((m) => m.enabled);
+  if (!mods.length) {
+    return `<div class="empty">${icon('i-warn', 'ic ic--xl')}
+      <b>No modules configured</b>
+      <span>Add one to config/console.json and reload.</span></div>`;
+  }
+  return mods.map((m, i) => {
+    const ready = m.status === 'ready';
+    const views = m.views || [];
+    const first = views[0]?.id;
+    const href = `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}`;
+    return `
+    <a class="lc-card${ready ? '' : ' lc-card--down'}" href="${ready ? href : '#/settings'}"
+       style="--i:${i}" ${ready ? '' : `title="${esc(m.reason || 'unavailable')}"`}>
+      <span class="lc-ic">${icon(views[0]?.icon || 'i-grid', 'ic ic--xl')}</span>
+      <span class="lc-name">${esc(m.name)}</span>
+      <span class="lc-state">
+        <span class="dot ${ready ? 'dot--ok' : 'dot--warn'}"></span>
+        ${ready ? `${views.length} view${views.length === 1 ? '' : 's'}` : esc(m.reason || 'unavailable')}
+      </span>
+      ${ready && m.version ? `<span class="lc-ver">v${esc(m.version)}</span>` : ''}
+    </a>`;
+  }).join('');
+}
+
+function renderLauncher() {
+  const ready = state.modules.filter((m) => m.enabled && m.status === 'ready').length;
+  const total = state.modules.filter((m) => m.enabled).length;
+  const peer = state.session?.peer?.display || state.session?.user || '';
+
+  $('#view').innerHTML = `
+    <section class="lc">
+      <header class="lc-head">
+        <p class="lc-kicker">${esc(state.branding?.tagline || 'local control · no cloud')}</p>
+        <h1 class="lc-title">${esc(state.branding?.wordmark || 'ojee')}<span
+          class="lc-dot">${esc(state.branding?.wordmarkAccent || '.')}</span>${esc(state.branding?.wordmarkTail || 'console')}</h1>
+        <p class="lc-sub">
+          <span class="lc-sub-strong">${ready}</span> of ${total} modules ready${peer ? ` · ${esc(peer)}` : ''}
+        </p>
+      </header>
+      <div class="lc-grid">${launcherCards()}</div>
+      <footer class="lc-foot">
+        <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
+        <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
+      </footer>
+    </section>`;
+}
 
 async function renderSettings() {
   await host.unmount();
@@ -312,6 +506,18 @@ async function route() {
     // parseHash is generic ({a, b}); here the two levels are module and view.
     const { a: module, b: view } = parseHash();
 
+    // No module in the hash means the LAUNCHER, not "guess a module".
+    // Diving straight into whichever module happened to be ready gave the app
+    // no front door: you arrived somewhere arbitrary with no sense of what
+    // else existed.
+    if (!module || module === 'home-screen') {
+      state.active = { module: null, view: null };
+      renderNav();
+      await host.unmount();
+      renderLauncher();
+      return;
+    }
+
     if (module === 'settings') {
       state.active = { module: 'settings', view: null };
       renderNav();
@@ -389,6 +595,8 @@ async function boot() {
   }, 20000);
 
   clock($('#hud-clock'));
+  wirePalette();
+  $('#nav-jump')?.addEventListener('click', openPalette);
 
   // Inside the app only: dismiss the splash, forward module `notify` events
   // as local notifications, and post location to the home hub.
