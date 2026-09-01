@@ -39,7 +39,26 @@
 # Reversing this is one block, not a propagation wait.
 {$HOME_DOMAIN} {
   import cf_tls
-  redir https://{$CONSOLE_DOMAIN}{uri} 308
+
+  # ...except the location endpoint, which is a MACHINE contract, not a
+  # bookmark. The phone posts OwnTracks fixes here carrying HOME_LOCATION_TOKEN,
+  # and it has no console session. A 308 sent those posts to the CONSOLE's own
+  # /api/ namespace (the {uri} carries no /home prefix), where they fell through
+  # to a 401 — and the proxy strips a client Authorization anyway, so even the
+  # correct path could not have carried the token. Every fix has been dropped
+  # silently since; that is what "location automations stopped" was.
+  # Hand it straight to the hub, exactly as before the unification.
+  @location path /api/location
+  handle @location {
+    reverse_proxy home:8110
+  }
+
+  # Everything else is a human on an old bookmark. `handle` blocks are
+  # mutually exclusive and evaluated in written order — a bare `redir` would
+  # sort ahead of `handle` and swallow the endpoint above.
+  handle {
+    redir https://{$CONSOLE_DOMAIN}{uri} 308
+  }
 }
 
 # ── retired: the old dashboard is the `agent` module now ──────────────
