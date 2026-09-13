@@ -69,9 +69,15 @@ function matchedStep(secret, token, now) {
   for (const delta of deltas) {
     const step = current + delta;
     try {
-      // otplib generates for "now", so shift the epoch to reach other steps.
-      const at = new Date(step * STEP_SECONDS * 1000);
-      if (authenticator.generate(secret, at) === token) return step;
+      // authenticator.generate(secret) takes ONLY the secret and always uses
+      // the current time; a Date passed as a second argument is silently
+      // ignored. That made every step in this scan produce the current code,
+      // so a valid code from an adjacent step matched nothing, came back null
+      // and was rejected below - the window was effectively zero, and a phone
+      // a few seconds off had to wait for its code to roll over. A clone with
+      // an explicit epoch (milliseconds) generates for the step we mean.
+      const at = step * STEP_SECONDS * 1000;
+      if (authenticator.clone({ epoch: at }).generate(secret) === token) return step;
     } catch {
       /* generate throws on a malformed secret — verify() will report it */
     }

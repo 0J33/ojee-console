@@ -47,19 +47,52 @@ describe('TOTP', () => {
     assert.equal(second.reason, 'replayed');
   });
 
-  test('a code at the far edge of the window is still replay-guarded', () => {
+  /* authenticator.generate(secret) takes only the secret and always uses the
+     current time - a Date passed as a second argument is silently ignored.
+     Generating another step's code needs a clone with an explicit epoch.
+     These tests used to pass a Date, so every "adjacent step" code was really
+     the current one and the window was never exercised at all. */
+  const codeAtStep = (delta) =>
+    authenticator.clone({ epoch: Date.now() + delta * 30_000 }).generate(SECRET);
+
+  // Keep clear of a 30s boundary so "now" inside verify() is the same step
+  // the test generated against.
+  const clearOfBoundary = async () => {
+    const into = Date.now() % 30_000;
+    if (into > 29_500) await new Promise((r) => setTimeout(r, 30_000 - into + 50));
+  };
+
+  test('accepts a code from the step either side (phone clock drift)', async () => {
+    await clearOfBoundary();
+    for (const delta of [-1, 1]) {
+      _resetTotpState();
+      const v = new TotpVerifier({ secret: SECRET });
+      assert.deepEqual(v.verify(codeAtStep(delta), 'u'), { ok: true }, `delta ${delta} was rejected`);
+    }
+  });
+
+  test('rejects a code two steps away', async () => {
+    await clearOfBoundary();
+    for (const delta of [-2, 2]) {
+      _resetTotpState();
+      const v = new TotpVerifier({ secret: SECRET });
+      assert.equal(v.verify(codeAtStep(delta), 'u').ok, false, `delta ${delta} was accepted`);
+    }
+  });
+
+  test('a code at the far edge of the window is still replay-guarded', async () => {
     // The guard keys on the MATCHED timestep, found by re-deriving each step
     // in range. If that scan is narrower than the range otplib accepts, an
     // edge code yields no key and can be replayed for the rest of its
     // validity. TOTP_WINDOW made the range configurable, so this pins the
-    // two together.
-    const step = 30_000;
+    // two together - and no longer skips a rejected code, which is what let
+    // the broken re-derivation pass unnoticed.
+    await clearOfBoundary();
     for (const delta of [-1, 1]) {
       _resetTotpState();
       const v = new TotpVerifier({ secret: SECRET });
-      const code = authenticator.generate(SECRET, new Date(Date.now() + delta * step));
-      const first = v.verify(code, 'u');
-      if (!first.ok) continue;          // outside the configured window
+      const code = codeAtStep(delta);
+      assert.equal(v.verify(code, 'u').ok, true, `delta ${delta} was not accepted`);
       const second = v.verify(code, 'u');
       assert.equal(second.ok, false, `delta ${delta} was not replay-guarded`);
       assert.equal(second.reason, 'replayed');
