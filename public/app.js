@@ -334,6 +334,16 @@ function paletteItems() {
 function openPalette() {
   if (paletteOpen) return;
   paletteOpen = true;
+  // The registry re-polls on a timer, but a palette that opens on a stale copy
+  // offers destinations that no longer exist — and the one time you notice is
+  // when you jump to a module that was removed. Refresh in the background and
+  // rebuild if the answer changed.
+  const signature = () => state.modules.map((m) => `${m.id}:${m.status}:${(m.views || []).map((v) => v.id).join(',')}`).join('|');
+  const before = signature();
+  refreshModules({ force: true }).then(() => {
+    if (paletteOpen && signature() !== before) { close(); openPalette(); }
+  }).catch(() => {});
+
   const all = paletteItems();
   let sel = 0;
 
@@ -361,27 +371,63 @@ function openPalette() {
   };
 
   let shown = all;
+
+  /**
+   * Rows are built ONCE and then shown, hidden and highlighted in place.
+   *
+   * This used to rebuild every row's markup on every keystroke and on every
+   * arrow press — which means re-parsing HTML, re-resolving an <svg><use>
+   * per row against the page sprite, and throwing away the DOM you were
+   * about to scroll. That is why it felt heavy to type in.
+   */
+  let group = null;
+  const empty = document.createElement('li');
+  empty.className = 'cp-empty';
+  empty.textContent = 'Nothing matches that.';
+  const rows = all.map((i, n) => {
+    if (i.group !== group) {
+      const head = document.createElement('li');
+      head.className = 'cp-group';
+      head.setAttribute('role', 'presentation');
+      head.textContent = i.group;
+      head.dataset.group = i.group;
+      list.append(head);
+      group = i.group;
+    }
+    const li = document.createElement('li');
+    li.setAttribute('role', 'option');
+    li.className = `cp-item${i.down ? ' cp-item--down' : ''}`;
+    li.dataset.n = String(n);
+    li.innerHTML = `${icon(i.icon, 'ic')}
+      <span class="cp-label">${esc(i.label)}</span>
+      <span class="cp-hint">${esc(i.hint)}</span>`;
+    list.append(li);
+    return li;
+  });
+  list.append(empty);
+
   const paint = () => {
     shown = matches(input.value);
     if (sel >= shown.length) sel = Math.max(0, shown.length - 1);
-    // Rows are grouped under the module they belong to, using the same
-    // indexed section header home puts above every section — so the palette
-    // reads as part of the console rather than as a generic launcher.
-    let group = null;
-    list.innerHTML = shown.length ? shown.map((i, n) => {
-      const head = i.group !== group
-        ? `<li class="cp-group" role="presentation">${esc(i.group)}</li>` : '';
-      group = i.group;
-      return `${head}
-      <li role="option" aria-selected="${n === sel}"
-          class="cp-item${n === sel ? ' is-sel' : ''}${i.down ? ' cp-item--down' : ''}" data-n="${n}">
-        ${icon(i.icon, 'ic')}
-        <span class="cp-label">${esc(i.label)}</span>
-        <span class="cp-hint">${esc(i.hint)}</span>
-      </li>`;
-    }).join('')
-      : `<li class="cp-empty">Nothing matches that.</li>`;
-    list.querySelector('.is-sel')?.scrollIntoView({ block: 'nearest' });
+    const visible = new Set(shown);
+    const groupsWithRows = new Set();
+    all.forEach((item, n) => {
+      const on = visible.has(item);
+      rows[n].hidden = !on;
+      if (on) groupsWithRows.add(item.group);
+    });
+    // A group header with nothing under it is a heading for an empty list.
+    for (const head of list.querySelectorAll('.cp-group')) {
+      head.hidden = !groupsWithRows.has(head.dataset.group);
+    }
+    empty.hidden = shown.length > 0;
+    const selected = shown[sel];
+    all.forEach((item, n) => {
+      const on = item === selected;
+      rows[n].classList.toggle('is-sel', on);
+      rows[n].setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    if (selected) rows[all.indexOf(selected)].scrollIntoView({ block: 'nearest' });
   };
 
   const close = () => {
@@ -407,7 +453,11 @@ function openPalette() {
   list.addEventListener('click', (e) => {
     const li = e.target.closest('[data-n]');
     if (!li) return;
-    sel = Number(li.dataset.n);
+    // data-n indexes the FULL list; sel indexes the filtered one.
+    const item = all[Number(li.dataset.n)];
+    const at = shown.indexOf(item);
+    if (at < 0) return;
+    sel = at;
     go();
   });
   host.addEventListener('mousedown', (e) => { if (e.target === host) close(); });

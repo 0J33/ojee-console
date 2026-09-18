@@ -139,9 +139,13 @@
 @media (min-width: 1100px) {
   .shell { grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
   .sidenav {
-    display: grid; align-content: start; gap: 2px;
+    /* A flex column, not a grid of auto rows: Settings is pinned to the
+       bottom with margin-top:auto, and a grid with align-content:start gives
+       it nothing to push against — so it drifted up and down the rail
+       depending on how many views the open module happened to have. */
+    display: flex; flex-direction: column; gap: 2px;
     position: sticky; top: calc(var(--hud-h) + var(--nav-h));
-    max-height: calc(100dvh - var(--hud-h) - var(--nav-h));
+    height: calc(100dvh - var(--hud-h) - var(--nav-h));
     overflow-y: auto;
     padding: var(--s-3) var(--s-2) var(--s-5);
     border-right: 1px solid var(--line);
@@ -157,7 +161,9 @@
   .sn-item.is-down { color: var(--dim); }
   .sn-item span:nth-of-type(1) { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sn-item--home { margin-bottom: var(--s-2); }
-  .sn-item--foot { margin-top: var(--s-3); border-top: 1px solid var(--line); }
+  /* Always the last thing on the rail, whatever is above it. */
+  .sn-item--foot { margin-top: auto; padding-top: var(--s-3); border-top: 1px solid var(--line); flex: none; }
+  .sn-item, .sn-group { flex: none; }
   .sn-views { display: grid; gap: 1px; margin: 2px 0 var(--s-2); }
   .sn-view {
     padding: 6px 10px 6px 34px; color: var(--dim); text-decoration: none;
