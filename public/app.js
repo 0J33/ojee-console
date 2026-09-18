@@ -180,9 +180,9 @@ function renderNav() {
  */
 const MODULE_ICONS = {
   fleet: 'i-server',
-  home: 'i-ac',
+  home: 'i-house',
   remote: 'i-monitor',
-  agent: 'i-auto',
+  agent: 'i-cpu',
   loq: 'i-gauge',
   code: 'i-log',
   backups: 'i-shield',
@@ -475,12 +475,15 @@ function moduleCard(m, i) {
   return `
     <a class="ov-card${ready ? '' : ' ov-card--down'}" href="${href}" style="--i:${i}">
       <span class="ov-card-head">
-        ${icon(views[0]?.icon || 'i-grid', 'ic ic--lg')}
+        ${icon(moduleIcon(m), 'ic ic--lg')}
         <span class="ov-card-name">${esc(m.name)}</span>
         <span class="dot ${dot}"></span>
       </span>
       <span class="ov-card-line">${esc(sum?.headline || (ready
-        ? `${views.length} view${views.length === 1 ? '' : 's'}`
+        // A module with no summary says nothing rather than counting its own
+        // tabs at you: "4 views" is a fact about the navigation, not about
+        // anything happening.
+        ? 'running'
         : m.reason || 'unavailable'))}</span>
       ${facts ? `<dl class="ov-facts">${facts}</dl>` : ''}
     </a>`;
