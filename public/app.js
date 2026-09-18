@@ -56,10 +56,40 @@ const host = new ModuleHost({
 
 /* ── shell chrome ─────────────────────────────────────────────────────── */
 
+/** "ojee.console" — the wordmark as one string. */
+function brandName() {
+  const b = state.branding;
+  if (!b) return 'console';
+  return `${b.wordmark}${b.wordmarkAccent}${b.wordmarkTail}`;
+}
+
+/**
+ * The tab title says where you are: `ojee.console · fleet · hosts`.
+ *
+ * It used to say `ojee.console · console`, which spends the one piece of text
+ * a background tab gets on repeating the app's own name — and with several
+ * tabs open, every one of them looked identical.
+ */
+function setTitle() {
+  const { module, view } = state.active;
+  const parts = [brandName()];
+  if (module === 'settings') parts.push('settings');
+  else if (module) {
+    const m = state.modules.find((x) => x.id === module);
+    parts.push((m?.name || module).toLowerCase());
+    const label = m?.views?.find((v) => v.id === view)?.label;
+    // Only when it adds something: "fleet · fleet" is the bug we just fixed.
+    if (label && label.toLowerCase() !== (m?.name || '').toLowerCase()) {
+      parts.push(label.toLowerCase());
+    }
+  } else parts.push('overview');
+  document.title = parts.join(' · ');
+}
+
 function renderBranding() {
   const b = state.branding;
   if (!b) return;
-  document.title = `${b.wordmark}${b.wordmarkAccent}${b.wordmarkTail} · console`;
+  setTitle();
   $('#nav-logo').innerHTML =
     `${esc(b.wordmark)}<span class="dot-accent">${esc(b.wordmarkAccent)}</span>${esc(b.wordmarkTail)}`;
   $('#sb-note').textContent = b.tagline || '';
@@ -115,7 +145,7 @@ function renderNav() {
     <button class="tabitem${e.moduleId === state.active.module ? ' active' : ''}"
             data-goto="#/${esc(e.moduleId)}${e.viewId ? `/${esc(e.viewId)}` : ''}"
             ${e.unavailable ? 'data-down="1"' : ''}>
-      ${icon(e.icon, 'ic ic--lg')}<span>${esc(e.module.name)}</span>
+      ${icon(moduleIcon(e.module), 'ic ic--lg')}<span>${esc(e.module.name)}</span>
     </button>`).join('');
   $('#tabbar').querySelectorAll('.tabitem').forEach((b) => {
     b.addEventListener('click', () => { location.hash = b.dataset.goto; });
@@ -139,6 +169,26 @@ function renderNav() {
 /* The sidebar is the console's map: every module, every view, always. A nav
    that only lists the active module's views answers "where am I" and never
    "what else is there". */
+/**
+ * Icons, in order of preference: what the module declares, a guess from its
+ * id, then a generic one.
+ *
+ * The bug this replaces: the sidebar used `views[0].icon`, and since almost
+ * every module's first view is an overview drawn with `i-grid`, Overview,
+ * Fleet and Home all rendered the same square. An icon that is the same for
+ * everything is decoration, not navigation.
+ */
+const MODULE_ICONS = {
+  fleet: 'i-server',
+  home: 'i-ac',
+  remote: 'i-monitor',
+  agent: 'i-auto',
+  loq: 'i-gauge',
+  code: 'i-log',
+  backups: 'i-shield',
+};
+const moduleIcon = (m) => m?.icon || MODULE_ICONS[m?.id] || 'i-box';
+
 function renderSidenav() {
   const el = $('#sidenav');
   if (!el) return;
@@ -165,7 +215,7 @@ function renderSidenav() {
         <a class="sn-item${active ? ' is-on' : ''}${m.status === 'ready' ? '' : ' is-down'}"
            href="${m.status === 'ready' ? href : '#/settings'}"
            ${m.status === 'ready' ? '' : `title="${esc(m.reason || 'unavailable')}"`}>
-          ${icon(views[0]?.icon || 'i-grid', 'ic')}
+          ${icon(moduleIcon(m), 'ic')}
           <span>${esc(m.name)}</span>
           <span class="dot ${dot}"></span>
         </a>
@@ -264,7 +314,7 @@ function paletteItems() {
     const hint = m.status === 'ready' ? null : (m.reason || 'unavailable');
     if (!views.length) {
       out.push({ group: m.name, label: m.name, hint: hint || 'module',
-                 href: `#/${m.id}`, icon: 'i-grid', down });
+                 href: `#/${m.id}`, icon: moduleIcon(m), down });
       continue;
     }
     // The row carries the VIEW name only; the module name is the group
@@ -644,6 +694,7 @@ async function route() {
     if (!module || module === 'home-screen') {
       state.active = { module: null, view: null };
       renderNav();
+      setTitle();
       await host.unmount();
       renderLauncher();
       // Paint immediately with what we know, then fill in what the modules
@@ -660,6 +711,7 @@ async function route() {
     if (module === 'settings') {
       state.active = { module: 'settings', view: null };
       renderNav();
+      setTitle();
       await renderSettings();
       return;
     }
@@ -687,6 +739,7 @@ async function route() {
     const sameModule = state.active.module === m.id && host.mounted;
     state.active = { module: m.id, view: v };
     renderNav();
+    setTitle();
 
     // Switching VIEW inside a mounted module is the module's business — let
     // it re-render in place rather than tearing down and re-importing, which

@@ -136,6 +136,17 @@ modular app has.
 
 ---
 
+### Icons
+
+A manifest may declare `"icon": "i-server"` for the module itself. Without one the shell used to
+draw the first view's icon — and since almost every module opens on an overview drawn with
+`i-grid`, Overview, Fleet and Home all rendered the same square. An icon that is the same for
+everything is decoration, not navigation, so unknown modules now get a generic glyph instead of
+Overview's.
+
+Available symbols are in the sprite at the top of `public/index.html`; a module can append its own
+on mount.
+
 ### Overview facts (optional)
 
 The console's front page is a dashboard, not a launcher. It is built entirely

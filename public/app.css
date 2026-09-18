@@ -89,7 +89,11 @@
    Every selector here belongs to the shell (`sn-` sidebar, `ov-` overview).
    Modules own their own prefixes; ojee-ui owns everything else. */
 
-.shell { display: grid; grid-template-columns: 1fr; }
+/* body.app is a flex column whose .wrap grows so the status bar lands at the
+   bottom of a short page. .shell now stands between the two, so it has to
+   carry that growth — without it the bar floats up under the content and a
+   page with little on it has a strip of background below its own footer. */
+.shell { display: grid; grid-template-columns: 1fr; flex: 1 0 auto; min-height: 0; }
 .sidenav { display: none; }
 
 .ov { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-6); }
