@@ -136,6 +136,28 @@ modular app has.
 
 ---
 
+### Overview facts (optional)
+
+The console's front page is a dashboard, not a launcher. It is built entirely
+out of what modules say about themselves, through one optional endpoint:
+
+```
+GET /{id}/api/summary
+{
+  "status": "ok" | "warn" | "err",
+  "headline": "3 hosts \u00b7 1 needs attention",
+  "facts":  [ { "k": "disinteg", "v": "12% cpu" }, ... ],   // up to 4 are shown
+  "alerts": [ { "text": "loq is offline", "severity": "warn", "view": "hosts" } ]
+}
+```
+
+A module opts in by declaring `"summary"` in `capabilities`. Alerts are
+clickable: the console opens that module at `view`, so the front page is a way
+into the thing that is wrong rather than a place that merely mentions it.
+
+Modules that do not implement it get a plain card, which is the point of making
+it optional — the shell still knows nothing about what any module *means*.
+
 ### Modules that guard their own API
 
 A module on the same host can trust `X-Console-Auth`. A module on a *different*

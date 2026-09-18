@@ -36,6 +36,7 @@ const state = {
   active: { module: null, view: null },
   mounted: null,          // the currently mounted module's default export
   loaded: new Map(),      // moduleId -> imported UI module
+  summaries: new Map(),   // moduleId -> { status, headline, facts, alerts }
 };
 
 /* ── utilities ────────────────────────────────────────────────────────
@@ -86,6 +87,7 @@ function navEntries() {
 }
 
 function renderNav() {
+  renderSidenav();
   const entries = navEntries();
   const isActive = (e) =>
     e.moduleId === state.active.module && (e.viewId === state.active.view || e.viewId === null);
@@ -132,6 +134,50 @@ function renderNav() {
          href="#/${esc(e.moduleId)}/${esc(e.viewId)}">${esc(e.label)}</a>`).join('');
     strip.querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
+}
+
+/* The sidebar is the console's map: every module, every view, always. A nav
+   that only lists the active module's views answers "where am I" and never
+   "what else is there". */
+function renderSidenav() {
+  const el = $('#sidenav');
+  if (!el) return;
+  const mods = state.modules.filter((m) => m.enabled);
+  if (!mods.length) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+
+  const overviewActive = !state.active.module;
+  el.innerHTML = `
+    <a class="sn-item sn-item--home${overviewActive ? ' is-on' : ''}" href="#/">
+      ${icon('i-grid', 'ic')}<span>Overview</span>
+    </a>
+    ${mods.map((m) => {
+      const active = state.active.module === m.id;
+      const views = m.status === 'ready' ? (m.views || []) : [];
+      const first = views[0]?.id;
+      const href = `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}`;
+      const sum = state.summaries.get(m.id);
+      const dot = m.status === 'ready'
+        ? (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok')
+        : m.status === 'degraded' ? 'dot--warn' : 'dot--err';
+      return `
+      <div class="sn-group${active ? ' is-open' : ''}">
+        <a class="sn-item${active ? ' is-on' : ''}${m.status === 'ready' ? '' : ' is-down'}"
+           href="${m.status === 'ready' ? href : '#/settings'}"
+           ${m.status === 'ready' ? '' : `title="${esc(m.reason || 'unavailable')}"`}>
+          ${icon(views[0]?.icon || 'i-grid', 'ic')}
+          <span>${esc(m.name)}</span>
+          <span class="dot ${dot}"></span>
+        </a>
+        ${active && views.length > 1 ? `
+          <div class="sn-views">
+            ${views.map((v) => `
+              <a class="sn-view${state.active.view === v.id ? ' is-on' : ''}"
+                 href="#/${esc(m.id)}/${esc(v.id)}">${esc(v.label)}</a>`).join('')}
+          </div>` : ''}
+      </div>`;
+    }).join('')}
+    <a class="sn-item sn-item--foot" href="#/settings">${icon('i-cog', 'ic')}<span>Settings</span></a>`;
 }
 
 function renderChrome() {
@@ -345,51 +391,89 @@ function wirePalette() {
  * Cards, not a list: each one carries a status lamp, a view count and a live
  * detail line, and that is more than a row can hold legibly.
  */
-function launcherCards() {
-  const mods = state.modules.filter((m) => m.enabled);
-  if (!mods.length) {
-    return `<div class="empty">${icon('i-warn', 'ic ic--xl')}
-      <b>No modules configured</b>
-      <span>Add one to config/console.json and reload.</span></div>`;
+/* The front door. It used to be a row of launch tiles: it said what existed
+   and nothing about how any of it was doing, so the first thing you did on
+   arriving was click into each module to check. Now the modules report, and
+   anything wrong is stated here before the tiles. */
+function overviewAlerts() {
+  const alerts = [];
+  for (const m of state.modules.filter((x) => x.enabled)) {
+    if (m.status !== 'ready') {
+      alerts.push({ severity: m.status === 'degraded' ? 'warn' : 'err', module: m,
+                    text: `${m.name} is ${m.status === 'degraded' ? 'degraded' : 'unreachable'}${m.reason ? ` — ${m.reason}` : ''}` });
+      continue;
+    }
+    for (const a of state.summaries.get(m.id)?.alerts || []) {
+      alerts.push({ severity: a.severity || 'warn', module: m, text: a.text, view: a.view });
+    }
   }
-  return mods.map((m, i) => {
-    const ready = m.status === 'ready';
-    const views = m.views || [];
-    const first = views[0]?.id;
-    const href = `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}`;
-    return `
-    <a class="lc-card${ready ? '' : ' lc-card--down'}" href="${ready ? href : '#/settings'}"
-       style="--i:${i}" ${ready ? '' : `title="${esc(m.reason || 'unavailable')}"`}>
-      <span class="lc-ic">${icon(views[0]?.icon || 'i-grid', 'ic ic--xl')}</span>
-      <span class="lc-name">${esc(m.name)}</span>
-      <span class="lc-state">
-        <span class="dot ${ready ? 'dot--ok' : 'dot--warn'}"></span>
-        ${ready ? `${views.length} view${views.length === 1 ? '' : 's'}` : esc(m.reason || 'unavailable')}
+  return alerts;
+}
+
+function moduleCard(m, i) {
+  const ready = m.status === 'ready';
+  const views = m.views || [];
+  const first = views[0]?.id;
+  const href = ready ? `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}` : '#/settings';
+  const sum = state.summaries.get(m.id);
+  const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
+    : sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok';
+
+  const facts = (sum?.facts || []).slice(0, 4).map((f) => `
+    <div class="ov-fact"><dt>${esc(f.k)}</dt><dd>${esc(String(f.v))}</dd></div>`).join('');
+
+  return `
+    <a class="ov-card${ready ? '' : ' ov-card--down'}" href="${href}" style="--i:${i}">
+      <span class="ov-card-head">
+        ${icon(views[0]?.icon || 'i-grid', 'ic ic--lg')}
+        <span class="ov-card-name">${esc(m.name)}</span>
+        <span class="dot ${dot}"></span>
       </span>
-      ${ready && m.version ? `<span class="lc-ver">v${esc(m.version)}</span>` : ''}
+      <span class="ov-card-line">${esc(sum?.headline || (ready
+        ? `${views.length} view${views.length === 1 ? '' : 's'}`
+        : m.reason || 'unavailable'))}</span>
+      ${facts ? `<dl class="ov-facts">${facts}</dl>` : ''}
     </a>`;
-  }).join('');
 }
 
 function renderLauncher() {
-  const ready = state.modules.filter((m) => m.enabled && m.status === 'ready').length;
-  const total = state.modules.filter((m) => m.enabled).length;
+  const mods = state.modules.filter((m) => m.enabled);
+  const ready = mods.filter((m) => m.status === 'ready').length;
   const peer = state.session?.peer?.display || state.session?.user || '';
+  const alerts = overviewAlerts();
+
+  if (!mods.length) {
+    $('#view').innerHTML = `<div class="empty">${icon('i-warn', 'ic ic--xl')}
+      <b>No modules configured</b>
+      <span>Add one to config/console.json and reload.</span></div>`;
+    return;
+  }
 
   $('#view').innerHTML = `
-    <section class="lc">
-      <header class="lc-head">
-        <p class="lc-kicker">${esc(state.branding?.tagline || 'local control · no cloud')}</p>
-        <h1 class="lc-title">${esc(state.branding?.wordmark || 'ojee')}<span
-          class="lc-dot">${esc(state.branding?.wordmarkAccent || '.')}</span>${esc(state.branding?.wordmarkTail || 'console')}</h1>
-        <p class="lc-sub">
-          <span class="lc-sub-strong">${ready}</span> of ${total} modules ready${peer ? ` · ${esc(peer)}` : ''}
-        </p>
+    <section class="ov">
+      <header class="ov-head">
+        <h1 class="h1">Overview</h1>
+        <span class="meta">${ready} of ${mods.length} modules ready${peer ? ` · ${esc(peer)}` : ''}</span>
       </header>
-      <div class="lc-grid">${launcherCards()}</div>
-      <footer class="lc-foot">
-        <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
+
+      <div class="ov-verdict ${alerts.length ? 'is-bad' : 'is-ok'}">
+        ${icon(alerts.length ? 'i-warn' : 'i-shield', 'ic')}
+        <div class="ov-verdict-body">
+          ${alerts.length
+            ? `<strong>${alerts.length} thing${alerts.length > 1 ? 's need' : ' needs'} attention</strong>
+               <div class="ov-alerts">${alerts.slice(0, 6).map((a) => `
+                 <a class="ov-alert ov-alert--${esc(a.severity)}"
+                    href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">${esc(a.text)}</a>`).join('')}</div>`
+            : `<strong>Everything is healthy.</strong>
+               <span class="meta">Every module is up and reporting.</span>`}
+        </div>
+      </div>
+
+      <div class="ov-grid">${mods.map(moduleCard).join('')}</div>
+
+      <footer class="ov-foot">
         <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
+        <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
       </footer>
     </section>`;
 }
@@ -507,6 +591,23 @@ const statusDot = (s) => s === 'ready' ? 'dot--ok' : s === 'disabled' ? '' : s =
 
 /* ── routing ──────────────────────────────────────────────────────────── */
 
+/* A module may describe itself in one object: how it is doing, the two or
+   three numbers worth seeing from outside, and anything wrong. Modules that
+   do not implement it still appear — with their health and nothing more. */
+async function refreshSummaries() {
+  const mods = state.modules.filter((m) => m.enabled && m.status === 'ready'
+    && (m.capabilities || []).includes('summary'));
+  await Promise.all(mods.map(async (m) => {
+    try {
+      const res = await fetch(`/${m.id}/api/summary`, { headers: { accept: 'application/json' } });
+      if (!res.ok) throw new Error(String(res.status));
+      state.summaries.set(m.id, await res.json());
+    } catch {
+      state.summaries.delete(m.id);
+    }
+  }));
+}
+
 async function refreshModules({ force = false } = {}) {
   const res = await fetch(force ? '/api/modules/refresh' : '/api/modules', { method: force ? 'POST' : 'GET' });
   if (!res.ok) return;
@@ -514,6 +615,21 @@ async function refreshModules({ force = false } = {}) {
 }
 
 let routing = false;
+let overviewTimer = null;
+
+function startOverviewPoll() {
+  stopOverviewPoll();
+  overviewTimer = setInterval(async () => {
+    if (document.hidden || state.active.module) return;
+    await refreshSummaries();
+    if (!state.active.module) { renderLauncher(); renderSidenav(); }
+  }, 20000);
+}
+
+function stopOverviewPoll() {
+  if (overviewTimer) { clearInterval(overviewTimer); overviewTimer = null; }
+}
+
 async function route() {
   if (routing) return;
   routing = true;
@@ -530,8 +646,16 @@ async function route() {
       renderNav();
       await host.unmount();
       renderLauncher();
+      // Paint immediately with what we know, then fill in what the modules
+      // say about themselves.
+      refreshSummaries().then(() => {
+        if (!state.active.module) { renderLauncher(); renderSidenav(); }
+      });
+      startOverviewPoll();
       return;
     }
+
+    stopOverviewPoll();
 
     if (module === 'settings') {
       state.active = { module: 'settings', view: null };

@@ -78,9 +78,16 @@
      on a phone. -->
 <div class="viewstrip" id="viewstrip" role="tablist" aria-label="Views"></div>
 
-<main class="wrap" id="main">
-  <div id="view"></div>
-</main>
+<div class="shell">
+  <!-- Desktop only: every module and its views, always visible. The old nav
+       showed the active module's views and nothing else, so switching module
+       meant going back to the launcher or opening the palette. -->
+  <aside class="sidenav" id="sidenav" aria-label="Modules and views"></aside>
+
+  <main class="wrap" id="main">
+    <div id="view"></div>
+  </main>
+</div>
 
 <nav class="tabbar" id="tabbar" aria-label="Modules"></nav>
 
