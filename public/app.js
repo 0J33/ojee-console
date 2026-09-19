@@ -597,7 +597,7 @@ async function renderSettings() {
     <div class="panel">
       <div class="panel-head"><span class="label">Modules</span>
         <button class="btn btn--sm btn--ghost" id="refresh-modules">Re-check</button></div>
-      <div class="table-wrap"><table class="table">
+      <div class="table-wrap"><table class="table set-mods">
         <thead><tr><th>Module</th><th>Status</th><th>Version</th><th class="num">Latency</th></tr></thead>
         <tbody id="settings-modules"></tbody></table></div>
     </div>
@@ -625,7 +625,7 @@ async function renderSettings() {
       return;
     }
     box.innerHTML = devices.map((d) => `
-      <div class="row">
+      <div class="row set-dev">
         <span class="stack" style="gap:2px;align-items:flex-start">
           <b style="color:var(--ink)">${esc(d.label)}${d.id === current ? ' · this device' : ''}</b>
           <span class="meta">last used ${esc(relTime(d.lastSeenAt))} · expires ${esc(relTime(d.expiresAt))} · ${d.uses} use${d.uses === 1 ? '' : 's'}</span>
@@ -672,8 +672,8 @@ async function renderSettings() {
         <td>${esc(m.name)} <span class="meta">${esc(m.id)}</span></td>
         <td><span class="badge"><span class="dot ${statusDot(m.status)}"></span>${esc(m.status)}</span>
             ${m.reason ? `<div class="meta" style="margin-top:4px">${esc(m.reason)}</div>` : ''}</td>
-        <td>${esc(m.version || '—')}</td>
-        <td class="num">${m.latencyMs != null ? `${m.latencyMs} ms` : '—'}</td>
+        <td${m.version ? '' : ' data-empty'}>${esc(m.version || '—')}</td>
+        <td class="num"${m.latencyMs != null ? '' : ' data-empty'}>${m.latencyMs != null ? `${m.latencyMs} ms` : '—'}</td>
       </tr>`).join('');
   };
   paintModules();

@@ -93,7 +93,13 @@
    bottom of a short page. .shell now stands between the two, so it has to
    carry that growth — without it the bar floats up under the content and a
    page with little on it has a strip of background below its own footer. */
-.shell { display: grid; grid-template-columns: 1fr; flex: 1 0 auto; min-height: 0; }
+/* minmax(0, 1fr), not 1fr. A bare 1fr is minmax(auto, 1fr), and `auto` there
+   means the column may never be narrower than the widest thing inside it — so
+   one wide table (Settings → Modules is 560px on purpose, to scroll inside its
+   .table-wrap) widened the whole page past a phone screen and it scrolled
+   sideways. The desktop layout below already said minmax(0, 1fr); the phone
+   layout, which is the one that needed it, did not. */
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 0 auto; min-height: 0; }
 .sidenav { display: none; }
 
 .ov { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-6); }
@@ -174,4 +180,37 @@
   /* With the sidebar carrying every module and view, the top strip would be
      a second copy of the same links. */
   .nav-links { display: none; }
+}
+
+/* ── settings on a phone ─────────────────────────────────────────────────
+   Four columns of module facts do not fit 390px, and a table that scrolls
+   sideways inside a card is a thing you have to discover. Each module becomes
+   two lines instead: name with version and latency on the first, its status
+   and — when there is one — the reason on the second, wrapping rather than
+   running off the edge. The reasons are URLs and error codes, which have no
+   spaces to break at, hence overflow-wrap: anywhere. */
+.set-dev > .stack { min-width: 0; flex: 1 1 auto; }
+.set-dev .meta, #settings-session .fl-v { overflow-wrap: anywhere; }
+#settings-session .fl-v { white-space: normal; text-align: right; min-width: 0; }
+
+@media (max-width: 640px) {
+  .table-wrap .set-mods { min-width: 0; }
+  .set-mods thead { display: none; }
+  .set-mods tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px var(--s-2);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .set-mods tr:last-child { border-bottom: 0; }
+  .set-mods td { display: block; padding: 0; border: 0; min-width: 0; }
+  .set-mods td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .set-mods td:nth-child(3) { grid-column: 2; grid-row: 1; color: var(--dim); font-size: 0.7rem; }
+  .set-mods td:nth-child(4) { grid-column: 3; grid-row: 1; color: var(--dim); font-size: 0.7rem; }
+  .set-mods td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .set-mods td:nth-child(2) .meta { overflow-wrap: anywhere; }
+  .set-mods tbody tr:hover { background: none; }
+  /* Without the header row, a bare "—" under no label says nothing. */
+  .set-mods td[data-empty] { display: none; }
 }
