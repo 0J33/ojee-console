@@ -150,8 +150,17 @@
        it nothing to push against — so it drifted up and down the rail
        depending on how many views the open module happened to have. */
     display: flex; flex-direction: column; gap: 2px;
-    position: sticky; top: calc(var(--hud-h) + var(--nav-h));
-    height: calc(100dvh - var(--hud-h) - var(--nav-h));
+    /* The rail fills the window between the two top bars and the status bar.
+       It used to subtract only the top two, so on any page shorter than the
+       window the rail plus the 24px status bar overshot by exactly 24px — and
+       since the rail is on every page at this width, every page scrolled,
+       however little was on it. The safe-area terms are 0 on a desktop; they
+       are there for an iPad in landscape, which is wide enough for the rail
+       and pays for its notch and home bar in the bars' own heights. */
+    --statusbar-h: 24px;   /* .statusbar's min-height in ojee-ui.css */
+    position: sticky; top: calc(var(--hud-h) + var(--nav-h) + env(safe-area-inset-top));
+    height: calc(100dvh - var(--hud-h) - var(--nav-h) - var(--statusbar-h)
+                 - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y: auto;
     padding: var(--s-3) var(--s-2) var(--s-5);
     border-right: 1px solid var(--line);
