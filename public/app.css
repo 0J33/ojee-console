@@ -33,6 +33,26 @@
 .statusbar .warn { color: var(--warn); }
 .statusbar .warn::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
 
+/* ---------- status bar ---------- */
+/* Pinned to the bottom of the window the way the hud and nav are pinned to the
+   top, so a long page scrolls UNDER it instead of carrying it off-screen and
+   only showing it once you reach the end.
+
+   sticky, not fixed. It is the last thing in the body's flex column, so it
+   keeps its own space at the end of the flow: a short page still ends exactly
+   at the window bottom with nothing to scroll, and on a long one the last row
+   of content comes to rest above the bar rather than behind it. The nav's
+   translucent surface and blur, so what scrolls behind reads as behind.
+
+   Only matters above 860px — below that the tab bar replaces it and the design
+   system hides it. */
+body.app .statusbar {
+  position: sticky; bottom: 0; z-index: var(--z-nav);
+  background: var(--chrome-surface);
+  -webkit-backdrop-filter: var(--chrome-blur);
+  backdrop-filter: var(--chrome-blur);
+}
+
 /* ---------- login ---------- */
 .login-body {
   display: flex; align-items: center; justify-content: center;
