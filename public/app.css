@@ -270,10 +270,16 @@ body.app .statusbar {
    page, `idle-` the full-screen display. All tokens; the dial is the one round
    thing in the system, because it is a dial. */
 
-.ov-chrono { display: grid; gap: var(--s-4); }
+.ov-chrono { display: grid; }
 /* It is a readout, not a control: no hover lift. */
 .ov-chrono:hover { border-color: var(--line-2); background: var(--panel); }
-.ov-chrono-acts { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+/* The way into the idle display: one icon in the panel's corner, inside the
+   corner brackets rather than on them. On a wide screen the panel keeps a
+   gutter for it, so it never sits on the dial's minute ring. */
+.ov-chrono-max { position: absolute; top: var(--s-3); right: var(--s-3); }
+@media (min-width: 641px) {
+  .ov-chrono { padding-right: calc(var(--s-3) * 2 + 34px); }
+}
 
 .ch { display: grid; align-items: center; min-width: 0; }
 .ch--home { grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-5); }
@@ -368,8 +374,12 @@ body.app .statusbar {
   /* A phone gets the readout and the rail; the dial would cost the whole
      first screen for the same information. */
   .ch--home .ch-dialwrap { display: none; }
-  .ch-readbox { width: 100%; }
-  .ov-chrono-acts .btn { flex: 1 1 auto; }
+  /* No dial here, so the icon shares the readout's row. The digits are sized
+     from the panel's own width minus the icon (34px, plus a 12px gap) — the
+     readout's text measures 4.36em wide — so at no screen width can the
+     seconds run under it. */
+  .ov-clock { container-type: inline-size; }
+  .ov-chrono .ch-read { font-size: min(6rem, calc((100cqi - 46px) / 4.4)); }
 }
 
 /* ── the idle display ─────────────────────────────────────────────────────── */
@@ -443,7 +453,6 @@ body.is-idle #view { min-height: 100dvh; }
   transition: opacity var(--dur) ease;
 }
 .idle:not(.is-active) .idle-tools:not(:focus-within) { opacity: 0; pointer-events: none; }
-.ch-pips.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-08); }
 
 /* A portrait monitor, or a narrow window: dial over readout. */
 @media (max-aspect-ratio: 1/1), (max-width: 900px) {

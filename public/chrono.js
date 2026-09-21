@@ -14,8 +14,6 @@
                as the approach to :00
      facts     date, zone, and where the time comes from, with a
                measured ± rather than a claim
-     pips      an optional one-shot time signal: five short and one
-               long, the long one starting exactly on the minute
 
    Every clock reads timesync.now(), never new Date().
    ============================================================ */
@@ -102,61 +100,6 @@ function deviceLine(inf) {
   if (a < 50) return 'on time';
   const amt = a >= 1000 ? `${(a / 1000).toFixed(a >= 10_000 ? 0 : 1)} s` : `${a} ms`;
   return `${amt} ${v > 0 ? 'fast' : 'slow'}`;
-}
-
-/* ── the time signal ───────────────────────────────────────────────────
-   One shot, never a loop: it arms for the coming minute, sounds, and
-   disarms itself. A clock left on a monitor must not start beeping every
-   minute because someone pressed a button once. */
-const pips = {
-  ctx: null, target: 0, timer: null, subs: new Set(),
-  get armed() { return this.target > 0; },
-  emit() { this.subs.forEach((fn) => fn(this)); },
-  cancel() {
-    clearTimeout(this.timer); this.timer = null; this.target = 0;
-    if (this.ctx) { this.ctx.close().catch(() => {}); this.ctx = null; }
-    this.emit();
-  },
-  arm() {
-    if (this.armed) { this.cancel(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    // Created inside the click, which is what lets it make sound at all.
-    this.ctx = new AC();
-    const t = now();
-    // The full sequence starts five seconds before the minute; if that moment
-    // has already passed, aim at the one after.
-    let target = Math.ceil(t / 60_000) * 60_000;
-    if (target - t < 5_500) target += 60_000;
-    this.target = target;
-
-    const ctx = this.ctx;
-    const lat = ctx.outputLatency || ctx.baseLatency || 0;
-    const lead = (target - now()) / 1000;
-    for (let k = 0; k < 6; k++) {
-      // Five 100 ms pips at :55–:59, then a 500 ms one whose START is :00.
-      const at = ctx.currentTime + lead - (5 - k) - lat;
-      const len = k === 5 ? 0.5 : 0.1;
-      const osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.frequency.value = 1000;
-      g.gain.setValueAtTime(0, at);
-      g.gain.linearRampToValueAtTime(0.18, at + 0.004);
-      g.gain.setValueAtTime(0.18, at + len - 0.006);
-      g.gain.linearRampToValueAtTime(0, at + len);
-      osc.connect(g).connect(ctx.destination);
-      osc.start(at); osc.stop(at + len + 0.02);
-    }
-    this.timer = setTimeout(() => this.cancel(), target - now() + 1200);
-    this.emit();
-  },
-};
-
-function pipsButton() {
-  return `<button type="button" class="btn btn--ghost btn--sm ch-pips" aria-pressed="false"
-            title="Five short pips and one long; the long one starts on the minute">
-    <svg class="ic" aria-hidden="true"><use href="#i-volume"></use></svg>
-    <span class="ch-pips-l">Pips at :00</span>
-  </button>`;
 }
 
 /* ── mount ────────────────────────────────────────────────────────────
@@ -279,28 +222,13 @@ export function mountChrono(el, { variant = 'home' } = {}) {
   const offSync = onChange(paintFacts);
   paintFacts();
 
-  // Pips: the home variant carries its own button; the idle one is handed a
-  // button by the caller and wired through wirePips.
-  const pipBtns = new Set();
-  const paintPips = () => pipBtns.forEach((b) => {
-    b.setAttribute('aria-pressed', String(pips.armed));
-    b.classList.toggle('is-on', pips.armed);
-    const l = b.querySelector('.ch-pips-l');
-    if (l) l.textContent = pips.armed ? `Armed · ${new Date(pips.target).toTimeString().slice(0, 5)}` : 'Pips at :00';
-  });
-  pips.subs.add(paintPips);
-  const wirePips = (btn) => { pipBtns.add(btn); btn.addEventListener('click', () => pips.arm()); paintPips(); };
-
   return {
     el,
-    wirePips,
-    pipsButton,
     destroy() {
       cancelAnimationFrame(raf); clearTimeout(stepTimer); clearTimeout(flashTimer);
       REDUCED.removeEventListener('change', run);
-      offSync(); pips.subs.delete(paintPips);
+      offSync();
     },
   };
 }
 
-export { pipsButton, pips };

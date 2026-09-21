@@ -22,7 +22,7 @@
 import {
   esc, icon, toast, modal, relTime, ModuleHost, parseHash,
 } from '/chrome.js';
-import { mountChrono, pipsButton } from '/chrono.js';
+import { mountChrono } from '/chrono.js';
 import * as timesync from '/timesync.js';
 
 // The native bridge. Every export is a no-op in a browser, so the shell has
@@ -601,10 +601,8 @@ function renderLauncher() {
         <h1 class="sr-only">Overview</h1>
         <div class="ov-chrono panel corners"><span class="c"></span>
           <div class="ov-clock" id="ov-clock"></div>
-          <div class="ov-chrono-acts">
-            <a class="btn btn--ghost btn--sm" href="#/idle">${icon('i-full')} Idle display</a>
-            ${pipsButton()}
-          </div>
+          <a class="iconbtn ov-chrono-max" href="#/idle"
+             aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
         </div>
         <div id="ov-status"></div>
         <div class="ov-grid" id="ov-grid"></div>
@@ -614,7 +612,6 @@ function renderLauncher() {
         </footer>
       </section>`;
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
-    homeChrono.wirePips($('#view .ch-pips'));
   }
   $('#ov-status').innerHTML = statusHTML(mods, alerts);
   $('#ov-grid').innerHTML = mods.map(moduleCard).join('');
@@ -734,13 +731,11 @@ function renderIdle() {
           <div class="idle-clock" id="idle-clock"></div>
         </div>
         <div class="idle-tools">
-          ${pipsButton()}
           <button class="iconbtn idle-fs" type="button"></button>
           <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>
         </div>
       </section>`;
     homeChrono = mountChrono($('#idle-clock'), { variant: 'idle' });
-    homeChrono.wirePips($('#view .ch-pips'));
     idleRig = startIdleRig($('#view > .idle'));
   }
   $('#idle-clock .ch-slot').innerHTML = idleStatusHTML();
