@@ -20,8 +20,10 @@
    second copy of the shell's utilities.
    ============================================================ */
 import {
-  esc, icon, toast, modal, relTime, clock, ModuleHost, parseHash,
+  esc, icon, toast, modal, relTime, ModuleHost, parseHash,
 } from '/chrome.js';
+import { mountChrono, pipsButton } from '/chrono.js';
+import * as timesync from '/timesync.js';
 
 // The native bridge. Every export is a no-op in a browser, so the shell has
 // one code path rather than a web build and an app build.
@@ -74,6 +76,7 @@ function setTitle() {
   const { module, view } = state.active;
   const parts = [brandName()];
   if (module === 'settings') parts.push('settings');
+  else if (module === 'idle') parts.push('clock');
   else if (module) {
     const m = state.modules.find((x) => x.id === module);
     parts.push((m?.name || module).toLowerCase());
@@ -326,6 +329,8 @@ function paletteItems() {
     }
   }
   out.push({ group: 'Console', label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
+  out.push({ group: 'Console', label: 'Idle display', hint: 'full-screen clock',
+             href: '#/idle', icon: 'i-monitor' });
   out.push({ group: 'Console', label: 'Settings', hint: 'devices, session',
              href: '#/settings', icon: 'i-cog' });
   return out;
@@ -539,46 +544,206 @@ function moduleCard(m, i) {
     </a>`;
 }
 
-function renderLauncher() {
-  const mods = state.modules.filter((m) => m.enabled);
+/* The launcher is built ONCE per visit and then only its data is refreshed.
+   It used to rewrite the whole view every 20 seconds, which was harmless while
+   it was static — and would restart a running clock three times a minute. */
+let homeChrono = null;
+let idleRig = null;
+
+function teardownHome() {
+  homeChrono?.destroy(); homeChrono = null;
+  idleRig?.stop(); idleRig = null;
+  document.body.classList.remove('is-idle');
+}
+
+function statusHTML(mods, alerts) {
   const ready = mods.filter((m) => m.status === 'ready').length;
   const peer = state.session?.peer?.display || state.session?.user || '';
+  if (!alerts.length) {
+    // Healthy is one line. It used to be a full-width bordered box — the
+    // biggest thing on the page, used to say that nothing needed looking at.
+    return `
+      <div class="ov-verdict ov-verdict--line is-ok">
+        ${icon('i-shield', 'ic')}
+        <strong>All ${mods.length} modules healthy</strong>
+        <span class="meta">${ready} of ${mods.length} reporting${peer ? ` · ${esc(peer)}` : ''}</span>
+      </div>`;
+  }
+  return `
+    <div class="ov-verdict is-bad">
+      ${icon('i-warn', 'ic')}
+      <div class="ov-verdict-body">
+        <strong>${alerts.length} thing${alerts.length > 1 ? 's need' : ' needs'} attention</strong>
+        <div class="ov-alerts">${alerts.slice(0, 6).map((a) => `
+          <a class="ov-alert ov-alert--${esc(a.severity)}"
+             href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">${esc(a.text)}</a>`).join('')}</div>
+        <span class="meta">${ready} of ${mods.length} modules ready${peer ? ` · ${esc(peer)}` : ''}</span>
+      </div>
+    </div>`;
+}
+
+function renderLauncher() {
+  const mods = state.modules.filter((m) => m.enabled);
   const alerts = overviewAlerts();
 
   if (!mods.length) {
+    teardownHome();
     $('#view').innerHTML = `<div class="empty">${icon('i-warn', 'ic ic--xl')}
       <b>No modules configured</b>
       <span>Add one to config/console.json and reload.</span></div>`;
     return;
   }
 
-  $('#view').innerHTML = `
-    <section class="ov">
-      <header class="ov-head">
-        <h1 class="h1">Overview</h1>
-        <span class="meta">${ready} of ${mods.length} modules ready${peer ? ` · ${esc(peer)}` : ''}</span>
-      </header>
-
-      <div class="ov-verdict ${alerts.length ? 'is-bad' : 'is-ok'}">
-        ${icon(alerts.length ? 'i-warn' : 'i-shield', 'ic')}
-        <div class="ov-verdict-body">
-          ${alerts.length
-            ? `<strong>${alerts.length} thing${alerts.length > 1 ? 's need' : ' needs'} attention</strong>
-               <div class="ov-alerts">${alerts.slice(0, 6).map((a) => `
-                 <a class="ov-alert ov-alert--${esc(a.severity)}"
-                    href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">${esc(a.text)}</a>`).join('')}</div>`
-            : `<strong>Everything is healthy.</strong>
-               <span class="meta">Every module is up and reporting.</span>`}
+  if (!$('#view > .ov')) {
+    teardownHome();
+    $('#view').innerHTML = `
+      <section class="ov">
+        <h1 class="sr-only">Overview</h1>
+        <div class="ov-chrono panel corners"><span class="c"></span>
+          <div class="ov-clock" id="ov-clock"></div>
+          <div class="ov-chrono-acts">
+            <a class="btn btn--ghost btn--sm" href="#/idle">${icon('i-full')} Idle display</a>
+            ${pipsButton()}
+          </div>
         </div>
-      </div>
+        <div id="ov-status"></div>
+        <div class="ov-grid" id="ov-grid"></div>
+        <footer class="ov-foot">
+          <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
+          <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
+        </footer>
+      </section>`;
+    homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
+    homeChrono.wirePips($('#view .ch-pips'));
+  }
+  $('#ov-status').innerHTML = statusHTML(mods, alerts);
+  $('#ov-grid').innerHTML = mods.map(moduleCard).join('');
+}
 
-      <div class="ov-grid">${mods.map(moduleCard).join('')}</div>
+/* ── the idle display ─────────────────────────────────────────────────────
+   #/idle: the home page for a monitor that is left on it. The chrome goes,
+   the clock takes the screen, and the modules report underneath it. Built for
+   being on all day: the screen is held awake, the pointer and controls hide
+   when nobody is using them, the whole layout drifts a few pixels each minute
+   so nothing sits on the same pixels for hours, and it dims at night. */
 
-      <footer class="ov-foot">
-        <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
-        <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
-      </footer>
-    </section>`;
+function idleStatusHTML() {
+  const mods = state.modules.filter((m) => m.enabled);
+  const alerts = overviewAlerts();
+  const row = (m) => {
+    const ready = m.status === 'ready';
+    const sum = state.summaries.get(m.id);
+    const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
+      : sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok';
+    const facts = (sum?.facts || []).slice(0, 3)
+      .map((f) => `<span><em>${esc(f.k)}</em> ${esc(String(f.v))}</span>`).join('');
+    return `
+      <li class="idle-mod${ready ? '' : ' is-down'}">
+        <span class="dot ${dot}"></span>
+        <b>${esc(m.name)}</b>
+        <span class="idle-mod-h">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+        ${facts ? `<span class="idle-mod-f">${facts}</span>` : ''}
+      </li>`;
+  };
+  return `
+    ${alerts.length ? `
+      <div class="idle-alerts" role="status">
+        ${icon('i-warn', 'ic')}
+        <div>${alerts.slice(0, 4).map((a) => `<p class="idle-alert idle-alert--${esc(a.severity)}">${esc(a.text)}</p>`).join('')}</div>
+      </div>` : ''}
+    <ul class="idle-mods">${mods.map(row).join('')}</ul>`;
+}
+
+function startIdleRig(root) {
+  const stage = root.querySelector('.idle-stage');
+  const fsBtn = root.querySelector('.idle-fs');
+  let lock = null, stillTimer = 0, minuteTimer = 0, enteredFs = false;
+  const off = [];
+  const on = (t, ev, fn, o) => { t.addEventListener(ev, fn, o); off.push(() => t.removeEventListener(ev, fn, o)); };
+
+  // Keep the screen awake. Released by the browser whenever the tab is hidden,
+  // so it is asked for again each time it comes back.
+  const wake = async () => {
+    try { if (!document.hidden && navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch { /* denied: harmless */ }
+  };
+  wake();
+  on(document, 'visibilitychange', wake);
+
+  // Pointer and controls hide after a few quiet seconds; any movement or
+  // keyboard focus brings them back.
+  const active = () => {
+    root.classList.add('is-active');
+    clearTimeout(stillTimer);
+    stillTimer = setTimeout(() => root.classList.remove('is-active'), 2800);
+  };
+  active();
+  on(root, 'pointermove', active);
+  on(root, 'pointerdown', active);
+
+  // Once a minute: drift a few pixels, and dim between 23:00 and 06:00.
+  const minute = () => {
+    const h = new Date(timesync.now()).getHours();
+    root.classList.toggle('is-night', h >= 23 || h < 6);
+    const d = () => Math.round((Math.random() * 2 - 1) * 6);
+    stage.style.translate = `${d()}px ${d()}px`;
+    minuteTimer = setTimeout(minute, 60_000 - (timesync.now() % 60_000) + 50);
+  };
+  minute();
+
+  const paintFs = () => {
+    const fs = !!document.fullscreenElement;
+    fsBtn.innerHTML = icon(fs ? 'i-unfull' : 'i-full');
+    fsBtn.setAttribute('aria-label', fs ? 'Leave full screen' : 'Full screen');
+    fsBtn.title = `${fs ? 'Leave full screen' : 'Full screen'}  F`;
+  };
+  const toggleFs = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else { await document.documentElement.requestFullscreen(); enteredFs = true; }
+    } catch { /* not allowed here: the display still works windowed */ }
+  };
+  paintFs();
+  fsBtn.hidden = !document.fullscreenEnabled;
+  on(fsBtn, 'click', toggleFs);
+  on(document, 'fullscreenchange', paintFs);
+  on(document, 'keydown', (e) => {
+    if (e.target.closest?.('input, textarea, [contenteditable]')) return;
+    if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFs(); }
+    // In full screen the browser spends Escape on leaving it; windowed, Escape
+    // leaves the display.
+    else if (e.key === 'Escape' && !document.fullscreenElement) location.hash = '#/';
+  });
+
+  return {
+    stop() {
+      off.forEach((f) => f());
+      clearTimeout(stillTimer); clearTimeout(minuteTimer);
+      lock?.release().catch(() => {});
+      if (enteredFs && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    },
+  };
+}
+
+function renderIdle() {
+  if (!$('#view > .idle')) {
+    teardownHome();
+    document.body.classList.add('is-idle');
+    $('#view').innerHTML = `
+      <section class="idle" aria-label="Clock and status">
+        <div class="idle-stage">
+          <div class="idle-clock" id="idle-clock"></div>
+        </div>
+        <div class="idle-tools">
+          ${pipsButton()}
+          <button class="iconbtn idle-fs" type="button"></button>
+          <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>
+        </div>
+      </section>`;
+    homeChrono = mountChrono($('#idle-clock'), { variant: 'idle' });
+    homeChrono.wirePips($('#view .ch-pips'));
+    idleRig = startIdleRig($('#view > .idle'));
+  }
+  $('#idle-clock .ch-slot').innerHTML = idleStatusHTML();
 }
 
 async function renderSettings() {
@@ -723,9 +888,11 @@ let overviewTimer = null;
 function startOverviewPoll() {
   stopOverviewPoll();
   overviewTimer = setInterval(async () => {
-    if (document.hidden || state.active.module) return;
+    if (document.hidden) return;
+    if (state.active.module && state.active.module !== 'idle') return;
     await refreshSummaries();
     if (!state.active.module) { renderLauncher(); renderSidenav(); }
+    else if (state.active.module === 'idle') renderIdle();
   }, 20000);
 }
 
@@ -759,7 +926,19 @@ async function route() {
       return;
     }
 
+    if (module === 'idle') {
+      state.active = { module: 'idle', view: null };
+      renderNav();
+      setTitle();
+      await host.unmount();
+      renderIdle();
+      refreshSummaries().then(() => { if (state.active.module === 'idle') renderIdle(); });
+      startOverviewPoll();
+      return;
+    }
+
     stopOverviewPoll();
+    teardownHome();
 
     if (module === 'settings') {
       state.active = { module: 'settings', view: null };
@@ -839,7 +1018,16 @@ async function boot() {
     nativeBridge.noteModuleHealth(state.modules);
   }, 20000);
 
-  clock($('#hud-clock'));
+  // The hud clock reads the same reference as the home page, so two clocks on
+  // one screen never disagree about which second it is.
+  timesync.start();
+  const hud = $('#hud-clock');
+  const hudTick = () => {
+    const t = timesync.now();
+    hud.textContent = timesync.hms(t);
+    setTimeout(hudTick, 1000 - (t % 1000) + 4);
+  };
+  hudTick();
   wirePalette();
   $('#nav-jump')?.addEventListener('click', openPalette);
 

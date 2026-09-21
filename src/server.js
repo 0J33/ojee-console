@@ -31,6 +31,7 @@ import { DeviceStore } from './auth/devices.js';
 import { SessionCodec, parseCookies, cookieHeader } from './auth/session.js';
 import { ModuleRegistry } from './modules/registry.js';
 import { createModuleProxy, proxyUpgrade } from './modules/proxy.js';
+import { TimeReference } from './time.js';
 
 const cfg = loadConfig();
 
@@ -52,6 +53,10 @@ const devices = new DeviceStore({
   trustDays: cfg.auth.trustDays,
 });
 const registry = new ModuleRegistry({ configured: cfg.modules });
+// Measures this host's offset from UTC over NTP, so the home page's clock can
+// state its own accuracy instead of assuming it. Off in tests (no network).
+const timeRef = new TimeReference();
+if (process.env.NTP_PROBE !== 'off') timeRef.start();
 
 const app = express();
 app.disable('x-powered-by');
@@ -302,6 +307,20 @@ app.get('/api/session', requireAuth, (req, res) => {
     expiresAt: req.session.exp || null,
     trustDays: cfg.auth.trustDays,
   });
+});
+
+/**
+ * The reference time, for the home page's clock.
+ *
+ * The browser treats this like an NTP server of its own: it notes when it asked
+ * and when the answer arrived, assumes the reply was generated halfway, and
+ * keeps the sample with the shortest round trip. `ntp` is this server's own
+ * measurement against an NTP server, so the page can say how far it trusts it.
+ * Never cached — a cached timestamp is a wrong one.
+ */
+app.get('/api/time', requireAuth, (req, res) => {
+  res.set('cache-control', 'no-store');
+  res.json({ t: timeRef.now(), ntp: timeRef.status() });
 });
 
 app.get('/api/modules', requireAuth, (req, res) => {

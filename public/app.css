@@ -31,6 +31,13 @@
 .hudbar .seg--degraded::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
 .hudbar .seg--degraded, .hudbar .seg--degraded b { color: var(--warn); }
 .statusbar .warn { color: var(--warn); }
+
+/* .hide-sm is display:none under 700px, but `.hudbar .seg` sets display at
+   higher specificity, so the user segment never hid — and on a phone it pushed
+   the clock off the end of the bar. */
+@media (max-width: 700px) {
+  .hudbar .seg.hide-sm { display: none; }
+}
 .statusbar .warn::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
 
 /* ---------- status bar ---------- */
@@ -130,6 +137,16 @@ body.app .statusbar {
   padding: var(--s-3); border: 1px solid var(--line-strong); background: var(--panel);
 }
 .ov-verdict.is-ok { border-color: var(--ok); color: var(--ok); }
+/* Healthy is one quiet line, not a box: the box is kept for when something
+   needs looking at, so its appearance means something. */
+.ov-verdict--line {
+  align-items: center; flex-wrap: wrap; gap: 6px var(--s-2);
+  padding: 10px var(--s-3);
+}
+.ov-verdict--line.is-ok { border-color: var(--line); }
+.ov-verdict--line strong { color: var(--ink); font-size: 0.8rem; }
+.ov-verdict--line .meta { margin-left: auto; }
+.ov-verdict .meta { overflow-wrap: anywhere; }
 .ov-verdict.is-bad { border-color: var(--warn); color: var(--warn); }
 .ov-verdict-body { color: var(--ink-2); font-size: 0.82rem; display: grid; gap: 6px; }
 .ov-verdict-body strong { color: inherit; }
@@ -153,12 +170,15 @@ body.app .statusbar {
 .ov-card-head { display: flex; align-items: center; gap: 8px; color: var(--accent); }
 .ov-card-name { flex: 1 1 auto; font-family: var(--mono); font-weight: 700; font-size: 0.86rem; color: var(--ink); }
 .ov-card-line { font-size: 0.76rem; color: var(--ink-2); }
-.ov-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--s-2); margin: 0; }
-.ov-fact { display: grid; gap: 1px; min-width: 0; }
-.ov-fact dt { font-family: var(--hud); font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+/* One fact per row, key left and value right, wrapping. Two columns of
+   ellipsised values threw away exactly the part worth reading — "cool · 26° ·
+   fa…", "LOQ · Linux, HP…" — at every card width the grid produces. */
+.ov-facts { display: grid; gap: 5px; margin: 0; padding-top: var(--s-2); border-top: 1px solid var(--line-2); }
+.ov-fact { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--s-3); min-width: 0; }
+.ov-fact dt { font-family: var(--hud); font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .ov-fact dd {
   margin: 0; font-family: var(--mono); font-size: 0.74rem; color: var(--ink-2);
-  font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere;
 }
 .ov-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
 
@@ -242,4 +262,195 @@ body.app .statusbar {
   .set-mods tbody tr:hover { background: none; }
   /* Without the header row, a bare "—" under no label says nothing. */
   .set-mods td[data-empty] { display: none; }
+}
+
+
+/* ── the chronometer ───────────────────────────────────────────────────────
+   `ch-` is the clock (public/chrono.js), `ov-chrono` its panel on the home
+   page, `idle-` the full-screen display. All tokens; the dial is the one round
+   thing in the system, because it is a dial. */
+
+.ov-chrono { display: grid; gap: var(--s-4); }
+/* It is a readout, not a control: no hover lift. */
+.ov-chrono:hover { border-color: var(--line-2); background: var(--panel); }
+.ov-chrono-acts { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+
+.ch { display: grid; align-items: center; min-width: 0; }
+.ch--home { grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-5); }
+.ch-main { display: grid; gap: var(--s-4); justify-items: start; min-width: 0; }
+.ch-readbox { display: grid; gap: var(--s-3); max-width: 100%; }
+
+/* The readout. Geist Mono at its lightest weight: an instrument's numerals,
+   not a headline. Tabular so nothing shifts as the digits change; the colons
+   tucked in so the three pairs read as one figure. */
+.ch-read {
+  font-family: var(--mono); font-weight: 300;
+  font-size: clamp(3.2rem, 16.5vw, 6rem);
+  line-height: 0.9; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--ink);
+}
+.ch-sep { color: var(--dim); margin-inline: -0.05em; }
+.ch-ss { color: var(--accent); text-shadow: 0 0 0.35em var(--glow-mid); transition: color var(--dur-2); }
+.ch.is-top .ch-ss { color: var(--ink-hi); }
+
+/* The minute as sixty marks: every fifth taller, the last five set apart as
+   the approach to :00 — the second you push the crown back in. */
+.ch-rail { display: grid; grid-template-columns: repeat(60, minmax(0, 1fr)); gap: 2px; height: 12px; align-items: end; }
+.ch-rail i { display: block; height: 6px; background: var(--line); }
+.ch-rail i:nth-child(5n + 1) { height: 12px; }
+.ch-rail i.on { background: var(--accent); opacity: 0.8; }
+.ch-rail i.ch-app { background: var(--line-strong); }
+.ch-rail i.ch-app.on { background: var(--ink-hi); opacity: 1; }
+.ch.is-top .ch-rail i { animation: ch-flash 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes ch-flash { 0% { background: var(--accent); opacity: 1; } 100% { opacity: 0.8; } }
+
+.ch-tb { width: 100%; }
+.ch-tb .tb-v { font-variant-numeric: tabular-nums; }
+.ch-src { display: inline-flex; align-items: center; gap: 8px; cursor: help; }
+.ch-src .dot { flex: none; }
+.ch-src .dot--ok { animation: none; }
+
+/* ── the dial ──
+   A 184-unit face: minute track at r86, hands measured against it. The face
+   is SVG drawn once; hands are HTML moved by transform only. */
+.ch-dialwrap { width: clamp(168px, 17vw, 232px); }
+.ch-dial { position: relative; aspect-ratio: 1; width: 100%; }
+.ch-face { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ch-face line, .ch-face circle { vector-effect: non-scaling-stroke; }
+.ch-rim { fill: none; stroke: var(--line); stroke-width: 1px; }
+.ch-t1 { stroke: var(--line-strong); stroke-width: 1px; }
+.ch-t5 { stroke: var(--ink-2); stroke-width: 2px; }
+.ch-num text {
+  font-family: var(--hud); font-size: 11px; fill: var(--dim);
+  text-anchor: middle; dominant-baseline: central;
+}
+
+.ch-hands { position: absolute; inset: 0; }
+.ch-hand {
+  position: absolute; bottom: 50%;
+  left: calc(50% - var(--w) / 2); width: var(--w);
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+.ch-hand--h { --w: max(3px, 1.7%); height: 26%; background: var(--ink); }
+.ch-hand--m { --w: max(2px, 1.05%); height: 41.3%; background: var(--ink); }
+/* Seconds: 82 units forward, an 18-unit counterweight behind the pivot. */
+.ch-hand--s {
+  --w: max(1px, 0.5%); height: 54.35%; bottom: 40.22%;
+  transform-origin: 50% 82%;
+  background: var(--accent); box-shadow: 0 0 6px var(--glow-soft);
+}
+/* Where the seconds hand has just been: a wedge that fades behind it. It is
+   one static gradient, rotated with the hand — never repainted. */
+.ch-trail {
+  position: absolute; inset: 3.26%; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg 318deg, var(--glow-faint) 342deg, var(--glow-mid) 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 30%, black 58%, black 100%);
+          mask: radial-gradient(closest-side, transparent 30%, black 58%, black 100%);
+  will-change: transform;
+}
+.ch.is-reduced .ch-trail { display: none; }
+.ch-hub {
+  position: absolute; left: 50%; top: 50%;
+  width: max(7px, 3.4%); aspect-ratio: 1; translate: -50% -50%;
+  border-radius: 50%; background: var(--bg); border: 2px solid var(--accent);
+}
+.ch-pulse {
+  position: absolute; inset: 3.26%; border-radius: 50%;
+  border: 1px solid var(--accent); opacity: 0; pointer-events: none;
+}
+.ch.is-top .ch-pulse { animation: ch-pulse 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes ch-pulse { 0% { opacity: 0.9; scale: 1; } 100% { opacity: 0; scale: 1.1; } }
+
+@media (max-width: 640px) {
+  .ch--home { grid-template-columns: minmax(0, 1fr); }
+  /* A phone gets the readout and the rail; the dial would cost the whole
+     first screen for the same information. */
+  .ch--home .ch-dialwrap { display: none; }
+  .ch-readbox { width: 100%; }
+  .ov-chrono-acts .btn { flex: 1 1 auto; }
+}
+
+/* ── the idle display ─────────────────────────────────────────────────────── */
+body.is-idle .hudbar, body.is-idle .nav, body.is-idle .viewstrip,
+body.is-idle .sidenav, body.is-idle .tabbar, body.is-idle .statusbar { display: none; }
+body.is-idle .shell { display: block; }
+body.is-idle .wrap { max-width: none; padding: 0; }
+body.is-idle #view { min-height: 100dvh; }
+
+.idle {
+  position: relative; min-height: 100dvh;
+  display: grid; place-items: center;
+  padding: clamp(24px, 4vw, 80px);
+  padding-top: max(clamp(24px, 4vw, 80px), env(safe-area-inset-top));
+  overflow: hidden;
+}
+.idle:not(.is-active) { cursor: none; }
+.idle-stage { width: 100%; max-width: 1760px; transition: translate 6s ease-in-out, opacity 3s ease; }
+.idle.is-night .idle-stage { opacity: 0.5; }
+
+.ch--idle { grid-template-columns: auto minmax(0, 1fr); gap: clamp(32px, 5vw, 128px); }
+.ch--idle .ch-dialwrap { width: min(76dvh, 44vw); }
+.ch--idle .ch-side { display: grid; gap: var(--s-4); justify-items: start; min-width: 0; }
+.ch--idle .ch-read { font-size: clamp(4rem, 8.6vw, 10.5rem); }
+.ch--idle .ch-rail { height: 14px; }
+.ch--idle .ch-rail i:nth-child(5n + 1) { height: 14px; }
+.ch--idle .ch-num text { font-size: 10px; }
+.ch--idle .ch-t5 { stroke-width: 3px; }
+.ch-date { font-size: clamp(0.95rem, 1.35vw, 1.4rem); color: var(--ink-2); letter-spacing: 0.01em; }
+.ch-line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s-4);
+  font-family: var(--hud); font-size: clamp(0.6rem, 0.72vw, 0.78rem);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+}
+.ch--idle .ch-src { color: var(--ink-2); }
+.ch-slot { width: 100%; margin-top: var(--s-3); }
+
+.idle-mods { list-style: none; display: grid; border-top: 1px solid var(--line); }
+.idle-mod {
+  display: grid; grid-template-columns: 10px minmax(5.5rem, auto) minmax(0, 1fr);
+  align-items: baseline; gap: 2px var(--s-3);
+  padding: 12px 0; border-bottom: 1px solid var(--line-2);
+  font-size: clamp(0.78rem, 0.9vw, 0.95rem);
+}
+.idle-mod .dot { align-self: center; }
+.idle-mod b { font-weight: 700; color: var(--ink); }
+.idle-mod-h { color: var(--ink-2); min-width: 0; }
+.idle-mod-f {
+  grid-column: 3; display: flex; flex-wrap: wrap; gap: 2px var(--s-3);
+  font-size: 0.86em; color: var(--dim); min-width: 0;
+}
+.idle-mod-f em {
+  font-style: normal; font-family: var(--hud); font-size: 0.72em;
+  letter-spacing: 0.14em; text-transform: uppercase; margin-right: 4px;
+}
+.idle-mod.is-down b, .idle-mod.is-down .idle-mod-h { color: var(--warn); }
+
+/* Something wrong outranks the clock: it sits above the module list in the
+   status colour, where a glance across the room will catch it. */
+.idle-alerts {
+  display: flex; gap: var(--s-2); align-items: flex-start;
+  padding: var(--s-3); margin-bottom: var(--s-3);
+  border: 1px solid var(--warn); color: var(--warn); background: var(--panel);
+}
+.idle-alert { font-size: clamp(0.8rem, 0.95vw, 1rem); }
+.idle-alert--err { color: var(--err); }
+
+.idle-tools {
+  position: absolute; top: max(20px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right));
+  display: flex; gap: var(--s-2); align-items: center;
+  transition: opacity var(--dur) ease;
+}
+.idle:not(.is-active) .idle-tools:not(:focus-within) { opacity: 0; pointer-events: none; }
+.ch-pips.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-08); }
+
+/* A portrait monitor, or a narrow window: dial over readout. */
+@media (max-aspect-ratio: 1/1), (max-width: 900px) {
+  .ch--idle { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .ch--idle .ch-dialwrap { width: min(86vw, 50dvh); }
+  .ch--idle .ch-side { justify-items: center; text-align: center; width: 100%; max-width: 900px; }
+  .ch--idle .ch-read { font-size: clamp(3.2rem, 15vw, 9rem); }
+  .ch-line { justify-content: center; }
+  .idle-mods { text-align: left; }
 }
