@@ -560,7 +560,13 @@ body.is-module .wrap {
 body.is-module .modhead {
   position: sticky;
   top: calc(var(--chrome-top, 96px) + var(--s-3));
-  max-height: calc(100dvh - var(--chrome-top, 96px) - var(--s-5));
+  /* NO max-height. It was there to keep a sticky column inside the viewport,
+     and what it actually did was squeeze the grid whenever the readings under
+     the object ran to an extra line — which shortened the object's box, and
+     the scene fits an object to the SHORT side of its box. So the same object
+     came out a different size on different loads depending on whether a
+     headline wrapped. The column is a square plus three short lines; it fits
+     without being told to. */
   display: grid;
   /* Declared, not implicit. Left implicit the single column is content-sized,
      and the object's own `width: 100%` contributes nothing to it — a circular

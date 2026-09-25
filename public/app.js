@@ -779,7 +779,7 @@ let stagePending = null;
    apart, each glowing alone. A module's page shows exactly one object and
    shows it big, so it gets a little less; the idle display, read from across
    a room, a little more. */
-const bloomFor = (screen) => (screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 1.25 : 0.85);
+const bloomFor = (screen) => (screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 0.85 : 0.85);
 
 async function ensureStage(screen) {
   const host = mvHost();
@@ -873,7 +873,7 @@ function bindModels(screen, ids) {
     // in a header strip was a smudge, and it is the one thing on that page
     // the module is about. On the plate it is one of five in a column, so it
     // keeps the register's fill.
-    const fill = screen.startsWith('mod:') ? 1.25 : 0.78;
+    const fill = screen.startsWith('mod:') ? 0.85 : 0.78;
     for (const id of ids) st.bind(id, `[data-dial="${id}"]`, { fill });
     pushModelStates();
   });

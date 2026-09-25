@@ -329,6 +329,16 @@ export function mount(host, o = {}) {
       if (ax > TURN_PX && ax > ay) { drag.x = e.clientX; drag.y = e.clientY; begin(); } else return;
     }
     if (!drag.on) return;
+    /* A drag that is never told it ended is a page that never scrolls again.
+       A module can capture the pointer and stop its events propagating — the
+       remote session does exactly that over its own screen — and then no
+       pointerup ever reaches us, `drag.on` stays true, and every touchmove
+       after it is cancelled by the line below. On a phone that reads as
+       scrolling breaking the moment you leave the session.
+
+       So the end of a drag is inferred as well as listened for: no buttons
+       held means no drag, whatever we were told. */
+    if (e.buttons === 0) { up(e); return; }
     // Once it IS a turn, the page may not also scroll underneath it.
     if (drag.touch && e.cancelable) e.preventDefault();
     const k = perPixel() * 1.35;
@@ -356,12 +366,15 @@ export function mount(host, o = {}) {
     document.body.classList.remove('mv-turning');
   };
   if (o.drag) {
-    window.addEventListener('pointerdown', down);
+    /* Capture phase, all of them: these listeners sit on the window and a
+       module's own handler must not be able to strand them by stopping
+       propagation on the way up. */
+    window.addEventListener('pointerdown', down, { capture: true });
     // Not passive: once a touch has declared itself a turn, the move has to
     // be able to stop the page scrolling under it.
-    window.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    window.addEventListener('pointermove', move, { passive: false, capture: true });
+    window.addEventListener('pointerup', up, { capture: true });
+    window.addEventListener('pointercancel', up, { capture: true });
   }
 
   const tick = () => {
@@ -477,10 +490,10 @@ export function mount(host, o = {}) {
       ro.disconnect(); io.disconnect();
       document.removeEventListener('visibilitychange', onVis);
       if (o.drag) {
-        window.removeEventListener('pointerdown', down);
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-        window.removeEventListener('pointercancel', up);
+        window.removeEventListener('pointerdown', down, { capture: true });
+        window.removeEventListener('pointermove', move, { capture: true });
+        window.removeEventListener('pointerup', up, { capture: true });
+        window.removeEventListener('pointercancel', up, { capture: true });
       }
       document.body.classList.remove('mv-turning');
       scene.traverse((n) => {
