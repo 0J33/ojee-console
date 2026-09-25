@@ -170,6 +170,10 @@ export function mount(host, o = {}) {
     return null;
   }
   renderer.setClearColor(0x000000, 0);
+  // Parts can ask to be cut off at a boundary — a movement seen through the
+  // round window of a case back, for one. The planes themselves live on the
+  // materials that want them.
+  renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
   const ortho = o.ortho || 0;

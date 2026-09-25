@@ -243,7 +243,7 @@ function stone(r) {
    are so small and why a train can cross a movement in four steps. */
 const CASE_R = 1.4;
 const DIAL_R = 1.26;
-const MOV_R = 1.16;
+const MOV_R = 1.28;
 
 const L = {
   barrel: { x: -0.50, y: 0.42, r: 0.46, teeth: 60 },
@@ -658,20 +658,34 @@ export function build(o = {}) {
   back.add(rotor);
   parts.rotor = rotor;
 
-  /* The movement's layout was drawn against a larger case, and parts of it —
-     the ends of two bridges, their screws — reached past the caseback's
-     opening and showed outside the watch. Rather than nudge a dozen
-     coordinates and have it drift again the next time the case changes, the
-     whole thing is measured and scaled to fit the opening it goes in. That is
-     also how a movement works: it is a size, and a case is built round it. */
-  {
-    const box = new THREE.Box3().setFromObject(back);
-    let far = 0;
-    for (const x of [box.min.x, box.max.x]) {
-      for (const y of [box.min.y, box.max.y]) far = Math.max(far, Math.hypot(x, y));
-    }
-    if (far > 0) back.scale.setScalar(Math.min(1, (MOV_R * 0.97) / far));
+  /* The case back's window.
+
+     A movement is a size. It is not shrunk to suit a case — it is CUT OFF by
+     one, which is what looking through a display back actually shows you:
+     the bridges run out of sight under the ring rather than stopping politely
+     short of it. So nothing here is rescaled; the parts that reach past the
+     opening are clipped at it.
+
+     Sixteen planes stand in for the circle. They are written in the
+     movement's own frame and pushed into world space every frame, because
+     world space is the only space three.js clips in and this object turns. */
+  const CLIP_N = 16;
+  const clipLocal = [];
+  const clipWorld = [];
+  for (let i = 0; i < CLIP_N; i += 1) {
+    const a = (i / CLIP_N) * Math.PI * 2;
+    clipLocal.push(new THREE.Plane(new THREE.Vector3(-Math.cos(a), -Math.sin(a), 0), MOV_R));
+    clipWorld.push(new THREE.Plane());
   }
+  back.traverse((n) => {
+    if (!n.material) return;
+    for (const m of (Array.isArray(n.material) ? n.material : [n.material])) m.clippingPlanes = clipWorld;
+  });
+  const clipToCase = () => {
+    back.updateWorldMatrix(true, false);
+    for (let i = 0; i < CLIP_N; i += 1) clipWorld[i].copy(clipLocal[i]).applyMatrix4(back.matrixWorld);
+  };
+  clipToCase();
 
   /* ---- motion ---------------------------------------------------------
      The hands come from the clock, the train turns at the ratios its tooth
@@ -701,6 +715,7 @@ export function build(o = {}) {
   group.userData.tick = (t, dt, p, env) => {
     const slow = env && env.reduced ? 0.3 : 1;
     const d = new Date(now());
+    clipToCase();
 
     /* The seconds hand SWEEPS, because this is a mechanical watch and a
        mechanical seconds hand does not tick once a second — it steps once a
