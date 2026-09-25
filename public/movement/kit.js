@@ -208,10 +208,11 @@ export function mount(host, o = {}) {
   let last = performance.now() / 1000;
   const clock = { t: 0 };
 
+  let density = 1;
   const size = () => {
     const w = Math.max(1, host.clientWidth);
     const h = Math.max(1, host.clientHeight);
-    const dpr = Math.min(window.devicePixelRatio || 1, w < 720 ? 1.5 : 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, w < 720 ? 1.5 : 2) * density;
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
@@ -482,6 +483,17 @@ export function mount(host, o = {}) {
     },
     get locked() { return locked; },
     resize: size,
+    /* How many device pixels a world unit gets. A wireframe is made of
+       one-pixel lines, so rendering the same model twice the size does not
+       give you a bigger drawing — it gives you the same drawing with the
+       lines twice as far apart, which is a different picture. Dropping the
+       resolution as an object grows keeps the lines as close together as
+       they were drawn to be. */
+    setDensity(d) {
+      if (density === d) return;
+      density = d;
+      size();
+    },
     /* A scene now outlives the screen that asked for it, and different
        screens want different amounts of light. */
     setBloom(v) { if (bloom) bloom.strength = v; },

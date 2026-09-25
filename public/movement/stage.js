@@ -92,6 +92,7 @@ export async function create(host, o = {}) {
   /** Place every bound object on the box its layout gave it. */
   const sync = () => {
     raf = 0;
+    let smallest = Infinity;
     const hb = host.getBoundingClientRect();
     for (const slot of slots.values()) {
       if (slot.reserved) continue;
@@ -114,6 +115,7 @@ export async function create(host, o = {}) {
          sets an opacity of its own at runtime — a host that has gone down,
          a spring under tension — keeps it and has it scaled next time rather
          than being reset to what it was drawn with. */
+      smallest = Math.min(smallest, fit);
       const ink = inkFor(fit);
       slot.group.traverse((n) => {
         if (!n.material) return;
@@ -132,6 +134,23 @@ export async function create(host, o = {}) {
       // into it would put five smudges down the page.
       if (fit < 30) { slot.group.visible = false; continue; }
       slot.group.scale.setScalar(fit / (2 * MODEL_R * PPU));
+    }
+    /* The scene renders at the density the models were DRAWN for. A model is
+       one-pixel lines: draw it at twice the size and you do not get a bigger
+       drawing, you get the same lines twice as far apart — which is why an
+       object that reads as a dense glowing instrument on the plate reads as a
+       thin technical diagram when it is given a page to itself. Rendering
+       into fewer pixels and letting the browser scale the canvas up puts the
+       lines back the distance apart they were meant to be. */
+    /* Set from the SMALLEST object on the screen, never the largest. One
+       canvas serves every object, and the plate has a watch three times the
+       size of the registers beside it — sampling for the watch would render
+       those registers at half their pixels and turn them to mush. The
+       smallest object is the one that cannot afford to lose any, so it sets
+       the floor, and nothing is ever drawn at less density than it was
+       drawn for. */
+    if (Number.isFinite(smallest) && smallest > 0) {
+      view.setDensity?.(Math.min(1, Math.max(0.42, REF_FIT / smallest)));
     }
   };
   const queueSync = () => { if (!raf) raf = requestAnimationFrame(sync); };
