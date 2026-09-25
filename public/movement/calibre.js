@@ -86,31 +86,40 @@ const INNER = {
    squeezes its figures to fit four millimetres — but a Seiko's day and date
    are printed at normal width in a fairly wide grotesque, and against the
    real thing the condensed version reads as a different typeface. */
-/* The wheel faces.
+/* The wheel faces — matched against photographs of the real disc, not
+   reasoned about.
 
-   Seiko does not publish a typeface name — it cuts its own numerals per
-   model and corrects them optically, so there is no font to go and buy.
-   What a 7S26 day-date disc is printed in is a plain neo-grotesque:
-   flat-topped five, flagged one with no foot, even stroke, a G with no
-   spur, letters spaced by their own widths. That is Helvetica's
-   description, and Nimbus Sans is the freely redistributable cut of it —
-   so the wheel is set in Nimbus Sans rather than in whatever `system-ui`
-   resolves to on the machine that happens to be looking.
+   Seiko publishes no typeface name; it cuts its own per model. So this was
+   settled by looking at macro shots of 7S26 day-date discs, and both
+   earlier guesses were wrong.
 
-   The Arabic half of a bilingual 7S26 wheel is printed in a plain naskh.
-   Noto Naskh Arabic is that, and it shapes correctly — which matters,
-   because "الجمعة" drawn from unjoined letterforms is not a word.
+   LATIN. It is CONDENSED. This was set in Nimbus Sans — Helvetica, normal
+   width — on the reasoning that a Seiko wheel is "a fairly wide grotesque",
+   and against the photograph that is plainly not what is printed there: the
+   O in MON is a narrow oval, the U in THU has parallel sides, and SAT fits
+   three caps in the width Helvetica needs for two. Nimbus Sans NARROW is the
+   free cut of Helvetica Narrow, and it matches — flat-topped five, flagged
+   one with no foot, S with horizontal terminals, even stroke.
 
-   Both are subset to the glyphs a day and a date can contain, which is
-   why they are a few kilobytes rather than a few hundred. */
+   ARABIC. It is a fine CALLIGRAPHIC naskh, not a screen one. This was set in
+   Noto Naskh Arabic, which is a text face: upright, even-stroked, drawn to
+   stay legible at 11px. The wheel is the opposite — thin strokes with real
+   contrast, long flat baselines, deep curved tails, letters stacking into
+   each other the way hand naskh does. Amiri is that: a revival of the Bulaq
+   Press naskh, and next to the photograph it is the same hand.
+
+   Both are subset to the glyphs a day and a date can contain, which is why
+   they are kilobytes rather than hundreds of them. */
+const FACE_V = 2;
 const WHEEL_EN = "'Wheel Latin', system-ui, sans-serif";
 const WHEEL_AR = "'Wheel Arabic', 'Wheel Latin', system-ui, sans-serif";
 
 const DAYS = {
   en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
-  // As printed on the wheels: the plain forms, without the hamza a
-  // typesetter would put on them and a watch disc does not.
-  ar: ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'],
+  // As the bilingual wheel prints them — WITH the hamza. The plain forms
+  // were a guess that the disc would drop it to save ink; the photograph
+  // shows it on all three words that take one.
+  ar: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
 };
 
 const fontWaiters = new Set();
@@ -121,7 +130,12 @@ let fontsReady = false;
     and would otherwise stay that way until the date changed. */
 (function loadWheelFaces() {
   if (typeof FontFace !== 'function' || typeof document === 'undefined' || !document.fonts) return;
-  const at = (f) => String(new URL(`./fonts/${f}`, import.meta.url));
+  /* Versioned. Fonts are not in the shell's `no-store` set — that covers
+     js, css and html — so a wheel face that is replaced keeps being served
+     from the browser's cache, and the object goes on printing in the old
+     one no matter what the file on disk says. Bump this when a face
+     changes. */
+  const at = (f) => `${new URL(`./fonts/${f}`, import.meta.url)}?v=${FACE_V}`;
   const faces = [
     new FontFace('Wheel Latin', `url(${at('wheel-latin.woff2')})`, { weight: '400' }),
     new FontFace('Wheel Latin', `url(${at('wheel-latin-bold.woff2')})`, { weight: '700' }),
@@ -136,14 +150,17 @@ let fontsReady = false;
     .catch(() => { /* the fallback is a grotesque too; it is just not the right one */ });
 }());
 
-function printed(text, colour = '#dffcff', px = 46, aspect = 2, lang = 'en') {
+function printed(text, colour = '#dffcff', px = 92, aspect = 2, lang = 'en') {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
      third of the aperture: 1.29 wide against the texture's 2.0, which
      printed "25" at 65% of its width. That is what still read as condensed
      after the type itself was set straight — not the typeface, the box. */
-  const h = 64;
+  /* 128 rather than 64. The Latin was fine either way, but a calligraphic
+     naskh has detail in it — the tail of a seen, the join under a lam — and
+     at 64 that detail landed between two pixels and came out as a smudge. */
+  const h = 128;
   const w = Math.max(24, Math.round(h * aspect));
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -155,12 +172,17 @@ function printed(text, colour = '#dffcff', px = 46, aspect = 2, lang = 'en') {
      set down until it fits the pane rather than spilling out of it. */
   const ar = lang === 'ar';
   const fam = ar ? WHEEL_AR : WHEEL_EN;
+  /* The Latin is bold — white ink on a black wheel fattens every stroke,
+     and the photographed day names are a medium-to-bold condensed. The
+     Arabic is NOT: Amiri's bold thickens the strokes until the contrast
+     that makes it naskh is gone, and what is printed on the wheel is the
+     fine weight. The canvas is 128 tall precisely so that survives. */
   const weight = ar ? 400 : 700;
   /* Naskh carries far less ink per em than Latin caps do, so the same
      point size prints visibly smaller. It is set larger to start with and
      then brought down to fit, which lands both languages at about the
      same weight of mark in the aperture. */
-  let size = ar ? px * 1.3 : px;
+  let size = ar ? px * 1.25 : px;
   g.font = `${weight} ${size}px ${fam}`;
   const room = w * 0.92;
   const wide = g.measureText(text).width;
@@ -200,12 +222,12 @@ function printedPlane(w, h, text, colour, lang = 'en') {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour, 46, aspect, lang), transparent: true, depthWrite: false,
+      map: printed(text, colour, 92, aspect, lang), transparent: true, depthWrite: false,
     }),
   );
   const draw = () => {
     m.material.map.dispose();
-    m.material.map = printed(cur, colour, 46, aspect, curLang);
+    m.material.map = printed(cur, colour, 92, aspect, curLang);
     m.material.needsUpdate = true;
   };
   m.userData.set = (next, nextLang = curLang) => {
