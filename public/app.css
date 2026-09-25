@@ -722,6 +722,22 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 .ov-leader circle { fill: none; stroke: var(--warn); stroke-width: 1; }
 .ov-leader[data-sev="err"] polyline, .ov-leader[data-sev="err"] circle { stroke: var(--err); }
 
+/* A jewel: the bearing a status pip is drawn as in this console. Cut for
+   the Calibre sheet, kept here so the module header keeps its pip when that
+   sheet is not loaded. */
+.jewel {
+  display: inline-block;
+  width: 7px; height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--chart-5);
+  box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.55), 0 0 6px rgba(255, 74, 110, 0.5);
+}
+.jewel--ok { background: var(--ok); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-ok); }
+.jewel--warn { background: var(--warn); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-warn); }
+.jewel--err { background: var(--err); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-err); }
+.jewel--off { background: var(--dim); box-shadow: 0 0 0 1px rgba(190, 214, 222, 0.2); }
+
 /* ── the crown and the rate scale ────────────────────────────────────────
    Two controls this console owns outright: the crown that holds the watch
    still, and the scale a clock is regulated against. They were cut for the

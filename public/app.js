@@ -308,10 +308,16 @@ function paintModuleHead(m) {
   head.innerHTML = `
     <span class="modhead-dial" data-dial="${esc(m.id)}" aria-hidden="true"></span>
     <span class="modhead-name"><i class="jewel ${jewelClass}"></i>${esc(m.name)}</span>
-    <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
-    ${crownHTML()}`;
+    <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>`;
   bindModels(`mod:${m.id}`, [m.id]);
   paintCrowns();
+  // Landed here directly, with no launcher visit behind it, there is no
+  // summary yet: ask for this one and paint again.
+  if (!sum && ready && (m.capabilities || []).includes('summary')) {
+    refreshSummaries(m.id).then(() => {
+      if (state.active.module === m.id && state.summaries.get(m.id)) paintModuleHead(m);
+    });
+  }
 }
 
 function clearModuleHead() {
@@ -1107,9 +1113,10 @@ const statusDot = (s) => s === 'ready' ? 'dot--ok' : s === 'disabled' ? '' : s =
 /* A module may describe itself in one object: how it is doing, the two or
    three numbers worth seeing from outside, and anything wrong. Modules that
    do not implement it still appear — with their health and nothing more. */
-async function refreshSummaries() {
+async function refreshSummaries(only) {
   const mods = state.modules.filter((m) => m.enabled && m.status === 'ready'
-    && (m.capabilities || []).includes('summary'));
+    && (m.capabilities || []).includes('summary')
+    && (!only || m.id === only));
   await Promise.all(mods.map(async (m) => {
     try {
       const res = await fetch(`/${m.id}/api/summary`, { headers: { accept: 'application/json' } });
@@ -1134,11 +1141,22 @@ function startOverviewPoll() {
   stopOverviewPoll();
   overviewTimer = setInterval(async () => {
     if (document.hidden) return;
-    if (state.active.module && state.active.module !== 'idle') return;
+    const open = state.active.module;
+    if (open && open !== 'idle') {
+      // On a module's own page only that module's line is on screen, so
+      // only that module is asked. Its header is live either way — a strip
+      // that says "running" while the module below it is on fire is worse
+      // than a strip that says nothing.
+      await refreshSummaries(open);
+      pushModelStates();
+      const m = state.modules.find((x) => x.id === open);
+      if (m) paintModuleHead(m);
+      return;
+    }
     await refreshSummaries();
     pushModelStates();
-    if (!state.active.module) { renderLauncher(); renderSidenav(); }
-    else if (state.active.module === 'idle') renderIdle();
+    if (!open) { renderLauncher(); renderSidenav(); }
+    else renderIdle();
   }, 20000);
 }
 
