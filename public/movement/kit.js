@@ -31,6 +31,11 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 export { THREE };
 
@@ -57,33 +62,97 @@ export const STATUS_HEX = { ok: C.ok, warn: C.warn, err: C.bad, off: C.rhodium }
 export const REDUCED = typeof matchMedia === 'function'
   && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---- drawing ------------------------------------------------------ */
+/* ---- drawing ------------------------------------------------------
+   Every line in this world has WIDTH.
 
-export const lineMat = (c = C.rhodium, o = 1) => new THREE.LineBasicMaterial({
-  color: c, transparent: true, opacity: o,
-});
+   A WebGL line is one pixel, always, on every driver — so a model drawn at
+   120 pixels and the same model drawn at 300 are not the same picture at two
+   sizes. They are the same lines at two DISTANCES APART. Packed close, each
+   line's bloom overlaps its neighbours and sums into the glow this whole
+   world is made of; spread out, every line glows alone and the object reads
+   as a thin technical diagram of itself. That is why an object looked right
+   on the plate and wrong the moment a page gave it room, and no amount of
+   bloom or opacity could fix it: both make a sparse line brighter, neither
+   makes it wider.
 
-const geoOf = (pts) => new THREE.BufferGeometry().setFromPoints(pts);
+   So the lines are instanced quads rather than GL lines, and their width is
+   set from how big the object is on the screen. One draw call each, same as
+   before; the cost is a handful of vertices per segment. */
+
+/** Every line material in the scene, so resolution and width can be set on
+    all of them at once — a screen-space line shader needs to be told how big
+    the screen is, and it needs telling again on every resize. */
+const LINE_MATS = new Set();
+/* The last known drawing-buffer size, kept HERE rather than only pushed out
+   on resize. A line shader divides by its resolution, so a material that
+   never gets told one divides by zero and draws a quad the size of the sky —
+   and models are built long after the canvas is first measured, so pushing
+   on resize alone reaches none of them. Every material is born knowing. */
+const LINE_RES = new THREE.Vector2(1, 1);
+
+export const lineMat = (c = C.rhodium, o = 1) => {
+  const m = new LineMaterial({
+    color: c, transparent: true, opacity: o, linewidth: 1, worldUnits: false,
+  });
+  m.resolution.copy(LINE_RES);
+  LINE_MATS.add(m);
+  return m;
+};
+
+/** Tell every line how big the drawing buffer is, now and in future. */
+export function lineResolution(w, h) {
+  LINE_RES.set(w, h);
+  for (const m of LINE_MATS) m.resolution.copy(LINE_RES);
+}
+
+/** Forget a material that is going away, so the set does not grow forever. */
+export function forgetLine(m) { LINE_MATS.delete(m); }
+
+const flat = (pts) => {
+  const out = new Float32Array(pts.length * 3);
+  for (let i = 0; i < pts.length; i += 1) {
+    out[i * 3] = pts[i].x; out[i * 3 + 1] = pts[i].y; out[i * 3 + 2] = pts[i].z || 0;
+  }
+  return out;
+};
 
 export const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
 
 /** An open path, or a closed one with `loop`. */
 export function poly(pts, c = C.rhodium, o = 0.9, loop = false) {
-  const geo = geoOf(pts);
-  return loop ? new THREE.LineLoop(geo, lineMat(c, o)) : new THREE.Line(geo, lineMat(c, o));
+  const list = loop && pts.length ? [...pts, pts[0]] : pts;
+  const geo = new LineGeometry();
+  geo.setPositions(flat(list));
+  const l = new Line2(geo, lineMat(c, o));
+  l.computeLineDistances();
+  return l;
 }
 
 /** Disconnected segments from a flat list of pairs. */
-export const segs = (pts, c = C.rhodium, o = 0.6) => new THREE.LineSegments(geoOf(pts), lineMat(c, o));
+export function segs(pts, c = C.rhodium, o = 0.6) {
+  const geo = new LineSegmentsGeometry();
+  geo.setPositions(flat(pts));
+  return new LineSegments2(geo, lineMat(c, o));
+}
+
+/** The same, from an existing geometry's position buffer. */
+function fromGeometry(geo, c, o) {
+  const pos = geo.attributes.position.array;
+  const g = new LineSegmentsGeometry();
+  g.setPositions(pos instanceof Float32Array ? pos : Float32Array.from(pos));
+  geo.dispose();
+  return new LineSegments2(g, lineMat(c, o));
+}
 
 export const edges = (geo, c = C.rhodium, o = 0.8, thresh = 1) =>
-  new THREE.LineSegments(new THREE.EdgesGeometry(geo, thresh), lineMat(c, o));
+  fromGeometry(new THREE.EdgesGeometry(geo, thresh), c, o);
 
 export const wire = (geo, c = C.rhodium, o = 0.6) =>
-  new THREE.LineSegments(new THREE.WireframeGeometry(geo), lineMat(c, o));
+  fromGeometry(new THREE.WireframeGeometry(geo), c, o);
 
 export const dots = (pts, c = C.steel, size = 0.02, o = 0.8) => new THREE.Points(
-  geoOf(pts), new THREE.PointsMaterial({ color: c, size, sizeAttenuation: true, transparent: true, opacity: o }),
+  new THREE.BufferGeometry().setFromPoints(pts),
+  new THREE.PointsMaterial({ color: c, size, sizeAttenuation: true, transparent: true, opacity: o }),
 );
 
 /** A bead. Small enough that a sphere reads as a point of light. */
@@ -208,11 +277,10 @@ export function mount(host, o = {}) {
   let last = performance.now() / 1000;
   const clock = { t: 0 };
 
-  let density = 1;
   const size = () => {
     const w = Math.max(1, host.clientWidth);
     const h = Math.max(1, host.clientHeight);
-    const dpr = Math.min(window.devicePixelRatio || 1, w < 720 ? 1.5 : 2) * density;
+    const dpr = Math.min(window.devicePixelRatio || 1, w < 720 ? 1.5 : 2);
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
@@ -225,6 +293,9 @@ export function mount(host, o = {}) {
       camera.aspect = w / h;
     }
     camera.updateProjectionMatrix();
+    // A screen-space line shader has to be told how big the screen is, in the
+    // pixels it will actually be rasterised into.
+    lineResolution(w * dpr, h * dpr);
     if (o.fit) o.fit({ camera, w, h });
   };
   size();
@@ -442,8 +513,11 @@ export function mount(host, o = {}) {
       scene.remove(obj);
       obj.traverse?.((n) => {
         n.geometry?.dispose?.();
-        if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose?.());
-        else n.material?.dispose?.();
+        for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
+          if (!m) continue;
+          forgetLine(m);
+          m.dispose?.();
+        }
       });
     },
     /**
@@ -483,17 +557,6 @@ export function mount(host, o = {}) {
     },
     get locked() { return locked; },
     resize: size,
-    /* How many device pixels a world unit gets. A wireframe is made of
-       one-pixel lines, so rendering the same model twice the size does not
-       give you a bigger drawing — it gives you the same drawing with the
-       lines twice as far apart, which is a different picture. Dropping the
-       resolution as an object grows keeps the lines as close together as
-       they were drawn to be. */
-    setDensity(d) {
-      if (density === d) return;
-      density = d;
-      size();
-    },
     /* A scene now outlives the screen that asked for it, and different
        screens want different amounts of light. */
     setBloom(v) { if (bloom) bloom.strength = v; },
@@ -510,8 +573,11 @@ export function mount(host, o = {}) {
       document.body.classList.remove('mv-turning');
       scene.traverse((n) => {
         n.geometry?.dispose?.();
-        if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose?.());
-        else n.material?.dispose?.();
+        for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
+          if (!m) continue;
+          forgetLine(m);
+          m.dispose?.();
+        }
       });
       composer.dispose?.();
       renderer.dispose();

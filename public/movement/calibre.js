@@ -1199,7 +1199,10 @@ export function build(o = {}) {
     parts.alertLevel = ALERT[level] ? level : null;
     const colour = parts.alertLevel ? ALERT[level] : INNER.fine;
     parts.ratchet.traverse((n) => {
-      if (n.material && n.material.isLineBasicMaterial) n.material.color.setHex(colour);
+      // Any material with a colour: the lines are LineMaterial now, not
+      // LineBasicMaterial, and a check for the old class silently stopped
+      // finding them.
+      if (n.material && n.material.color) n.material.color.setHex(colour);
     });
     parts.ratchetPulse.mesh.material.color.setHex(colour);
     if (!parts.alertLevel) parts.ratchetPulse.mesh.material.opacity = 0;

@@ -51,7 +51,12 @@ const MODEL_R = 2.0;
 const REF_FIT = 118;
 
 /**
- * Ink: how much to lift a model's line opacities when it is drawn large.
+ * Ink: how WIDE a model's lines are drawn, from how big it is on the screen.
+ *
+ * The floor is 1.3 rather than 1, because a GL line covers a whole pixel and
+ * an instanced quad one pixel wide straddles two of them at half coverage —
+ * measured against the old renderer, 1.3 is where a small object comes back
+ * to the weight it had (22.8 before, 23.3 after; at 1.0 it was 20.3).
  *
  * A wireframe drawn small is brighter than the same wireframe drawn large,
  * and not because anything changed — its lines are simply closer together.
@@ -65,7 +70,7 @@ const REF_FIT = 118;
  * as drawn; one blown up to a module page gets its lines carried back up to
  * the weight they had when they were packed together.
  */
-const inkFor = (fit) => Math.min(2.4, Math.max(1, fit / REF_FIT));
+const inkFor = (fit) => Math.round(Math.min(3.0, Math.max(1.3, 1.3 * (fit / REF_FIT))) * 20) / 20;
 
 export async function create(host, o = {}) {
   let kit;
@@ -92,7 +97,7 @@ export async function create(host, o = {}) {
   /** Place every bound object on the box its layout gave it. */
   const sync = () => {
     raf = 0;
-    let smallest = Infinity;
+
     const hb = host.getBoundingClientRect();
     for (const slot of slots.values()) {
       if (slot.reserved) continue;
@@ -115,19 +120,21 @@ export async function create(host, o = {}) {
          sets an opacity of its own at runtime — a host that has gone down,
          a spring under tension — keeps it and has it scaled next time rather
          than being reset to what it was drawn with. */
-      smallest = Math.min(smallest, fit);
+      /* WIDTH, not brightness. The lines of an object given a page to itself
+         are further apart than the same lines on the plate, and a wider line
+         is the only thing that closes that distance: opacity makes a sparse
+         line brighter and bloom makes it blurrier, and neither makes the gap
+         between two of them any smaller. */
       const ink = inkFor(fit);
-      slot.group.traverse((n) => {
-        if (!n.material) return;
-        for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
-          if (!m.transparent || m.opacity === undefined) continue;
-          const prev = m.userData.mvInk || 1;
-          if (prev === ink) continue;
-          m.userData.mvAuthored = m.userData.mvAuthored ?? m.opacity / prev;
-          m.opacity = Math.min(1, (m.opacity / prev) * ink);
-          m.userData.mvInk = ink;
-        }
-      });
+      if (slot.ink !== ink) {
+        slot.ink = ink;
+        slot.group.traverse((n) => {
+          if (!n.material) return;
+          for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
+            if (m.isLineMaterial) { m.linewidth = ink; m.needsUpdate = true; }
+          }
+        });
+      }
       // A box too small to read an object in gets no object. Under about
       // thirty pixels these models are a smudge of lines, and a phone drops
       // its dials to a text label whose box is a few pixels tall — drawing
@@ -142,16 +149,6 @@ export async function create(host, o = {}) {
        thin technical diagram when it is given a page to itself. Rendering
        into fewer pixels and letting the browser scale the canvas up puts the
        lines back the distance apart they were meant to be. */
-    /* Set from the SMALLEST object on the screen, never the largest. One
-       canvas serves every object, and the plate has a watch three times the
-       size of the registers beside it — sampling for the watch would render
-       those registers at half their pixels and turn them to mush. The
-       smallest object is the one that cannot afford to lose any, so it sets
-       the floor, and nothing is ever drawn at less density than it was
-       drawn for. */
-    if (Number.isFinite(smallest) && smallest > 0) {
-      view.setDensity?.(Math.min(1, Math.max(0.42, REF_FIT / smallest)));
-    }
   };
   const queueSync = () => { if (!raf) raf = requestAnimationFrame(sync); };
 
