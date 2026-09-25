@@ -287,6 +287,7 @@ const PRE_AUTH_THEME = /^\/themes\/[a-z0-9-]+\.css$/;
 
 app.get('*', (req, res, next) => {
   if (!PRE_AUTH_ASSETS.has(req.path) && !PRE_AUTH_THEME.test(req.path)) return next();
+  if (/\.(js|css)$/i.test(req.path)) res.setHeader('Cache-Control', 'no-store');
   res.sendFile(join(ROOT, 'public', req.path), (err) => { if (err) next(); });
 });
 
@@ -376,8 +377,30 @@ app.use(requireAuth, createModuleProxy({ registry, identitySecret: cfg.secrets.i
 /* ── shell ──────────────────────────────────────────────────────────────── */
 // Everything not in the pre-auth allowlist above sits behind requireAuth, so
 // an unauthenticated peer cannot enumerate the app.
-app.use(requireAuth, express.static(join(ROOT, 'public'), { index: false }));
-app.get('*', requireAuth, (req, res) => res.sendFile(join(ROOT, 'public', 'index.html')));
+/* The shell's own code is never cached.
+
+   Everything here is served with an ETag and `max-age=0`, which is correct
+   and which is not enough: a tab left open for an afternoon never re-fetches
+   anything, because moving between screens in this app changes a hash and
+   nothing else. A deploy then lands on a machine that goes on running the
+   build it loaded at breakfast, and the only symptom is that a fix you can
+   see in the file does not appear on the screen.
+
+   A module's UI already carries `?v=<version>`; the shell could not, because
+   its own modules import each other by bare path and a query string does not
+   travel down an import graph. `no-store` does, and on a private console
+   reached over a tailnet the few hundred kilobytes it re-fetches cost less
+   than one stale afternoon. Fonts, icons and images are left alone. */
+app.use(requireAuth, express.static(join(ROOT, 'public'), {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (/\.(js|css|html)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-store');
+  },
+}));
+app.get('*', requireAuth, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(join(ROOT, 'public', 'index.html'));
+});
 
 /* ── server + upgrades ──────────────────────────────────────────────────── */
 const server = createServer(app);
