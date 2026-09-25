@@ -516,6 +516,78 @@ body.mv-turning { cursor: grabbing; user-select: none; }
    screen; small enough that five of them do not compete with the calibre. */
 .idle-tools .crown { background: var(--chrome-2); }
 
+/* ── a module's page ─────────────────────────────────────────────────────
+   The same bones as the plate: the object down one side at the height of the
+   screen, the module's own screens down the other. It was a strip across the
+   top with the object shrunk into it — which spends the most interesting
+   thing on the page on a band of empty grey and starts the module's own UI
+   halfway down.
+
+   The object column is not a panel. A border round it would make it a card,
+   and the object is the page's subject, not a component on it. */
+body.is-module .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 0.44fr) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 56px);
+  align-items: stretch;
+  height: var(--view-h, auto);
+  min-height: 0;
+}
+body.is-module .modhead {
+  display: grid;
+  /* Declared, not implicit. Left implicit the single column is content-sized,
+     and the object's own `width: 100%` contributes nothing to it — a circular
+     measurement that resolves, quite correctly and quite uselessly, to zero. */
+  grid-template-columns: minmax(0, 1fr);
+  /* Square box, text under it, the pair centred in the column. A box the
+     height of the whole column would leave the object floating in the middle
+     of it with the name stranded at the bottom — the scene fits an object to
+     the SHORT side of its box, so a tall box is dead space, not a bigger
+     drawing. */
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: stretch;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  min-height: 0;
+  min-width: 0;
+}
+body.is-module .modhead-dial {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  max-height: 62vh;
+  min-height: 0;
+}
+.modhead-read { display: grid; gap: 7px; min-width: 0; }
+body.is-module .modhead-name { font-size: 0.72rem; }
+body.is-module .modhead-line { font-size: 1rem; color: var(--ink); white-space: normal; }
+.modhead-facts { display: grid; gap: 3px; margin: var(--s-2) 0 0; }
+/* The module's own screens scroll INSIDE their column, so the page itself
+   never does and the object never leaves the screen. */
+body.is-module #view {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* A phone has one column and a page that scrolls: the object over its
+   readings, then the module's own screens under them. */
+@media (max-width: 900px) {
+  body.is-module .wrap {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 0;
+  }
+  body.is-module .modhead { grid-template-rows: auto auto; }
+  body.is-module .modhead-dial { height: auto; aspect-ratio: 1; }
+  body.is-module #view { overflow: visible; }
+}
+
 /* ── phones ────────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   /* One column: the object over the name and the line it reports, centred.

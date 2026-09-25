@@ -291,14 +291,18 @@ export function mount(host, o = {}) {
     u.av.x = dy; u.av.y = dx;
   };
   const up = (e) => {
-    if (!drag.on || e.pointerId !== drag.id) return;
-    drag.on = false; drag.obj = null;
+    // Not gated on `drag.on`: a touch that was still making up its mind has
+    // to be cleared too, or the next pointer down inherits its candidate.
+    if (e.pointerId !== drag.id) return;
+    drag.on = false; drag.pending = false; drag.obj = null; drag.id = null;
     host.classList.remove('is-turning');
     document.body.classList.remove('mv-turning');
   };
   if (o.drag) {
     window.addEventListener('pointerdown', down);
-    window.addEventListener('pointermove', move, { passive: true });
+    // Not passive: once a touch has declared itself a turn, the move has to
+    // be able to stop the page scrolling under it.
+    window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   }

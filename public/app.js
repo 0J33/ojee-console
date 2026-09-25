@@ -310,10 +310,19 @@ function paintModuleHead(m) {
   const dial = movement.has(m.id)
     ? `<span class="modhead-dial" data-dial="${esc(m.id)}" data-mv-grab aria-hidden="true"></span>`
     : '';
+  // The same readings the plate gives this module, so the column beside its
+  // screens is not a picture with a caption.
+  const facts = (sum?.facts || []).slice(0, 3).map((f) => `
+    <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
   head.innerHTML = `
     ${dial}
-    <span class="modhead-name"><i class="jewel ${jewelClass}"></i>${esc(m.name)}</span>
-    <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>`;
+    <div class="modhead-read">
+      <span class="modhead-name"><i class="jewel ${jewelClass}"></i>${esc(m.name)}</span>
+      <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+      ${facts ? `<dl class="modhead-facts">${facts}</dl>` : ''}
+    </div>`;
+  document.body.classList.add('is-module');
+  fitView();
   bindModels(`mod:${m.id}`, [m.id]);
   paintCrowns();
   // Landed here directly, with no launcher visit behind it, there is no
@@ -326,6 +335,7 @@ function paintModuleHead(m) {
 }
 
 function clearModuleHead() {
+  document.body.classList.remove('is-module');
   const head = $('#modhead');
   if (!head) return;
   head.hidden = true;
