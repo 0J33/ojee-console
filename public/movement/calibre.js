@@ -54,6 +54,14 @@ import {
    leaves the meaning with nowhere to land. In cyan the movement is the
    console's own material, and the barrel going amber is the only warm thing
    on the screen. */
+/* LumiBrite, sampled off a photograph of the real watch glowing in the dark
+   rather than guessed at: hue 176 degrees, which is cyan a hair to the green
+   side — not the green this was drawn with, and not the console's own beat
+   cyan either, which is fully saturated and belongs to the live second. The
+   value is lifted from what the photograph measured, because a photograph of
+   something glowing in a dark room is underexposed by definition. */
+const LUME = 0x5fe6ec;
+
 const INNER = {
   wheel: C.beat,        // the going train, the barrel, the balance
   frame: 0x2a7f8c,      // bridges and the plate under them: cyan, held back
@@ -678,7 +686,7 @@ export function build(o = {}) {
     face.add(g);
     const lume = new THREE.Mesh(
       new THREE.PlaneGeometry(len * 0.74, w * 0.50),
-      new THREE.MeshBasicMaterial({ color: C.ok, transparent: true, opacity: 0.62 }),
+      new THREE.MeshBasicMaterial({ color: LUME, transparent: true, opacity: 0.62 }),
     );
     lume.position.set(Math.cos(a) * mid + nx, Math.sin(a) * mid + ny, 0.006);
     lume.rotation.z = a;
@@ -740,7 +748,7 @@ export function build(o = {}) {
     g.add(poly(outline, colour, 0.95, true));
     const lume = new THREE.Mesh(
       new THREE.PlaneGeometry(len * 0.56, w * 1.00),
-      new THREE.MeshBasicMaterial({ color: C.ok, transparent: true, opacity: 0.7 }),
+      new THREE.MeshBasicMaterial({ color: LUME, transparent: true, opacity: 0.7 }),
     );
     lume.position.set(len * 0.51, 0, 0.003);
     g.add(lume);
