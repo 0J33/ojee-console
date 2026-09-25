@@ -427,9 +427,26 @@ body.is-idle #view { min-height: 100dvh; }
    anyway: unlit strokes and bloom over a dark plate. */
 .mv-host canvas { display: block; width: 100%; height: 100%; }
 body.mv-turning { cursor: grabbing; user-select: none; }
-.hudbar, .nav, .viewstrip, .tabbar, .statusbar { position: relative; z-index: 4; }
+/* The chrome has to sit above the canvas, and every piece of it already does:
+   ojee-ui pins the hudbar, the nav, the view strip and the tab bar with
+   `position` and a `--z-*` token, all of them far above 3, and this file's own
+   `body.app .statusbar` does the same for the last one.
+
+   What used to be here was `.hudbar, .nav, .viewstrip, .tabbar, .statusbar {
+   position: relative; z-index: 4 }`, written to lift them over the canvas and
+   restating `position` as a reflex. `.viewstrip` and `.tabbar` are positioned
+   inside a max-width:860px block in ojee-ui — a media query adds no
+   specificity — and this file loads after it, so a bare `.tabbar` here won.
+   The result was phone-only and total: the bottom tab bar, which IS the
+   primary navigation under 860px, stopped being fixed and fell to the end of
+   the document, and the view strip stopped sticking. Nothing to restate. */
 .shell { position: relative; z-index: 2; }
-.toast-stack, #modal-root { position: relative; z-index: 60; }
+/* Toasts and modals are left alone for the same reason, and one more: a
+   `position: relative; z-index: 60` on `#modal-root` is a stacking context,
+   and a context caps everything inside it — the backdrop's own `z-index: 300`
+   became 60, under the tab bar's 80. They are fixed and at the top of the
+   stack already; the only thing this file has to keep off them is the canvas,
+   and at z-index 3 it is nowhere near. */
 
 /* A dial with nothing in it should read as a dial, not as a hole: when the
    scene never arrived, the bezel keeps its index marks and the page carries
@@ -445,16 +462,36 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 /* ── a module's own strip ────────────────────────────────────────────────
    The object, the name, the one line it reports, and the crown. Shell-owned,
    so a module inherits it without a line of its own code. */
+/* The object gets the room the calibre gets on the plate. At 56px it was a
+   favicon of itself — five nearly identical smudges, one per module, telling
+   you nothing you could not read in the name beside it. It is the one thing
+   on a module's page that says which machine you are looking at, so it is
+   sized to be looked at: bounded by the viewport's HEIGHT, because the page
+   under it still has to start above the fold. */
 .modhead {
+  --modhead-dial: clamp(132px, 23vh, 236px);
   display: grid;
-  grid-template-columns: 56px minmax(0, auto) minmax(0, 1fr) auto;
-  align-items: center; gap: var(--s-3);
-  padding: var(--s-2) var(--s-3);
+  /* `auto`, not the dial's own width: a module with no object renders no box
+     at all, and a fixed first column would hold its width open anyway. */
+  grid-template-columns: auto minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center; gap: var(--s-3) var(--s-4);
+  padding: var(--s-3);
   margin-bottom: var(--s-3);
   border: 1px solid var(--line);
   background: linear-gradient(158deg, var(--panel), var(--bg-1) 62%);
 }
-.modhead-dial { width: 56px; height: 56px; pointer-events: none; }
+/* The one box on a module's page that offers its object for turning: a
+   pointer event here is a drag, and `touch-action: none` is what stops the
+   phone taking the same finger for a scroll halfway through one. */
+.modhead-dial {
+  width: var(--modhead-dial); height: var(--modhead-dial);
+  pointer-events: auto; touch-action: none; cursor: grab;
+}
+.modhead-dial:active { cursor: grabbing; }
+/* No scene, no box. The plate says 'no scene' under each empty dial because
+   the dial is part of the arrangement there; here the object IS the
+   arrangement, so it leaves rather than stand as an empty frame. */
+.mv-host[data-fallback] ~ .shell .modhead-dial { display: none; }
 .modhead-name {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--hud); font-size: 0.68rem; letter-spacing: 0.2em;
@@ -481,9 +518,19 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 
 /* ── phones ────────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
-  .modhead { grid-template-columns: 40px minmax(0, 1fr) auto; }
-  .modhead-dial { width: 40px; height: 40px; }
-  .modhead-line { grid-column: 1 / -1; white-space: normal; }
+  /* One column: the object over the name and the line it reports, centred.
+     Squeezing it into a 40px gutter beside the text was the phone losing the
+     only drawing on the page — and there is a whole screen width here to
+     give it, which is more than the desktop's side-by-side band can spare. */
+  .modhead {
+    --modhead-dial: min(62vw, 300px);
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center; text-align: center;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-2) var(--s-2);
+  }
+  .modhead-name { justify-content: center; }
+  .modhead-line { white-space: normal; }
 }
 
 
@@ -541,8 +588,14 @@ body.mv-turning { cursor: grabbing; user-select: none; }
   justify-self: stretch;
   width: 100%;
   min-height: 0;
-  pointer-events: none;
+  /* Grabbable, and it owns the gesture that starts on it: without
+     `touch-action: none` a phone hands the first few pixels of every drag to
+     its own scroller and the watch jumps as the page slides out from under
+     it. Everything else on the page keeps scrolling normally, because a
+     touch only turns an object when it starts inside a box like this one. */
+  pointer-events: auto; touch-action: none; cursor: grab;
 }
+.ov-cal:active { cursor: grabbing; }
 .ov-core {
   display: grid;
   justify-items: center;
@@ -655,6 +708,21 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 }
 .comp[data-state="err"] .comp-head::before { border-radius: 50%; }
 .comp[data-state="down"] { opacity: 0.68; }
+/* A module this build has no object for keeps its line and loses its dial:
+   the name printed on the dial steps out to become the line's own label, and
+   the register reads as a row of text rather than as a frame around nothing.
+   Keyed on whether there IS an object, not on how wide the screen is — a
+   phone used to lose every dial here, which is the opposite of the trade. */
+.ov-stage .comp[data-obj="0"] {
+  grid-template-columns: minmax(0, 1fr); gap: 5px; align-items: start;
+}
+.ov-stage .comp[data-obj="0"] .comp-dial {
+  position: static; width: auto; height: auto; background: none;
+}
+.ov-stage .comp[data-obj="0"] .comp-mark {
+  position: static; text-align: left; font-size: 0.68rem; color: var(--ink-2);
+}
+.ov-stage .comp[data-obj="0"] .comp-read { padding-left: 0; }
 
 /* ── the barrel's alert ──────────────────────────────────────────────────
    Engraved above the movement with a leader drawn down onto the mainspring
@@ -916,10 +984,13 @@ body.is-idle {
   .ov-side { grid-template-rows: auto auto auto; }
   /* Stacked, there is no leftover row to fill, so the movement takes a size
      of its own. */
-  .ov-cal { width: min(70vw, 340px); aspect-ratio: 1; justify-self: center; }
-  .idle-cal { width: min(78vw, 380px); aspect-ratio: 1; justify-self: center; }
-  .ov-stage { --dial: 104px; }
-  .idle-stage { --dial: 112px; }
+  .ov-cal { width: min(80vw, 400px); aspect-ratio: 1; justify-self: center; }
+  .idle-cal { width: min(88vw, 440px); aspect-ratio: 1; justify-self: center; }
+  /* Stacked, each register has the full width of the screen to share between
+     its object and its readings, so the object takes a real size instead of
+     the token one it could afford beside a plate. */
+  .ov-stage { --dial: min(34vw, 156px); }
+  .idle-stage { --dial: min(36vw, 168px); }
   /* No plate to fit around here, so the figures take the size they deserve:
      on a phone the console's clock is the first thing the screen is for, and
      on the idle display it is nearly the only thing. */
@@ -928,20 +999,20 @@ body.is-idle {
   .idle-stage .ch-date { font-size: clamp(0.95rem, 4vw, 1.3rem); }
 }
 
+/* This used to throw the objects away below 640px — the box collapsed to the
+   height of its own label, the scene refused to draw into anything that small,
+   and a phone got a list of words where the plate has a movement. That was the
+   wrong half to drop: the drawing is what this console is, and a phone is
+   where it is read most. The register keeps its object; it is the readings
+   that give, from three lines to one. */
 @media (max-width: 640px) {
+  .ov-stage { --dial: min(32vw, 138px); }
   .ov-stage .comp {
-    grid-template-columns: minmax(0, 1fr); gap: 5px; align-items: start;
+    grid-template-columns: var(--dial) minmax(0, 1fr);
+    gap: var(--s-2);
+    align-items: center;
   }
-  /* The dial goes, and what is left of it is the name printed on it, which
-     steps out to become the line's own label. The box keeps no size, and the
-     scene declines to draw into a box this small. */
-  .ov-stage .comp-dial {
-    position: static; width: auto; height: auto; background: none;
-  }
-  .ov-stage .comp-dial::before,
-  .ov-stage .comp-dial::after { content: none; }
-  .ov-stage .comp-mark {
-    position: static; text-align: left; font-size: 0.68rem; color: var(--ink-2);
-  }
-  .ov-stage .comp-read { gap: 5px; }
+  .ov-stage .comp-read { gap: 5px; padding-left: 10px; }
+  .ov-stage .comp-mark { font-size: 0.62rem; letter-spacing: 0.18em; }
+  .ov-stage .comp-head { font-size: 0.92rem; }
 }

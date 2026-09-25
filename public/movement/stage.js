@@ -33,6 +33,12 @@ const MODULES = {
   agent: () => import('./models/agent.js'),
 };
 
+/** Whether there is an object for this id at all. A module the console was
+    pointed at but this build has no model for gets no empty box reserved for
+    one — the caller asks before it lays the box out, rather than leaving a
+    hole where an import that was never going to resolve would have gone. */
+export const has = (id) => Object.hasOwn(MODULES, id);
+
 /** px per world unit. One number decides how big every object is on the
     page, so the models can be authored against a fixed world radius. */
 const PPU = 120;
@@ -94,13 +100,31 @@ export async function create(host, o = {}) {
   // Measured on a slow beat while the scene runs: fonts land, a module's
   // summary makes a card a line taller, a row is replaced wholesale. None of
   // those fire a resize, and all of them move a dial.
+  //
+  // While the page is actually moving under the scene that beat is far too
+  // slow. Every box is measured in viewport coordinates, so a sync six frames
+  // late is a model visibly swimming behind the dial it belongs to — and a
+  // scrolling page is the normal state of this console on a phone, where the
+  // plate stacks and the screenful is dropped. So scrolling puts the sync on
+  // every frame, and it falls back to the beat a moment after the page stops.
+  let moved = -Infinity;
   let beat = 0;
-  const onFrame = () => { beat = (beat + 1) % 6; if (!beat) sync(); };
+  const onFrame = () => {
+    if (performance.now() - moved < 400) { sync(); return; }
+    beat = (beat + 1) % 6;
+    if (!beat) sync();
+  };
+  const onMove = () => { moved = performance.now(); queueSync(); };
 
   const ro = new ResizeObserver(queueSync);
   ro.observe(document.documentElement);
-  window.addEventListener('scroll', queueSync, { passive: true });
-  window.addEventListener('resize', queueSync);
+  window.addEventListener('scroll', onMove, { passive: true });
+  window.addEventListener('resize', onMove);
+  // The URL bar sliding away on a phone resizes the visual viewport and
+  // nothing else: no resize event, no scroll event, and every dial a bar's
+  // height out of place until something else happens to move.
+  window.visualViewport?.addEventListener('resize', onMove);
+  window.visualViewport?.addEventListener('scroll', onMove);
 
   return {
     view,
@@ -183,8 +207,10 @@ export async function create(host, o = {}) {
     destroy() {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      window.removeEventListener('scroll', queueSync);
-      window.removeEventListener('resize', queueSync);
+      window.removeEventListener('scroll', onMove);
+      window.removeEventListener('resize', onMove);
+      window.visualViewport?.removeEventListener('resize', onMove);
+      window.visualViewport?.removeEventListener('scroll', onMove);
       slots.clear();
       view.destroy();
     },

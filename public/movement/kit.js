@@ -233,6 +233,15 @@ export function mount(host, o = {}) {
      that starts on a link, a button or a field belongs to that control. */
   const drag = { on: false, id: null, x: 0, y: 0, obj: null };
   const INTERACTIVE = 'a, button, input, select, textarea, label, [role="tab"], [contenteditable]';
+  /* A finger is the page's scrolling gesture before it is anything else.
+     Proximity picking is right for a cursor — the pointer is already where
+     the eye is — but on a phone an object scaled to most of the column has a
+     hit radius to match, and every swipe over it would turn the model instead
+     of scrolling the page. So a touch only turns something when it starts
+     inside a box that offers the object for turning; those boxes carry
+     `data-mv-grab` and set `touch-action: none`, and every other pixel of the
+     page scrolls the way it always did. */
+  const GRAB = '[data-mv-grab]';
   const perPixel = () => (ortho
     ? 1 / ortho
     : (2 * Math.tan((fov * Math.PI) / 360) * dist) / Math.max(1, host.clientHeight));
@@ -260,6 +269,7 @@ export function mount(host, o = {}) {
     if (locked || !o.drag) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target?.closest?.(INTERACTIVE)) return;
+    if (e.pointerType === 'touch' && !e.target?.closest?.(GRAB)) return;
     const target = pick(e);
     if (!target) return;
     drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; drag.obj = target;

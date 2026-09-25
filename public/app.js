@@ -305,8 +305,13 @@ function paintModuleHead(m) {
   const jewelClass = !ready ? (m.status === 'degraded' ? 'jewel--warn' : 'jewel--err')
     : sum?.status === 'err' ? 'jewel--err' : sum?.status === 'warn' ? 'jewel--warn' : 'jewel--ok';
   head.hidden = false;
+  // No box is reserved for an object that does not exist: a module this build
+  // has no model for would otherwise get a 240px hole above its own page.
+  const dial = movement.has(m.id)
+    ? `<span class="modhead-dial" data-dial="${esc(m.id)}" data-mv-grab aria-hidden="true"></span>`
+    : '';
   head.innerHTML = `
-    <span class="modhead-dial" data-dial="${esc(m.id)}" aria-hidden="true"></span>
+    ${dial}
     <span class="modhead-name"><i class="jewel ${jewelClass}"></i>${esc(m.name)}</span>
     <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>`;
   bindModels(`mod:${m.id}`, [m.id]);
@@ -585,7 +590,7 @@ function complication(m, i, factCount = 2) {
   const st = !ready ? 'down' : (sum?.status || 'ok');
 
   return `
-    <a class="comp" href="${href}" data-state="${esc(st)}" style="--i:${i}">
+    <a class="comp" href="${href}" data-state="${esc(st)}" data-obj="${movement.has(m.id) ? '1' : '0'}" style="--i:${i}">
       <span class="comp-dial" data-dial="${esc(m.id)}">
         <span class="comp-mark">${esc(m.name)}</span>
       </span>
@@ -703,7 +708,7 @@ function renderLauncher() {
         <div class="ov-stage" id="ov-stage">
           <div class="ov-side">
             <div class="ov-alert" id="ov-barrel"></div>
-            <div class="ov-cal" id="ov-cal" aria-hidden="true"></div>
+            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
             <div class="ov-core">
               <div class="ov-clock" id="ov-clock"></div>
               <div class="ov-regulator"><div id="ov-rate"></div></div>
@@ -826,7 +831,13 @@ function bindModels(screen, ids) {
   ensureStage(screen).then((st) => {
     if (!st) return;
     st.bind('clock', screen === 'idle' ? '#idle-cal' : '#ov-cal', { fill: 0.92 });
-    for (const id of ids) st.bind(id, `[data-dial="${id}"]`, { fill: 0.78 });
+    // On a module's own page its object is the only one in the scene and it
+    // gets the room the calibre gets on the plate — the same object at 56px
+    // in a header strip was a smudge, and it is the one thing on that page
+    // the module is about. On the plate it is one of five in a column, so it
+    // keeps the register's fill.
+    const fill = screen.startsWith('mod:') ? 0.94 : 0.78;
+    for (const id of ids) st.bind(id, `[data-dial="${id}"]`, { fill });
     pushModelStates();
   });
 }
@@ -975,7 +986,7 @@ function renderIdle() {
         <div class="ov-stage idle-stage" id="idle-stage">
           <div class="ov-side">
             <div class="ov-alert" id="idle-barrel"></div>
-            <div class="ov-cal idle-cal" id="idle-cal" aria-hidden="true"></div>
+            <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
             <div class="ov-core">
               <div class="idle-clock" id="idle-clock"></div>
             </div>
