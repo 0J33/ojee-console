@@ -1110,6 +1110,23 @@ body.is-idle {
   .ov-core .ch-read { font-size: clamp(2.2rem, 12vw, 4rem); }
   .idle-stage .ov-core .ch-read { font-size: clamp(3rem, 15vw, 5.5rem); }
   .idle-stage .ch-date { font-size: clamp(0.95rem, 4vw, 1.3rem); }
+
+  /* The idle display on a phone is the watch and the time, centred, and
+     nothing else. Five registers under them turn a screen meant to be read
+     from across a room into a list nobody is close enough to read, and the
+     first thing you would have to do to see the time is scroll. */
+  body.is-idle .ov-ring { display: none; }
+  .idle-stage {
+    height: 100%;
+    align-content: center;
+    justify-items: center;
+  }
+  .idle-stage .ov-side {
+    align-content: center;
+    justify-items: center;
+    height: 100%;
+  }
+  .idle-cal { width: min(86vw, 420px); }
 }
 
 /* This used to throw the objects away below 640px — the box collapsed to the

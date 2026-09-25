@@ -267,7 +267,7 @@ export function mount(host, o = {}) {
        meeting lines that no longer overlap.
 
        At 0.03 a single line carries its own light. */
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), o.bloom ?? 0.9, 0.62, 0.03);
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), o.bloom ?? 0.9, 0.5, 0.10);
     composer.addPass(bloom);
   }
 

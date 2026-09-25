@@ -71,9 +71,12 @@ const INNER = {
    printed in a plain proportional grotesque — flat-topped five, flagged one
    with no foot, even stroke, letters spaced by their own widths. A
    monospace would lock "MON" and "27" to a grid the real wheel does not
-   use, and the display face would be a costume. The 0.9 x-scale is the
-   slight condensing those little discs are printed with to fit a two-digit
-   date into four millimetres. */
+   use, and the display face would be a costume.
+
+   NOT condensed. It was set at a 0.9 x-scale on the theory that a date disc
+   squeezes its figures to fit four millimetres — but a Seiko's day and date
+   are printed at normal width in a fairly wide grotesque, and against the
+   real thing the condensed version reads as a different typeface. */
 function printed(text, colour = '#dffcff', px = 46) {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 64;
@@ -83,7 +86,6 @@ function printed(text, colour = '#dffcff', px = 46) {
   g.font = `600 ${px}px system-ui, sans-serif`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.setTransform(0.9, 0, 0, 1, 64 * 0.1, 0);
   g.fillText(text, 64, 34);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;

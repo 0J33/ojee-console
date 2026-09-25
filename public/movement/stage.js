@@ -70,7 +70,7 @@ const REF_FIT = 118;
  * as drawn; one blown up to a module page gets its lines carried back up to
  * the weight they had when they were packed together.
  */
-const inkFor = (fit) => Math.round(Math.min(3.0, Math.max(1.3, 1.3 * (fit / REF_FIT))) * 20) / 20;
+const inkFor = (fit) => Math.round(Math.min(1.9, Math.max(1.0, 1.0 * (fit / REF_FIT))) * 20) / 20;
 
 export async function create(host, o = {}) {
   let kit;
