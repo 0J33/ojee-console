@@ -45,6 +45,28 @@ const PPU = 120;
 /** What the models are drawn to fit inside. */
 const MODEL_R = 2.0;
 
+/* What an object measures on the plate, in CSS pixels. It is the size every
+   model's opacities were authored against, and it is the reference for the
+   correction below. */
+const REF_FIT = 118;
+
+/**
+ * Ink: how much to lift a model's line opacities when it is drawn large.
+ *
+ * A wireframe drawn small is brighter than the same wireframe drawn large,
+ * and not because anything changed — its lines are simply closer together.
+ * Every line here is半 transparent over black, so where lines crowd into the
+ * same pixels they SUM, and a dense object reads as saturated cyan while the
+ * identical object given three times the room reads as flat grey. It is the
+ * same reason the bloom threshold caught one and not the other: not a
+ * setting, a density.
+ *
+ * So the ink follows the size. An object at the plate's scale is left exactly
+ * as drawn; one blown up to a module page gets its lines carried back up to
+ * the weight they had when they were packed together.
+ */
+const inkFor = (fit) => Math.min(2.4, Math.max(1, fit / REF_FIT));
+
 export async function create(host, o = {}) {
   let kit;
   try {
@@ -87,6 +109,23 @@ export async function create(host, o = {}) {
       // fit is the diameter the box can hold; the models are authored to a
       // RADIUS, so the scale divides by twice it.
       const fit = Math.min(r.width, r.height) * (slot.fill ?? 0.46);
+
+      /* Applied as a RATIO against whatever was applied last, so a model that
+         sets an opacity of its own at runtime — a host that has gone down,
+         a spring under tension — keeps it and has it scaled next time rather
+         than being reset to what it was drawn with. */
+      const ink = inkFor(fit);
+      slot.group.traverse((n) => {
+        if (!n.material) return;
+        for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
+          if (!m.transparent || m.opacity === undefined) continue;
+          const prev = m.userData.mvInk || 1;
+          if (prev === ink) continue;
+          m.userData.mvAuthored = m.userData.mvAuthored ?? m.opacity / prev;
+          m.opacity = Math.min(1, (m.opacity / prev) * ink);
+          m.userData.mvInk = ink;
+        }
+      });
       // A box too small to read an object in gets no object. Under about
       // thirty pixels these models are a smudge of lines, and a phone drops
       // its dials to a text label whose box is a few pixels tall — drawing
