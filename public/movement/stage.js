@@ -186,6 +186,28 @@ export async function create(host, o = {}) {
     },
 
     sync: queueSync,
+    setBloom(v) { view.setBloom?.(v); },
+
+    /**
+     * Give the scene back without destroying it.
+     *
+     * Every screen used to build its own: a new WebGL context, a new
+     * composer, a fresh import of every model, on every navigation. A browser
+     * keeps a small number of live contexts and reclaims the old ones when it
+     * feels like it, so a few trips between screens and the newest scene is
+     * the one that gets refused — objects that arrive late, or not at all.
+     *
+     * The scene is the console's, not the screen's. What changes between
+     * screens is which objects are in it and which boxes they sit in.
+     */
+    reset() {
+      for (const slot of slots.values()) {
+        if (slot.reserved || !slot.group) continue;
+        view.remove?.(slot.group);
+        if (slot.el) ro.unobserve(slot.el);
+      }
+      slots.clear();
+    },
 
     /**
      * Where a named part of a bound object is on the page right now, in

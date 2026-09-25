@@ -768,6 +768,15 @@ function mvHost() { return $('#mv'); }
 
 let stagePending = null;
 
+/* Bloom is a screen effect, not an object one, so the same setting reads
+   differently at different sizes: five objects at 130px have their lines
+   packed close enough that each line's glow overlaps its neighbours and sums
+   into a halo, while one object at 330px has those lines three times further
+   apart, each glowing alone. A module's page shows exactly one object and
+   shows it big, so it gets a little less; the idle display, read from across
+   a room, a little more. */
+const bloomFor = (screen) => (screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 0.8 : 0.85);
+
 async function ensureStage(screen) {
   const host = mvHost();
   if (!host) return null;
@@ -777,19 +786,26 @@ async function ensureStage(screen) {
   // stage. Without one in-flight promise to wait on, two paints a frame apart
   // each build a scene and the console ends up with two of everything.
   if (stagePending && stageFor === screen) return stagePending;
-  if (stage) { stage.destroy(); stage = null; }
+
+  /* ONE scene, for as long as the page lives.
+     Building a fresh one per screen meant a new WebGL context, a new
+     composer and a fresh import of every model on every navigation — and a
+     browser keeps only a handful of live contexts, reclaiming the old ones
+     when it gets round to it. A few trips between screens and the newest
+     scene is the one that gets refused: objects that arrive late, or never.
+     What actually changes between screens is which objects are in the scene
+     and which boxes they sit in. */
+  if (stage) {
+    stage.reset();
+    stage.setBloom(bloomFor(screen));
+    stageFor = screen;
+    return stage;
+  }
   stageFor = screen;
   stagePending = movement.create(host, {
     now: () => timesync.now(),
     locked: crownLocked,
-    /* Bloom is a screen effect, not an object one, so the same setting reads
-       differently at different sizes: five objects at 130px have their lines
-       packed close enough that each line's glow overlaps its neighbours and
-       sums into a halo, while one object at 330px has the same lines spread
-       three times as far apart, each glowing alone and faintly. A module's
-       page shows exactly one object and shows it big, so it gets the strength
-       that buys back the light the spreading cost. */
-    bloom: screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 0.8 : 0.85,
+    bloom: bloomFor(screen),
     onLock: (v) => { crownLocked = v; paintCrowns(); },
     // The movement turns, so the callout on its barrel is redrawn with it.
     onFrame: () => drawLeader(),

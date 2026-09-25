@@ -372,6 +372,17 @@ export function mount(host, o = {}) {
     camera,
     clock,
     add(obj) { objects.push(obj); scene.add(obj); return obj; },
+    /** Take an object out of the scene and dispose what it was made of. */
+    remove(obj) {
+      const i = objects.indexOf(obj);
+      if (i >= 0) objects.splice(i, 1);
+      scene.remove(obj);
+      obj.traverse?.((n) => {
+        n.geometry?.dispose?.();
+        if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose?.());
+        else n.material?.dispose?.();
+      });
+    },
     /**
      * Where an object is on the page, in pixels relative to the host — its
      * world position run through the camera. The movement turns, so a callout
@@ -409,6 +420,9 @@ export function mount(host, o = {}) {
     },
     get locked() { return locked; },
     resize: size,
+    /* A scene now outlives the screen that asked for it, and different
+       screens want different amounts of light. */
+    setBloom(v) { if (bloom) bloom.strength = v; },
     destroy() {
       cancelAnimationFrame(raf);
       ro.disconnect(); io.disconnect();
