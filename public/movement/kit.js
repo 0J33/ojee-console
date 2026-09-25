@@ -243,17 +243,31 @@ export function mount(host, o = {}) {
      drawn on. That means the listeners live on the window, and the first
      thing they do is get out of the way of anything the page owns: a drag
      that starts on a link, a button or a field belongs to that control. */
-  const drag = { on: false, id: null, x: 0, y: 0, obj: null };
-  const INTERACTIVE = 'a, button, input, select, textarea, label, [role="tab"], [contenteditable]';
-  /* A finger is the page's scrolling gesture before it is anything else.
-     Proximity picking is right for a cursor — the pointer is already where
-     the eye is — but on a phone an object scaled to most of the column has a
-     hit radius to match, and every swipe over it would turn the model instead
-     of scrolling the page. So a touch only turns something when it starts
-     inside a box that offers the object for turning; those boxes carry
-     `data-mv-grab` and set `touch-action: none`, and every other pixel of the
-     page scrolls the way it always did. */
-  const GRAB = '[data-mv-grab]';
+  const drag = {
+    on: false, id: null, x: 0, y: 0, obj: null,
+    pending: false, x0: 0, y0: 0, touch: false, moved: 0, link: null,
+  };
+  /* A drag that starts on a CONTROL belongs to that control — but a link is
+     not quite a control here. On the plate every module's object sits inside
+     one: the whole register is a link to that module, so refusing to start a
+     drag on a link meant five of the six objects on the front page could not
+     be turned at all, which is the exact thing people try first.
+     So a link may be dragged over, and the click it would have produced is
+     swallowed if the pointer actually travelled. */
+  const INTERACTIVE = 'button, input, select, textarea, label, [role="tab"], [contenteditable]';
+  /* Every object can be taken hold of, anywhere on it. Picking is by
+     proximity in screen space — the pointer is already where the eye is, and
+     a raycast against line art hits almost nothing.
+
+     A finger is the other case, because a finger is the page's scrolling
+     gesture before it is anything else. Rather than fence touches into boxes
+     that opt in — which costs the ability to turn most of the objects on a
+     phone at all — a touch declares its INTENT: move across an object and it
+     turns, move down the page and the page scrolls. The thresholds are
+     lopsided on purpose, because a scroll that becomes a drag is far worse
+     than a drag that becomes a scroll. */
+  const TURN_PX = 7;
+  const SCROLL_PX = 10;
   const perPixel = () => (ortho
     ? 1 / ortho
     : (2 * Math.tan((fov * Math.PI) / 360) * dist) / Math.max(1, host.clientHeight));
@@ -277,22 +291,50 @@ export function mount(host, o = {}) {
     return best;
   };
 
-  const down = (e) => {
-    if (locked || !o.drag) return;
-    if (e.button !== undefined && e.button !== 0) return;
-    if (e.target?.closest?.(INTERACTIVE)) return;
-    if (e.pointerType === 'touch' && !e.target?.closest?.(GRAB)) return;
-    const target = pick(e);
-    if (!target) return;
-    drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; drag.obj = target;
+  const begin = () => {
+    drag.on = true;
+    drag.pending = false;
     host.classList.add('is-turning');
     document.body.classList.add('mv-turning');
   };
+
+  const down = (e) => {
+    if (!o.drag) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target?.closest?.(INTERACTIVE)) return;
+    const target = pick(e);
+    if (!target) return;
+    /* The crown holds the WATCH still. It used to be a single `if (locked)`
+       at the top of this function, which held the whole SCENE still: ask the
+       watch to stop so you can read it and every other object on the page
+       stopped answering the pointer too — and the lock is remembered between
+       visits, so it stayed that way until you found the crown again. */
+    if (locked && target.userData.lockable) return;
+    drag.id = e.pointerId; drag.obj = target;
+    drag.x = e.clientX; drag.y = e.clientY;
+    drag.x0 = e.clientX; drag.y0 = e.clientY;
+    drag.touch = e.pointerType === 'touch';
+    drag.moved = 0;
+    drag.link = e.target?.closest?.('a') || null;
+    // A cursor has said what it means by arriving; a finger has not yet.
+    if (drag.touch) drag.pending = true;
+    else begin();
+  };
   const move = (e) => {
-    if (!drag.on || e.pointerId !== drag.id) return;
+    if (e.pointerId !== drag.id) return;
+    if (drag.pending) {
+      const ax = Math.abs(e.clientX - drag.x0);
+      const ay = Math.abs(e.clientY - drag.y0);
+      if (ay > SCROLL_PX && ay > ax) { drag.pending = false; drag.obj = null; return; }
+      if (ax > TURN_PX && ax > ay) { drag.x = e.clientX; drag.y = e.clientY; begin(); } else return;
+    }
+    if (!drag.on) return;
+    // Once it IS a turn, the page may not also scroll underneath it.
+    if (drag.touch && e.cancelable) e.preventDefault();
     const k = perPixel() * 1.35;
     const u = drag.obj.userData;
     const dx = (e.clientX - drag.x) * k; const dy = (e.clientY - drag.y) * k;
+    drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
     u.ry += dx;
     u.rx += dy;
@@ -302,7 +344,14 @@ export function mount(host, o = {}) {
     // Not gated on `drag.on`: a touch that was still making up its mind has
     // to be cleared too, or the next pointer down inherits its candidate.
     if (e.pointerId !== drag.id) return;
-    drag.on = false; drag.pending = false; drag.obj = null; drag.id = null;
+    // A turn is not a click. If the pointer travelled while it was down, the
+    // link under it does not get to navigate.
+    if (drag.link && drag.moved > 6) {
+      const swallow = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+      drag.link.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => drag.link?.removeEventListener('click', swallow, { capture: true }), 350);
+    }
+    drag.on = false; drag.pending = false; drag.obj = null; drag.id = null; drag.link = null;
     host.classList.remove('is-turning');
     document.body.classList.remove('mv-turning');
   };
