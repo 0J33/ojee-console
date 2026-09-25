@@ -357,7 +357,7 @@ body.is-idle .wrap { max-width: none; padding: 0; }
 body.is-idle #view { min-height: 100dvh; }
 
 .idle {
-  position: relative; min-height: 100dvh;
+  position: relative; height: 100dvh;
   display: grid; place-items: center;
   padding: clamp(24px, 4vw, 80px);
   padding-top: max(clamp(24px, 4vw, 80px), env(safe-area-inset-top));
@@ -488,86 +488,78 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 
 
 /* ── the plate ────────────────────────────────────────────────────────────
-   One movement, filling the screen: the calibre at the centre with the
-   figures under it, five module sub-dials ringed around it, the alert
-   engraved beside the barrel, the crown on the case edge at three o'clock.
+   The movement down the left at the height of the screen, the five modules
+   as lines down the right. The watch is the thing this console is; it gets
+   the room to be one, and the modules read beside it rather than around it.
    No card grid — a repeating panel per module is the arrangement this world
    exists to refuse. */
 
-.ov { display: grid; gap: var(--s-4); padding-block: var(--s-3) var(--s-5); }
+.ov {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--s-4);
+  padding-block: var(--s-3) var(--s-4);
+  /* One screenful, measured. Nothing on the home screen is below the fold. */
+  height: var(--view-h, auto);
+  min-height: 0;
+  overflow: hidden;
+}
 
 .ov-stage {
   position: relative;
-  /* The plate is one screenful: a movement you have to scroll to see the
-     bottom of is a page, not a plate. What is subtracted is the chrome above
-     and below it — the two bars, the nav, the page's own padding and the
-     footer line. */
-  min-height: max(520px, min(100dvh - 300px, 940px));
-  display: grid;
-  place-items: center;
-}
-/* Ringed, every child shares one cell. Left to its own row each one centred
-   inside that row instead of on the plate, which put the movement's centre a
-   hundred and fifty pixels above the ring's. */
-.ov-stage.is-ringed > * { grid-area: 1 / 1; }
-
-/* ── out of the ring ─────────────────────────────────────────────────────
-   A narrow window, or a plate with no room for a flank: the children stop
-   sharing a cell and stack — what needs attention, then the movement and its
-   figures, then the registers as engraved lines, then the crown. This is
-   keyed to the arrangement, not to a width: the script decides whether a ring
-   fits by measuring, and every width where it does not needs this. */
-.ov-stage:not(.is-ringed) {
   min-height: 0;
-  gap: var(--s-4);
-  place-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+  /* One row, and it may not be taller than the plate. Without this the
+     implicit row is `auto`, sizes itself to its tallest child, and the whole
+     column quietly overflows the screen it was measured to fit. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 64px);
+  align-items: stretch;
+  --dial: min(9vw, 15vh, 148px);
 }
-.ov-stage:not(.is-ringed) > * { grid-area: auto; }
-.ov-stage:not(.is-ringed) .ov-alert { order: -1; }
-.ov-stage:not(.is-ringed) .ov-core {
-  /* Bounded by the screen's SHORT side as well as its width: stacked, the
-     movement is followed by its figures and its registers, and a calibre
-     sized off the width alone puts all of them under the fold. */
-  order: 0; justify-self: center; width: min(52vw, 40vh, 380px);
-}
-.ov-stage:not(.is-ringed) .ov-ring { order: 1; display: grid; gap: var(--s-3); }
-.ov-stage:not(.is-ringed) .comp {
-  grid-template-columns: 104px minmax(0, 1fr);
-  justify-items: start;
-  align-items: center;
-  gap: var(--s-3);
-  padding: var(--s-2) 0;
-  border-top: 1px solid var(--line-2);
-}
-.ov-stage:not(.is-ringed) .comp-dial { width: 104px; height: 104px; }
-.ov-stage:not(.is-ringed) .ov-barrel { max-width: none; }
-.ov-stage:not(.is-ringed) .ov-case { justify-content: center; }
-.idle-stage:not(.is-ringed) .comp { width: auto; }
 
-/* Small enough that five seats fit around it on a laptop screen: the ring is
-   the composition, and a centre that crowds it out takes the composition with
-   it. The idle display, which has the whole screen, sets its own. */
+/* The movement's column: what needs attention, the movement itself, the
+   figures under it, and the crown at the bottom where a crown is wound. */
+.ov-side {
+  display: grid;
+  grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  min-height: 0;
+  justify-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+/* The movement's box is simply the room left over: the full width of its
+   column and whatever height the rows above and below it did not take. It
+   does not describe a square — `aspect-ratio` with `height: 100%` resolves
+   against an indefinite height, comes back as the column's WIDTH, and pushes
+   the figures off the bottom of the screen. The scene fits its object to the
+   short side of whatever box this turns out to be, which is the same
+   arrangement with none of the arithmetic. */
+.ov-cal {
+  align-self: stretch;
+  justify-self: stretch;
+  width: 100%;
+  min-height: 0;
+  pointer-events: none;
+}
 .ov-core {
   display: grid;
   justify-items: center;
   gap: 6px;
-  width: min(26vw, 272px);
-  z-index: 1;
+  width: 100%;
+  min-width: 0;
 }
-/* The figures are a window on the dial, not a headline: at launcher size the
-   calibre leads and the readout answers it. The chronometer's own analogue
-   dial and its table of facts both leave the core — the calibre IS the dial,
-   and the date, zone and source read on the case below rather than making
-   the centre too tall for a ring to fit around. */
-.ov-core .ch-read { font-size: clamp(1.5rem, 2.9vw, 2.3rem); }
 /* The chronometer is a grid of one `1fr` column. Shrink-wrapped by the
-   centring above it, that column resolves to nothing and every figure hangs
-   off the right of a zero-width box. It takes the core's width. */
+   centring above it that column resolves to nothing and every figure hangs
+   off the right of a zero-width box, so it takes the column's width. */
 .ov-core .ch { width: 100%; }
+.ov-core .ch-read { font-size: clamp(2rem, 4.4vw, 3.6rem); }
 .ov-core .ch--home { grid-template-columns: minmax(0, 1fr); }
 .ov-core .ch-main { justify-items: center; gap: var(--s-2); }
 .ov-core .ch-dialwrap, .ov-core .tb, .ov-core .ch-rail { display: none; }
 .ov-core .ch-readbox { gap: var(--s-2); }
+.ov-regulator { width: 100%; }
 
 /* Date, zone and how well the time is known: engraved along the case, under
    the movement, where a caseback's markings go. */
@@ -578,92 +570,53 @@ body.mv-turning { cursor: grabbing; user-select: none; }
   text-transform: uppercase; color: var(--ink-2);
 }
 .ov-caseline b { color: var(--ink); font-weight: 400; }
-.ov-cal { aspect-ratio: 1; width: 100%; pointer-events: none; }
-.ov-regulator { width: 100%; }
 
-/* A seat on the ring. Positioned in script; the transform centres it on its
-   seat and the side decides which way its text reads. */
-.ov-stage.is-ringed .comp {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 196px;
+/* ── the register column ─────────────────────────────────────────────────
+   One line per module: its object, its headline, its readings. They are
+   separated by a rule, never boxed — a box per module is a card, and a card
+   per module is the grid this refuses. */
+.ov-ring {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  align-content: stretch;
+  min-width: 0;
 }
-.ov-stage.is-ringed .comp[data-side="left"] { text-align: right; }
-.ov-stage.is-ringed .comp[data-side="left"] .comp-fact { flex-direction: row-reverse; }
-
-/* On a flank the seat turns on its side: the dial faces the movement and its
-   reading runs outward, the way a register's is engraved beside it rather
-   than under it. It is also what buys the arrangement its height — a row is
-   half the height of a stack, and that difference is the movement's. */
-.ov-stage[data-ring="wing"].is-ringed .comp {
-  width: var(--seat, 340px);
-  grid-template-columns: var(--dial) minmax(0, 1fr);
-  align-items: center;
-  justify-items: start;
-  gap: var(--s-3);
-  text-align: left;
-}
-.ov-stage[data-ring="wing"].is-ringed .comp[data-side="left"] {
-  grid-template-columns: minmax(0, 1fr) var(--dial);
-  justify-items: end;
-  text-align: right;
-}
-.ov-stage[data-ring="wing"].is-ringed .comp[data-side="left"] .comp-dial { order: 2; }
-.ov-stage[data-ring="wing"] { --dial: 116px; }
-.ov-stage[data-ring="wing"] .comp-dial { width: var(--dial); height: var(--dial); }
-
 .comp {
   display: grid;
-  justify-items: center;
-  gap: 10px;
-  padding: 0;
-  background: none;
+  grid-template-columns: var(--dial) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) 0;
   border: 0;
+  border-top: 1px solid var(--line-2);
+  background: none;
   clip-path: none;
   text-decoration: none;
   color: var(--ink-2);
 }
+.comp:first-child { border-top: 0; }
 .comp::before { content: none; }
+/* No ring around the object: a circle drawn round a drawing makes it a
+   badge, and these are not badges. The object sits in the open with its
+   name under it. */
 .comp-dial {
   position: relative;
-  width: 112px; height: 112px;
+  width: var(--dial); height: var(--dial);
   border: 0;
-  background: radial-gradient(60% 60% at 50% 45%, rgba(0, 255, 255, 0.05), transparent 72%);
+  background: none;
   pointer-events: none;
 }
-/* The register's own ring and its four index marks, drawn rather than
-   bordered: a box with a border is a card, a ring with indices is a dial. */
-.comp-dial::before {
-  content: '';
-  position: absolute; inset: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-}
-.comp-dial::after {
-  content: '';
-  position: absolute; inset: 7px;
-  background:
-    linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px) 50% 0 / 1px 8px no-repeat,
-    linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px) 50% 100% / 1px 8px no-repeat,
-    linear-gradient(180deg, var(--line-strong) 0 1px, transparent 1px) 0 50% / 8px 1px no-repeat,
-    linear-gradient(180deg, var(--line-strong) 0 1px, transparent 1px) 100% 50% / 8px 1px no-repeat;
-}
-/* The module's name, printed on its register the way a chronograph prints
-   "minutes" on the one at nine o'clock. */
 .comp-mark {
-  position: absolute; left: 0; right: 0; bottom: 13px;
+  position: absolute; left: 0; right: 0; bottom: 0;
   text-align: center;
   font-family: var(--hud);
-  /* Printed small, the way a register's name is — but not below eleven
-     pixels and not in the dimmest ink the plate has. A name you have to lean
-     in for is not a label. */
   font-size: 0.68rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
-.comp-read { display: grid; gap: 7px; justify-items: inherit; width: 100%; }
-.comp-head { font-size: 0.88rem; line-height: 1.3; color: var(--ink); }
+.comp-read { display: grid; gap: 7px; width: 100%; min-width: 0; padding-left: 14px; }
+.comp-head { font-size: 1rem; line-height: 1.3; color: var(--ink); }
 .comp-facts { display: grid; gap: 3px; margin: 0; width: 100%; }
 .comp-fact { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .comp-fact dt {
@@ -671,48 +624,87 @@ body.mv-turning { cursor: grabbing; user-select: none; }
   text-transform: uppercase; color: var(--ink-2); white-space: nowrap;
 }
 .comp-fact .lead { flex: 1 1 auto; border-bottom: 1px dotted var(--line); align-self: center; min-width: 8px; }
-/* A reading wraps rather than running out of its seat: at 196px wide,
-   "2.1 Mb/s down 0.4 Mb/s up" does not fit on one line and nowrap put it
-   through the crown. */
 .comp-fact dd {
   margin: 0; min-width: 0; text-align: right;
   font-variant-numeric: tabular-nums; color: var(--ink);
-  white-space: normal; overflow-wrap: anywhere; font-size: 0.78rem;
+  white-space: normal; overflow-wrap: anywhere; font-size: 0.82rem;
 }
-
-.comp:hover .comp-dial::before,
-.comp:focus-visible .comp-dial::before { border-color: var(--line-hover); }
 .comp:hover .comp-head { color: var(--ink-hi); }
+.comp:hover .comp-mark { color: var(--ink); }
 .comp:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
-.comp[data-state="warn"] .comp-dial::before { border-color: rgba(255, 176, 0, 0.55); }
-.comp[data-state="err"] .comp-dial::before { border-color: var(--err-line); }
+
+/* Five rows on one rhythm is five rows of equal weight, and they are not of
+   equal weight — one of them is telling you something is wrong. A module
+   that needs attention takes more room and puts a mark in the gutter, so the
+   cadence breaks exactly where the priority does. Never colour alone: the
+   mark is a shape, the headline says what happened, and the object beside it
+   lights its own failing part. */
+.comp[data-state="warn"], .comp[data-state="err"] { padding-block: var(--s-3); }
+.comp[data-state="warn"] .comp-head, .comp[data-state="err"] .comp-head {
+  position: relative;
+  font-size: 1.06rem;
+}
+.comp[data-state="warn"] .comp-head { color: var(--warn); }
+.comp[data-state="err"] .comp-head { color: var(--err); }
+.comp[data-state="warn"] .comp-head::before,
+.comp[data-state="err"] .comp-head::before {
+  content: '';
+  position: absolute; left: -14px; top: 0.55em;
+  width: 6px; height: 6px;
+  background: currentColor;
+}
+.comp[data-state="err"] .comp-head::before { border-radius: 50%; }
 .comp[data-state="down"] { opacity: 0.68; }
 
 /* ── the barrel's alert ──────────────────────────────────────────────────
-   Engraved beside the mainspring with a leader to it, because in a movement
-   the barrel is what everything downstream depends on — and because a
-   full-width bordered banner is the admin-panel reflex this refuses. */
-/* Out of the ring it is a block at the top of the stack with a rule beside
-   it; seated on a flank it becomes a register like any other, and the rule is
-   replaced by a drawn leader that lands on the barrel itself. */
+   Engraved above the movement with a leader drawn down onto the mainspring
+   barrel itself — because in a movement the barrel is what everything
+   downstream depends on, and because a full-width bordered banner is the
+   admin-panel reflex this refuses. */
 .ov-barrel {
-  max-width: min(36ch, 34%);
+  align-self: start;
+  justify-self: stretch;
   display: flex;
   gap: var(--s-2);
+  min-height: 0;
   z-index: 2;
 }
-.ov-barrel[data-seated] {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: var(--seat, 340px);
-  max-width: none;
+.ov-barrel-leader {
+  flex: none;
+  width: 34px;
+  align-self: flex-start;
+  margin-top: 9px;
+  border-top: 1px solid var(--warn);
+  position: relative;
 }
-.ov-barrel[data-seated] .ov-barrel-leader { display: none; }
-.ov-barrel[data-seated][data-side="left"] {
-  text-align: right;
-  justify-content: flex-end;
+.ov-barrel-leader::after {
+  content: '';
+  position: absolute; right: -3px; top: -3px;
+  width: 5px; height: 5px;
+  background: var(--warn);
 }
-.ov-barrel[data-seated][data-side="left"] .ov-barrel-item { justify-self: end; }
+/* On the plate a drawn leader takes over from the ruled one, because it has
+   to land on a part of a turning object. */
+.ov-stage .ov-barrel-leader { display: none; }
+.ov-barrel--err .ov-barrel-leader { border-color: var(--err); }
+.ov-barrel--err .ov-barrel-leader::after { background: var(--err); }
+.ov-barrel-body { display: grid; gap: 5px; min-width: 0; }
+/* Sized for its PRIORITY, not for its word count. Blurred, this has to be
+   the second thing you see after the watch; at 0.7rem in the corner it was
+   the fifth. */
+.ov-barrel-count {
+  font-family: var(--hud); font-size: 0.85rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--warn);
+}
+.ov-barrel--err .ov-barrel-count { color: var(--err); }
+/* The underline follows the words, not the box: a border on a block puts a
+   rule under the empty half of a wrapped line. */
+.ov-barrel-item {
+  font-size: 0.95rem; color: var(--ink); justify-self: start;
+  text-decoration: underline dotted var(--line-strong);
+  text-underline-offset: 4px;
+}
+.ov-barrel-item:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
 /* The drawn leader. Its geometry is script's — it has to end on a part of a
    turning object — but its weight, colour and cap belong here. */
@@ -729,41 +721,105 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 .ov-leader polyline { fill: none; stroke: var(--warn); stroke-width: 1; }
 .ov-leader circle { fill: none; stroke: var(--warn); stroke-width: 1; }
 .ov-leader[data-sev="err"] polyline, .ov-leader[data-sev="err"] circle { stroke: var(--err); }
-.ov-barrel-leader {
-  flex: none;
-  width: 34px;
-  align-self: flex-start;
-  margin-top: 9px;
-  border-top: 1px solid var(--warn);
-  position: relative;
+
+/* ── the crown and the rate scale ────────────────────────────────────────
+   Two controls this console owns outright: the crown that holds the watch
+   still, and the scale a clock is regulated against. They were cut for the
+   Calibre sheet; they live here now so they survive a theme change. */
+.crown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+  font-family: var(--hud);
+  /* The state word is the whole point of this control, so it is not micro-type:
+     0.7rem clears the 11px floor where 0.58rem did not. */
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--t);
 }
-.ov-barrel-leader::after {
+.crown::before {
   content: '';
-  position: absolute; right: -3px; top: -3px;
-  width: 5px; height: 5px;
-  background: var(--warn);
+  width: 16px; height: 17px;
+  flex: none;
+  /* The stem and the knurling in one paint: a solid block on the left where
+     the crown meets the case, fine striping across the rest of it. */
+  background:
+    linear-gradient(90deg, var(--line-strong) 0 3px, transparent 3px),
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 3px);
+  border: 1px solid var(--line-strong);
+  transition: var(--t);
 }
-.ov-barrel--err .ov-barrel-leader { border-color: var(--err); }
-.ov-barrel--err .ov-barrel-leader::after { background: var(--err); }
-.ov-barrel-body { display: grid; gap: 5px; min-width: 0; }
-.ov-barrel-count {
-  font-family: var(--hud); font-size: 0.66rem; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--warn);
+.crown:hover { color: var(--ink); border-color: var(--line-hover); }
+.crown[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-08);
 }
-.ov-barrel--err .ov-barrel-count { color: var(--err); }
-/* The underline follows the words, not the box: a border on a block puts a
-   rule under the empty half of a wrapped line. */
-.ov-barrel-item {
-  font-size: 0.8rem; color: var(--ink); justify-self: start;
-  text-decoration: underline dotted var(--line-strong);
-  text-underline-offset: 4px;
+.crown[aria-pressed="true"]::before {
+  background:
+    linear-gradient(90deg, var(--accent) 0 3px, transparent 3px),
+    repeating-linear-gradient(90deg, var(--accent) 0 1px, transparent 1px 3px);
+  border-color: var(--accent);
+  /* Pushed in, the way a crown is when it is not being used. */
+  transform: translateX(2px);
 }
-.ov-barrel-item:hover { color: var(--accent); text-decoration-color: var(--accent); }
+.crown:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- the rate scale ---------- */
+/* How a watch is regulated: a scale with a zero in the middle, and a
+   pointer sitting where this clock actually is against true time. */
+.rate {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--hud);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.rate-scale {
+  position: relative;
+  height: 14px;
+  border-left: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, transparent 45%, var(--line) 45% 55%, transparent 55%),
+    repeating-linear-gradient(90deg, var(--line-2) 0 1px, transparent 1px 9px);
+}
+.rate-scale::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: -2px; bottom: -2px;
+  width: 1px;
+  background: var(--line-strong);
+}
+.rate-pointer {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: calc(100% + 6px);
+  background: var(--accent);
+  box-shadow: var(--glow-soft);
+  transform: translateX(-0.5px);
+  transition: left var(--dur) cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.rate-value { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- jewels ---------- */
+/* The bullet of this world. A ruby in a gold chaton, at 7px, used
+   where a list needs a mark and a dot would be anonymous. */
 
 /* ── the case ────────────────────────────────────────────────────────────
-   The crown sits on the caseline under the movement, beside the markings it
-   belongs with — a crown floating in open field at three o'clock had nothing
-   to sit on and read as leftover chrome. */
+   The crown sits under the movement on the caseline, where a crown is
+   wound — not floating in open field with nothing to sit on. */
 .ov-case {
   display: flex;
   align-items: center;
@@ -773,54 +829,82 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 }
 
 /* ── the idle display ────────────────────────────────────────────────────
-   The same plate with the screen to itself, and the movement given the field:
-   the calibre runs floor to ceiling at the centre, the figures under it are
-   legible across a room, and the five modules flank it. Nothing is above or
-   below the movement, which is the whole reason it can be this size. */
-.idle-stage { min-height: 100%; width: 100%; }
-.idle-stage .ov-core { width: min(40vh, 26vw); gap: var(--s-2); }
+   The same plate with the screen to itself — and black, not near-black.
+   This screen runs for hours on a panel that lights every pixel it shows,
+   and on OLED black is a pixel that is OFF: it costs nothing to draw and it
+   cannot burn in. The drafting grid goes with it for the same reason. */
+body.is-idle { background: #000; }
+body.is-idle .shell, body.is-idle .idle { background: #000; }
+body.is-idle.grid-bg::before,
+body.is-idle .idle::before { display: none; }
+/* Everything on it comes off pure black, so the faint tints that read on
+   #08080e are re-based here rather than washing out. */
+body.is-idle {
+  --bg: #000;
+  --bg-1: #000;
+  --panel: #05070a;
+  --chrome-surface: rgba(0, 0, 0, 0.72);
+}
+.idle-stage {
+  /* Height, not min-height: the plate may not be taller than the screen it
+     is on. Everything inside it is a row that can give. */
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: clamp(24px, 4vw, 96px);
+  /* Bounded by the screen's HEIGHT as well as its width: five rows have to
+     fit between the top and the bottom, and a dial sized off the width alone
+     pushes the last one off a short screen. */
+  --dial: min(10vw, 12.5vh, 176px);
+}
 .idle-cal { width: 100%; }
-/* Everything on the idle plate is read from further away than anything else
-   in the console, so its smallest type is its own floor: nothing under twelve
-   pixels, and nothing on the dimmest ink. */
-.idle-stage .ov-caseline { font-size: 0.8rem; letter-spacing: 0.16em; color: var(--ink-2); }
-.idle-stage .ch-line { font-size: 0.8rem; letter-spacing: 0.16em; color: var(--ink-2); }
-.idle-stage .ch-date { font-size: clamp(1rem, 1.5vw, 1.5rem); text-align: center; }
-.ch-date-b { display: block; color: var(--ink-2); }
-/* Wider than the launcher's: the count is a line of tracked caps and it may
-   not break across two. */
-.idle-stage .ov-barrel { max-width: min(46ch, 30%); }
-.idle-stage .ch-line { justify-content: center; text-align: center; }
-.idle-stage .ch-src { color: var(--ink); }
-.idle-stage[data-ring="wing"] { --dial: 124px; }
-.idle-stage.is-ringed .comp { width: 244px; }
-.idle-stage[data-ring="wing"].is-ringed .comp { width: var(--seat, 352px); }
-.idle-stage .comp-dial { width: 132px; height: 132px; }
+.idle-stage .ov-core .ch-read { font-size: clamp(3rem, 6vw, 7rem); }
 /* Read from across a room: the register name, the headline and the readings
-   all step up, and the readings come off the dimmest ink. */
+   all step up, and nothing on this screen is under twelve pixels or on the
+   dimmest ink. */
 .idle-stage .comp-mark { font-size: 0.85rem; letter-spacing: 0.2em; }
-.idle-stage .comp-head { font-size: 1.08rem; color: var(--ink-hi); }
-.idle-stage .comp-fact dt { font-size: 0.78rem; color: var(--ink-2); }
+.idle-stage .comp-head { font-size: 1.12rem; color: var(--ink-hi); }
+.idle-stage .comp-fact dt { font-size: 0.8rem; color: var(--ink-2); }
 .idle-stage .comp-fact dd { font-size: 0.95rem; }
-.idle-stage .ov-barrel-count { font-size: 0.78rem; }
+.idle-stage .ov-barrel-count { font-size: 0.8rem; }
 .idle-stage .ov-barrel-item { font-size: 0.95rem; }
+.idle-stage .ch-line {
+  font-size: 0.8rem; letter-spacing: 0.16em; color: var(--ink-2);
+  justify-content: center; text-align: center;
+}
+.idle-stage .ch-date { font-size: clamp(1rem, 1.5vw, 1.5rem); text-align: center; }
+.idle-stage .ch-src { color: var(--ink); }
+.ch-date-b { display: block; color: var(--ink-2); }
 .ch--idle { grid-template-columns: minmax(0, 1fr); }
 .ch--idle .ch-dialwrap { display: none; }
 .ch--idle .ch-side { min-width: 0; width: 100%; justify-items: center; }
-.ch--idle .ch-read { font-size: clamp(3rem, 6.2vw, 7rem); }
-/* Nothing sits above the movement on a flanked plate, so the alert takes the
-   corner — still a leader and a tick into the field, never a banner. */
-
 
 /* ── narrow ──────────────────────────────────────────────────────────────
-   Under 900px the ring stops being a ring (the script says so too) and the
-   plate becomes a column: the calibre and its figures own the viewport, and
-   the modules read as engraved lines under it. Under 640px their objects go
-   entirely — line art at 90px is noise, and one field should dominate. */
+   Under 900px the two columns become one: the movement and its figures own
+   the first screen and the registers read under it. Under 640px the
+   registers lose their objects entirely — line art at ninety pixels on a
+   phone is noise, and one field should dominate. */
 @media (max-width: 900px) {
-  .ov-stage:not(.is-ringed) .ov-core { width: min(64vw, 300px); }
-  .idle-stage:not(.is-ringed) .ov-core { width: min(70vw, 320px); }
-  /* No ring to fit around here, so the figures take the size they deserve:
+  /* A phone cannot show a movement, a clock and five modules at once, and
+     pretending otherwise is how you get six things on top of each other.
+     Here the page scrolls and the fixed screenful is dropped. */
+  .ov { height: auto; overflow: visible; grid-template-rows: auto auto; }
+  .ov-stage, .idle-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    height: auto;
+    min-height: 0;
+    gap: var(--s-4);
+  }
+  .idle { height: auto; min-height: 100dvh; }
+  .ov-side { grid-template-rows: auto auto auto; }
+  /* Stacked, there is no leftover row to fill, so the movement takes a size
+     of its own. */
+  .ov-cal { width: min(70vw, 340px); aspect-ratio: 1; justify-self: center; }
+  .idle-cal { width: min(78vw, 380px); aspect-ratio: 1; justify-self: center; }
+  .ov-stage { --dial: 104px; }
+  .idle-stage { --dial: 112px; }
+  /* No plate to fit around here, so the figures take the size they deserve:
      on a phone the console's clock is the first thing the screen is for, and
      on the idle display it is nearly the only thing. */
   .ov-core .ch-read { font-size: clamp(2.2rem, 12vw, 4rem); }
@@ -829,21 +913,19 @@ body.mv-turning { cursor: grabbing; user-select: none; }
 }
 
 @media (max-width: 640px) {
-  .ov-stage:not(.is-ringed) .comp {
+  .ov-stage .comp {
     grid-template-columns: minmax(0, 1fr); gap: 5px; align-items: start;
   }
-  /* The dial goes: line art at ninety pixels on a phone is noise, and one
-     field — the calibre and its figures — should own the viewport. What is
-     left of the dial is the name printed on it, which steps out to become
-     the line's own label. The box keeps no size, and the scene declines to
-     draw into a box this small. */
-  .ov-stage:not(.is-ringed) .comp-dial {
+  /* The dial goes, and what is left of it is the name printed on it, which
+     steps out to become the line's own label. The box keeps no size, and the
+     scene declines to draw into a box this small. */
+  .ov-stage .comp-dial {
     position: static; width: auto; height: auto; background: none;
   }
-  .ov-stage:not(.is-ringed) .comp-dial::before,
-  .ov-stage:not(.is-ringed) .comp-dial::after { content: none; }
-  .ov-stage:not(.is-ringed) .comp-mark {
+  .ov-stage .comp-dial::before,
+  .ov-stage .comp-dial::after { content: none; }
+  .ov-stage .comp-mark {
     position: static; text-align: left; font-size: 0.68rem; color: var(--ink-2);
   }
-  .ov-stage:not(.is-ringed) .comp-read { gap: 5px; }
+  .ov-stage .comp-read { gap: 5px; }
 }

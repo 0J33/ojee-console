@@ -565,165 +565,10 @@ function teardownHome() {
    against a measured box, and because the same routine serves the launcher
    and the idle display at two different scales. */
 
-/* Where the seats go.
-
-   Two arrangements, and the plate takes the first that fits.
-
-   ROUND is the ring proper — a seat every 360/n from twelve, on an ellipse
-   rather than a circle because screens are wide and movements are not. It
-   needs a whole seat's room above and below the movement, which a laptop
-   launcher has.
-
-   WINGS is the same ellipse sampled only at its sides: the seats flank the
-   movement, nothing sits above or below it, and the centre is free to take
-   the height of the screen. It is how a calibre with three registers down one
-   side is actually laid out, and it is what lets the idle display give the
-   movement the field instead of squeezing it between two rows of sub-dials.
-
-   Under both, a seat clears the centre when it is far enough out on ONE axis;
-   the arithmetic below is that clearance, measured, never a fraction that
-   looks right at one size and collides at the next. */
-function ringAngles(n, mode) {
-  if (mode === 'round') return Array.from({ length: n }, (_, i) => -90 + (i * 360) / n);
-  // Down the left flank, then down the right: reading order, one side at a
-  // time. The arcs are shallow — 205°..155° and -25°..25° — so every seat
-  // stands past |cos| 0.9 of the way out, which is what buys the reading
-  // beside each dial its width without crowding the movement.
-  const spread = (count, from, to) => (
-    count < 1 ? []
-      : count === 1 ? [(from + to) / 2]
-        : Array.from({ length: count }, (_, i) => from + ((to - from) * i) / (count - 1)));
-  const left = Math.ceil(n / 2);
-  // The right flank is deliberately NOT a mirror: matched heights read as
-  // pairs, and with an odd count the odd one out looks like a seat that
-  // failed to render rather than a composition.
-  return [...spread(left, 205, 155), ...spread(n - left, -28, 28)];
-}
-
-const sideOf = (deg, mode) => {
-  const c = Math.cos((deg * Math.PI) / 180);
-  if (mode === 'wing') return c < 0 ? 'left' : 'right';
-  return c < -0.2 ? 'left' : c > 0.2 ? 'right' : 'centre';
-};
-
-function placeRing(stage) {
-  if (!stage) return;
-  const mods = [...stage.querySelectorAll('.comp')];
-  const core = stage.querySelector('.ov-core');
-  if (!mods.length || !core) return;
-  const gap = 26;
-
-  /* What needs attention takes a seat on the plate like anything else, and it
-     takes the one on the barrel's side — the barrel sits at the movement's
-     upper left, and the callout that names it should not have to cross the
-     movement to reach it. Six things in six seats also balances the flanks,
-     which five never did: three and two leaves one register looking for a
-     partner that does not exist. */
-  const alert = stage.querySelector('.ov-barrel');
-  const n = mods.length + (alert ? 1 : 0);
-  const leftCount = Math.ceil(n / 2);
-  const alertSlot = alert ? Math.floor((leftCount - 1) / 2) : -1;
-  const seats = [];
-  for (let i = 0, m = 0; i < n; i += 1) {
-    seats.push(i === alertSlot ? alert : mods[m++]);
-  }
-
-  for (const mode of ['round', 'wing']) {
-    // Measure IN the arrangement being tested, not out of it. Out of it the
-    // seats are in flow and the stage is as tall as they stack, so the height
-    // being tested is the height of the layout being replaced — the decision
-    // fed on its own consequence and flickered between the two. The side
-    // matters as much: on a wing a seat is a wide row, on the ring a tall
-    // stack, and the two measure nothing alike.
-    const angles = ringAngles(seats.length, mode);
-    stage.classList.add('is-ringed');
-    stage.dataset.ring = mode;
-    seats.forEach((s, i) => { s.dataset.side = sideOf(angles[i], mode); });
-
-    const w = stage.clientWidth;
-    const h = stage.clientHeight;
-    const cb = core.getBoundingClientRect();
-    if (!w || !h) break;
-    const rad = angles.map((a) => (a * Math.PI) / 180);
-    const minCos = Math.min(...rad.map((a) => Math.abs(Math.cos(a)))) || 1;
-    const maxSin = Math.max(...rad.map((a) => Math.abs(Math.sin(a)))) || 1;
-    // Nothing is reserved at the edges any more: the crown sits on the
-    // caseline under the movement, where a crown is wound, and the alert has
-    // a seat of its own rather than a corner to hide in.
-    const reserve = 8;
-
-    // A flank seat is as wide as the plate can afford: solve the clearance
-    // for the width rather than picking one and hoping. Written out, the seat
-    // must clear the centre by `gap` and still stand inside the plate —
-    //   C/2 + sw/2 + gap  <=  minCos * (w/2 - reserve - sw/2)
-    // which is the line below. Under 300px the reading is narrower than the
-    // headlines that go in it, and the flank is not worth having.
-    if (mode === 'wing') {
-      const afford = (2 * (minCos * (w / 2 - reserve) - cb.width / 2 - gap)) / (1 + minCos);
-      if (afford < 300) continue;
-      stage.style.setProperty('--seat', `${Math.floor(Math.min(afford, 440))}px`);
-    } else {
-      stage.style.removeProperty('--seat');
-    }
-    if (alert) alert.dataset.seated = mode;
-
-    // Measured after the width is set: it decides what wraps, and what wraps
-    // decides the height.
-    const sw = Math.max(...seats.map((s) => s.getBoundingClientRect().width));
-    const sh = Math.max(...seats.map((s) => s.getBoundingClientRect().height));
-    if (!sw || !sh) break;
-    const needX = cb.width / 2 + sw / 2 + gap;
-    const needY = cb.height / 2 + sh / 2 + gap;
-    const maxRx = w / 2 - sw / 2 - reserve;
-    const maxRy = h / 2 - sh / 2 - 4;
-
-    // The ring takes the plate it is given. A seat is clear of the movement
-    // when it stands far enough out on EITHER axis — checking both, as the
-    // first cut did, rejected arrangements that were fine and accepted ones
-    // where the low seats sat fifty pixels inside the centre.
-    const rx = maxRx;
-    const ry = mode === 'round' ? maxRy : maxRy / maxSin;
-    const clears = rad.every((a) => Math.abs(Math.cos(a)) * rx >= needX
-      || Math.abs(Math.sin(a)) * ry >= needY);
-    if (!clears || rx <= 0 || ry <= 0) continue;
-    if (mode === 'wing') {
-      // Neighbours on the same flank, by how far apart their sines are: that
-      // difference times ry is the space between them.
-      let dSin = Infinity;
-      for (let i = 1; i < rad.length; i += 1) {
-        if (Math.sign(Math.cos(rad[i])) !== Math.sign(Math.cos(rad[i - 1]))) continue;
-        dSin = Math.min(dSin, Math.abs(Math.sin(rad[i]) - Math.sin(rad[i - 1])));
-      }
-      if (Number.isFinite(dSin) && dSin * ry < sh + 20) continue;
-    }
-
-    seats.forEach((seat, i) => {
-      const a = rad[i];
-      seat.style.left = `${((w / 2 + Math.cos(a) * rx) / w) * 100}%`;
-      seat.style.top = `${((h / 2 + Math.sin(a) * ry) / h) * 100}%`;
-    });
-    return;
-  }
-
-  // Neither fits: everything goes back into flow, under the movement.
-  stage.classList.remove('is-ringed');
-  delete stage.dataset.ring;
-  stage.style.removeProperty('--seat');
-  if (alert) delete alert.dataset.seated;
-  seats.forEach((s) => { s.style.left = ''; s.style.top = ''; delete s.dataset.side; });
-}
-
-/* Fonts land, a headline wraps to two lines, a summary arrives: all of them
-   change what fits, none of them fire a resize. One more pass on the next
-   frame settles it. */
-function settleRing(stage) {
-  placeRing(stage);
-  requestAnimationFrame(() => placeRing(stage));
-}
-
-/** One module as a sub-dial. The name is engraved on the dial the way a
-    register's name is printed on a watch, so the headline stands on its own
-    rather than wearing a label above it. */
+/** One module, as a line on the plate: its object, its headline, and the
+    two or three readings worth knowing before you open it. The name is
+    printed on the object's dial the way a register's is printed on a watch,
+    so the headline never wears a label above it. */
 function complication(m, i, factCount = 2) {
   const sum = state.summaries.get(m.id);
   const ready = m.status === 'ready';
@@ -774,21 +619,23 @@ function drawLeader() {
   const stg = svg.parentElement;
   const block = stg?.querySelector('.ov-barrel');
   const hide = () => { if (svg.dataset.on) { delete svg.dataset.on; svg.innerHTML = ''; } };
-  if (!block || !block.dataset.seated || !stage) { hide(); return; }
+  if (!block || !block.firstElementChild || !stage) { hide(); return; }
   const to = stage.partPoint('clock', 'barrel');
-  if (!to) { hide(); return; }
+  // The barrel is on the back of the watch. When the dial is toward you the
+  // barrel is behind it, and a leader to a part you cannot see is a line to
+  // nowhere — so it waits until the watch turns round.
+  if (!to || to.depth < 0.05) { hide(); return; }
 
   const sb = stg.getBoundingClientRect();
   const bb = block.getBoundingClientRect();
-  // The shelf leaves from the edge of the text that faces the movement.
-  const left = block.dataset.side === 'left';
+  // The block sits above the movement, so the shelf leaves from whichever
+  // side of it the barrel has turned to.
+  const left = to.x > bb.right;
   const x0 = (left ? bb.right : bb.left) - sb.left;
   const y0 = bb.top + bb.height / 2 - sb.top;
   const x1 = x0 + (left ? 18 : -18);
   const x2 = to.x - sb.left;
   const y2 = to.y - sb.top;
-  // A leader that points back across the text it belongs to is nonsense.
-  if ((left && x2 < x1) || (!left && x2 > x1)) { hide(); return; }
 
   svg.dataset.on = '1';
   svg.dataset.sev = block.classList.contains('ov-barrel--err') ? 'err' : 'warn';
@@ -804,6 +651,28 @@ function drawLeader() {
   line.setAttribute('points', `${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y0.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`);
   dot.setAttribute('cx', x2.toFixed(1));
   dot.setAttribute('cy', y2.toFixed(1));
+}
+
+/* The plate is exactly one screenful — nothing on the home screen is below
+   the fold, ever. The chrome around it (two bars, the nav, the status strip)
+   is measured rather than guessed, because it changes with the viewport and
+   a hard-coded number is a scrollbar waiting for a narrower window. */
+function fitView() {
+  const el = $('#view');
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY;
+  const bar = $('.statusbar')?.getBoundingClientRect().height || 0;
+  const h = Math.max(360, window.innerHeight - top - bar);
+  document.documentElement.style.setProperty('--view-h', `${Math.round(h)}px`);
+  // Then check the answer. Padding below the view, a wrapper's own margin, a
+  // scrollbar that appeared because of the first guess — all of them are
+  // cheaper to measure once than to enumerate in CSS.
+  requestAnimationFrame(() => {
+    const over = document.documentElement.scrollHeight - window.innerHeight;
+    if (over > 0) {
+      document.documentElement.style.setProperty('--view-h', `${Math.round(Math.max(360, h - over))}px`);
+    }
+  });
 }
 
 function renderLauncher() {
@@ -824,11 +693,12 @@ function renderLauncher() {
       <section class="ov">
         <h1 class="sr-only">Overview</h1>
         <div class="ov-stage" id="ov-stage">
-          <div class="ov-core">
+          <div class="ov-side">
+            <div class="ov-alert" id="ov-barrel"></div>
             <div class="ov-cal" id="ov-cal" aria-hidden="true"></div>
-            <div class="ov-clock" id="ov-clock"></div>
-            <div class="ov-regulator">
-              <div id="ov-rate"></div>
+            <div class="ov-core">
+              <div class="ov-clock" id="ov-clock"></div>
+              <div class="ov-regulator"><div id="ov-rate"></div></div>
               <div class="ov-caseline" id="ov-caseline"></div>
               <div class="ov-case">
                 ${crownHTML()}
@@ -837,7 +707,6 @@ function renderLauncher() {
             </div>
           </div>
           <div class="ov-ring" id="ov-ring"></div>
-          <div class="ov-alert" id="ov-barrel"></div>
           <svg class="ov-leader" id="ov-leader" aria-hidden="true"></svg>
         </div>
         <footer class="ov-foot">
@@ -852,7 +721,7 @@ function renderLauncher() {
   $('#ov-rate').innerHTML = rateHTML();
   $('#ov-caseline').innerHTML = caselineHTML();
   watchRate();
-  settleRing($('#ov-stage'));
+  fitView();
   bindModels('launcher', mods.map((m) => m.id));
   paintCrowns();
 }
@@ -1096,12 +965,14 @@ function renderIdle() {
     $('#view').innerHTML = `
       <section class="idle" aria-label="Clock and status">
         <div class="ov-stage idle-stage" id="idle-stage">
-          <div class="ov-core">
+          <div class="ov-side">
+            <div class="ov-alert" id="idle-barrel"></div>
             <div class="ov-cal idle-cal" id="idle-cal" aria-hidden="true"></div>
-            <div class="idle-clock" id="idle-clock"></div>
+            <div class="ov-core">
+              <div class="idle-clock" id="idle-clock"></div>
+            </div>
           </div>
           <div class="ov-ring" id="idle-ring"></div>
-          <div class="ov-alert" id="idle-barrel"></div>
           <svg class="ov-leader" id="idle-leader" aria-hidden="true"></svg>
         </div>
         <div class="idle-tools">
@@ -1115,7 +986,7 @@ function renderIdle() {
   }
   $('#idle-ring').innerHTML = mods.map((m, i) => complication(m, i, 3)).join('');
   $('#idle-barrel').innerHTML = barrelAlertHTML(alerts);
-  settleRing($('#idle-stage'));
+  fitView();
   bindModels('idle', mods.map((m) => m.id));
   paintCrowns();
 }
@@ -1275,10 +1146,7 @@ function stopOverviewPoll() {
   if (overviewTimer) { clearInterval(overviewTimer); overviewTimer = null; }
 }
 
-window.addEventListener('resize', () => {
-  settleRing($('#ov-stage'));
-  settleRing($('#idle-stage'));
-});
+window.addEventListener('resize', fitView);
 
 document.addEventListener('click', (e) => {
   const crown = e.target.closest?.('[data-crown]');

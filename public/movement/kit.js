@@ -76,8 +76,8 @@ export function poly(pts, c = C.rhodium, o = 0.9, loop = false) {
 /** Disconnected segments from a flat list of pairs. */
 export const segs = (pts, c = C.rhodium, o = 0.6) => new THREE.LineSegments(geoOf(pts), lineMat(c, o));
 
-export const edges = (geo, c = C.rhodium, o = 0.8) =>
-  new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineMat(c, o));
+export const edges = (geo, c = C.rhodium, o = 0.8, thresh = 1) =>
+  new THREE.LineSegments(new THREE.EdgesGeometry(geo, thresh), lineMat(c, o));
 
 export const wire = (geo, c = C.rhodium, o = 0.6) =>
   new THREE.LineSegments(new THREE.WireframeGeometry(geo), lineMat(c, o));
@@ -303,10 +303,17 @@ export function mount(host, o = {}) {
 
     for (const g of objects) {
       const u = g.userData;
-      if (!locked) {
+      // The crown holds the MOVEMENT still — it was never a switch for the
+      // whole scene. An object that does not answer to it keeps turning,
+      // and the one that does eases back to facing you rather than freezing
+      // at whatever angle it happened to be at.
+      const held = locked && u.lockable;
+      if (!held) {
         u.sp.rotation.x += u.spin[0] * dt;
         u.sp.rotation.y += u.spin[1] * dt;
         u.sp.rotation.z += u.spin[2] * dt;
+      } else {
+        u.rest?.();
       }
       if (!drag.on) {
         // Let the throw run out, then ease back to the pose the object
@@ -324,7 +331,7 @@ export function mount(host, o = {}) {
       }
       g.rotation.y = u.ry;
       g.rotation.x = u.rx;
-      u.tick?.(clock.t, dt, u.parts, { locked, reduced: REDUCED });
+      u.tick?.(clock.t, dt, u.parts, { locked: locked && u.lockable, reduced: REDUCED });
     }
 
     composer.render();
@@ -346,8 +353,13 @@ export function mount(host, o = {}) {
       const r = host.getBoundingClientRect();
       const v = new THREE.Vector3();
       obj.getWorldPosition(v);
+      const depth = v.z;
       v.project(camera);
-      return { x: (v.x * 0.5 + 0.5) * r.width, y: (-v.y * 0.5 + 0.5) * r.height };
+      // `depth` is the part's distance toward the camera in world units. A
+      // caller pointing at something can use it to tell whether the object
+      // has turned that part away — a leader to a part behind the dial is a
+      // leader to nothing.
+      return { x: (v.x * 0.5 + 0.5) * r.width, y: (-v.y * 0.5 + 0.5) * r.height, depth };
     },
     /** The crown: freeze every rotation so the thing can be read. */
     setLocked(v) {
