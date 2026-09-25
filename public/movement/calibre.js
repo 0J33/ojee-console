@@ -309,32 +309,41 @@ export function build(o = {}) {
      the tip the way a lug does so a strap can sit against a wrist. Drawn as
      splayed diagonals they read as a broken thing, which is what the first
      cut of them was. */
+  /* Lugs, to the proportions a 37mm watch on an 18mm strap actually has.
+     The case radius here is 18.5mm, so one millimetre is 0.076 of a unit:
+
+       strap between them   18mm  ->  inner faces at x = +-0.68
+       each horn            3.5mm ->  outer faces at x = +-0.94
+       lug to lug           44mm  ->  tips at y = +-1.66
+
+     Which puts them on the case's SHOULDERS, where lugs are. Drawn near the
+     centre line instead they read as two fins on top of a disc, which is
+     what the first two cuts of this were — the width between them is the
+     measurement that makes a watch look like a watch, and it is the one I
+     had wrong. */
+  const LUG_IN = 0.68;
+  const LUG_OUT = 0.94;
   for (const sy of [1, -1]) {
     for (const sx of [1, -1]) {
-      // Rooted well inside the case so the horn grows OUT of it rather than
-      // being stuck on, and long enough to matter: lug to lug on a watch is
-      // about a third again its diameter, and anything shorter reads as a
-      // pair of tabs.
       const lug = new THREE.Shape();
-      lug.moveTo(sx * 0.2, sy * 0.9);
-      lug.lineTo(sx * 0.52, sy * 0.98);
-      lug.lineTo(sx * 0.56, sy * 1.6);
-      lug.lineTo(sx * 0.48, sy * 1.9);
-      lug.lineTo(sx * 0.34, sy * 1.96);
-      lug.lineTo(sx * 0.26, sy * 1.78);
-      lug.lineTo(sx * 0.24, sy * 1.2);
+      lug.moveTo(sx * LUG_IN, sy * 0.82);            // rooted inside the case
+      lug.lineTo(sx * LUG_OUT, sy * 0.9);
+      lug.lineTo(sx * (LUG_OUT - 0.03), sy * 1.5);
+      lug.lineTo(sx * (LUG_OUT - 0.09), sy * 1.64);  // the tip, chamfered
+      lug.lineTo(sx * (LUG_IN + 0.06), sy * 1.66);
+      lug.lineTo(sx * (LUG_IN + 0.01), sy * 1.52);
       lug.closePath();
-      const geo = new THREE.ExtrudeGeometry(lug, { depth: 0.3, bevelEnabled: false, curveSegments: 2 });
-      geo.translate(0, 0, -0.15);
+      const geo = new THREE.ExtrudeGeometry(lug, { depth: 0.32, bevelEnabled: false, curveSegments: 2 });
+      geo.translate(0, 0, -0.16);
       sp.add(part(geo, C.steel, 0.5, 20));
     }
   }
-  // The spring bar between each pair, which is what actually holds a strap.
+  // The spring bar across each pair, which is what actually holds a strap.
   for (const sy of [1, -1]) {
-    const bar = new THREE.CylinderGeometry(0.026, 0.026, 0.62, 10);
+    const bar = new THREE.CylinderGeometry(0.026, 0.026, LUG_IN * 2 + 0.12, 10);
     bar.rotateZ(Math.PI / 2);
     const b = part(bar, C.steel, 0.45, 30);
-    b.position.set(0, sy * 1.78, 0);
+    b.position.set(0, sy * 1.5, 0);
     sp.add(b);
   }
 
@@ -722,12 +731,16 @@ export function build(o = {}) {
       const down = Math.atan2(gy, gx);
       /* A damped pendulum, integrated on the rotor's own angle. The mass
          sits at the middle of the segment, a quarter turn from the angle the
-         group is drawn at, so that is what gravity acts on. Lightly damped:
-         it swings past the bottom, comes back, and settles over a few
-         seconds — which is what a half-disc of metal on a jewelled bearing
-         does, and what tells you it has weight rather than being painted on. */
+         group is drawn at, so that is what gravity acts on.
+
+         The two constants are the whole character of the thing. The first is
+         how hard gravity pulls it back: lower reads as HEAVIER, because a
+         heavy rotor is slow to be turned and slow to come back — a swing of
+         about three and a half seconds. The second is damping, kept light so
+         it carries past the bottom and takes several swings to settle. A
+         weight that stops dead at the bottom is a weight with no mass. */
       const mass = spin + Math.PI / 2;
-      spinV += (-6 * pull * Math.sin(mass - down) - 0.85 * spinV) * dd;
+      spinV += (-3.2 * pull * Math.sin(mass - down) - 0.55 * spinV) * dd;
       spin += spinV * dd;
       p.rotor.rotation.z = spin;
     }
