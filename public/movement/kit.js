@@ -133,8 +133,10 @@ export function mk(tiltZ = 0, tiltX = 0) {
 
 /* ---- the mount ---------------------------------------------------- */
 
-const RX_MAX = 1.35;
-const clampRx = (v) => Math.max(-RX_MAX, Math.min(RX_MAX, v));
+/* Nothing is clamped. An object you cannot turn past eighty degrees is an
+   object with a lid on it, and every time you reach that lid you are told the
+   thing is a picture rather than a thing. Tumble it end over end if you like;
+   it will still be there when you let go. */
 
 /**
  * Put a scene in a host element.
@@ -283,11 +285,7 @@ export function mount(host, o = {}) {
     const dx = (e.clientX - drag.x) * k; const dy = (e.clientY - drag.y) * k;
     drag.x = e.clientX; drag.y = e.clientY;
     u.ry += dx;
-    // Pitch is rubber-banded rather than clamped dead, so the object sits
-    // on a weighted base instead of hitting a wall.
-    const outward = (dy >= 0) === (u.rx >= 0);
-    const damp = outward ? Math.max(0, 1 - (Math.abs(u.rx) / RX_MAX) ** 2) : 1;
-    u.rx = clampRx(u.rx + dy * damp);
+    u.rx += dy;
     u.av.x = dy; u.av.y = dx;
   };
   const up = (e) => {
@@ -334,16 +332,19 @@ export function mount(host, o = {}) {
         u.rest?.();
       }
       if (!drag.on) {
-        // Let the throw run out, then ease back to the pose the object
-        // was drawn at, the short way round.
+        // A throw runs out and the object STAYS where it was left. Easing
+        // every object back to the pose it was drawn at meant you could look
+        // at the back of something for about a second and a half, and it
+        // undid the one gesture the page offers. Only the watch comes home,
+        // and only because the crown asked it to.
         const decay = Math.exp(-dt * 1.6);
         u.av.x *= decay; u.av.y *= decay;
         if (Math.abs(u.av.y) > 0.0015) u.ry += u.av.y;
-        if (Math.abs(u.av.x) > 0.0015) u.rx = clampRx(u.rx + u.av.x);
-        if (Math.hypot(u.av.x, u.av.y) < 0.0015) {
+        if (Math.abs(u.av.x) > 0.0015) u.rx += u.av.x;
+        if (held && Math.hypot(u.av.x, u.av.y) < 0.0015) {
           u.ry = Math.atan2(Math.sin(u.ry), Math.cos(u.ry));
           const k = 1 - Math.exp(-dt * 2.6);
-          u.ry += (0 - u.ry) * k * (locked ? 1 : 0.35);
+          u.ry += (0 - u.ry) * k;
           u.rx += (0 - u.rx) * k;
         }
       }
