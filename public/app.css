@@ -159,6 +159,13 @@ body.app .statusbar {
 .ov-alert:hover { color: var(--ink); }
 
 .ov-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+/* Two hints, each one phrase. Written as one run of text they broke wherever
+   the line happened to run out — which on a phone left a lone "/" at the end
+   of one line and "to jump anywhere" at the start of the next, and the key
+   cap is the part that has to stay with its sentence. Each hint holds
+   together; the pair wraps between them. */
+.ov-keys { display: flex; flex-wrap: wrap; gap: 2px var(--s-3); }
+.ov-key { white-space: nowrap; }
 
 @media (min-width: 1100px) {
   .shell { grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
@@ -264,6 +271,14 @@ body.app .statusbar {
   color: var(--ink);
 }
 .ch-sep { color: var(--dim); margin-inline: -0.05em; }
+/* AM/PM. Set at a third of the figure and lifted to its cap line, so it
+   reads as a marking ON the readout rather than as a fourth pair of
+   digits competing with the three that matter. */
+.ch-ap {
+  font-size: 0.3em; letter-spacing: 0.16em; color: var(--ink-2);
+  margin-inline-start: 0.34em; vertical-align: 0.9em;
+}
+.ch-ap:empty { display: none; }
 .ch-ss { color: var(--accent); text-shadow: 0 0 0.35em var(--glow-mid); transition: color var(--dur-2); }
 .ch.is-top .ch-ss { color: var(--ink-hi); }
 
@@ -952,6 +967,31 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   border: 1px solid var(--line-strong);
   transition: var(--t);
 }
+/* The two display switches, beside the crown and deliberately quieter than
+   it: the crown stops the whole movement, these two change a label. Same
+   height and border so the strip reads as one row of controls, but no
+   knurled stem and a tighter box. */
+.dtog {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.6em; height: 27px; padding: 0 8px;
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+  font-family: var(--hud); font-size: 0.7rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  cursor: pointer; transition: var(--t);
+}
+.dtog:hover { color: var(--ink); border-color: var(--line-hover); }
+.dtog[aria-pressed="true"] {
+  color: var(--accent); border-color: var(--accent); background: var(--accent-08);
+}
+/* The Arabic label is a letterform, not an abbreviation: uppercasing and
+   tracking it out is what you do to Latin caps, and it does neither any
+   good. */
+.dtog[data-dtog="dayLang"][aria-pressed="true"] .dtog-l {
+  text-transform: none; letter-spacing: 0; font-size: 1.15rem; line-height: 1;
+}
+
 .crown:hover { color: var(--ink); border-color: var(--line-hover); }
 .crown[aria-pressed="true"] {
   color: var(--accent);

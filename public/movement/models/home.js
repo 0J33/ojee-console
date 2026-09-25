@@ -1,228 +1,290 @@
 /* ============================================================
-   movement/models/home — the Home module as a complication.
+   movement/models/home — the room being conditioned.
 
-   The module is a Haier split air conditioner, so the object is the
-   unit and the house is only what it is bolted to. That is the whole
-   hierarchy: the house stays rhodium at context opacity and never
-   changes colour, while the unit carries status, the louvres carry
-   power, and the air carries mode.
+   The first version of this was a house with an air conditioner stuck on
+   the outside wall, which is two mistakes in one object: nobody's AC hangs
+   off the front of their house, and a house says "property" when the module
+   says "the bedroom is 25.5 and cooling to 26".
+
+   So the object is the thing the module actually drives: a wall-mounted
+   split unit, in the corner of a room, moving air. Everything it reports is
+   something you can see happening — the louvre sits at the angle the swing
+   is set to, the air leaves it at the speed the fan is running and in the
+   colour of the mode, and the two marks on the wall scale are where the
+   room IS and where it has been told to get to. Switched off, the louvre
+   closes and the air stops; there is nothing else to say.
+
+   The room is drawn at the weight of a pencil line. It is context, not
+   subject: enough corner to know the unit is indoors and high on a wall,
+   and not one line more.
    ============================================================ */
 
 import {
-  THREE, C, STATUS_HEX, mk, poly, segs, edges, ring, node, disc, occluder, V,
+  THREE, C, STATUS_HEX, V, poly, segs, edges, node, occluder, ring, mk,
 } from '../kit.js';
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+/* The unit, in the room's units. A split indoor unit is about a metre wide
+   and a third of that tall, mounted near the ceiling. */
+const W = 1.78;          // the unit's width
+const UH = 0.46;         // its height
+const UD = 0.34;         // its depth
+const UY = 0.40;         // how high on the wall it hangs
+const FLOOR = -0.86;
+const STREAMS = 3;       // chevrons of air leaving the louvre
+const SCALE_X = 1.16;    // the wall scale, off to one side
+const SCALE_TOP = 0.44;
+const SCALE_BOT = -0.52;
+const T_MIN = 16;        // what the scale spans, in degrees
+const T_MAX = 32;
 
-/* Every dimension below is derived from the body, so the unit, the pad
-   and the openings stay in proportion if the body is ever retuned. */
-const BW = 1.5; const BH = 0.9; const BD = 1.1;      // body: width, height, depth
-const RY = 1.45; const RW = 0.82; const RD = 0.62;   // ridge height, roof half width and depth
-const FZ = BD / 2 + 0.002;                           // the plane the front openings are drawn on
-const UX = BW / 2 + 0.11; const UY = 0.6;            // the split unit's centre, high on the flank
-const UH = 0.26; const UL = 0.84; const UD = 0.22;   // unit height, length along Z, depth off the wall
-const MY = UY - UH / 2 - 0.02;                       // the louvre line, just under the unit
+const num = (v) => (Number.isFinite(+v) ? +v : null);
+const keep = (o) => { o.userData.o0 = o.material.opacity; return o; };
 
-/* The roof as a solid, only so the far slope does not show through the
-   near one. Non-indexed triangles and a double-sided material: winding
-   is not worth getting right for something that is never seen. */
-function roofSolid() {
-  const a = [0, RY, -RD]; const b = [0, RY, RD];
-  const e = [[-RW, BH, -RD], [RW, BH, -RD], [-RW, BH, RD], [RW, BH, RD]];
-  const tri = (p, q, r) => [...p, ...q, ...r];
-  const v = [                                        // two slopes, then the two gable ends
-    ...tri(a, e[0], e[2]), ...tri(a, e[2], b), ...tri(a, e[1], e[3]), ...tri(a, e[3], b),
-    ...tri(a, e[0], e[1]), ...tri(b, e[2], e[3]),
-  ];
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-  return g;
-}
-
-/** A rectangle drawn flat on the front face: door and window frames. */
-const rect = (x, y, w, h, c, o) => poly([
-  V(x - w / 2, y - h / 2, FZ), V(x + w / 2, y - h / 2, FZ),
-  V(x + w / 2, y + h / 2, FZ), V(x - w / 2, y + h / 2, FZ),
-], c, o, true);
-
-/* One front of moved air: an arc that leaves the louvre mouth and fans
-   downward, the way a wall unit actually throws. It is built at one
-   radius and scaled from the mouth, which is the kit's pulseRing idiom
-   applied to an arc instead of a circle. */
-function airFront(splay) {
-  const pts = [];
-  for (let i = 0; i <= 20; i += 1) {
-    const th = ((-12 + (i / 20) * 96) * Math.PI) / 180;
-    pts.push(V(Math.cos(th) * 0.16, -Math.sin(th) * 0.16, 0));
-  }
-  const line = poly(pts, C.beat, 0.6);
-  const grp = new THREE.Group();
-  // Splayed in plan as well as section, so the three fronts read as a
-  // cone of air rather than one curve seen edge-on as the object turns.
-  grp.position.set(UX, MY, 0); grp.rotation.y = splay; grp.add(line);
-  return { grp, line };
-}
+/** Where a temperature sits on the wall scale. */
+const atTemp = (t) => {
+  const k = Math.max(0, Math.min(1, (t - T_MIN) / (T_MAX - T_MIN)));
+  return SCALE_BOT + (SCALE_TOP - SCALE_BOT) * k;
+};
 
 export function build(opts = {}) {
-  // Tilted down onto the roof so the pitch reads and the flank the unit
-  // is on stays in view for most of the slow turn.
-  const [group, sp] = mk(0, 0.3);
-  // Drawn at house scale, then blown up to fill the radius the stage
-  // normalises against. The ridge is the tallest thing, so the lot is
-  // dropped by its own share of that same factor.
-  const K = opts.scale ?? 1.32;
-  const root = new THREE.Group();
-  root.position.y = -0.62 * K;
-  root.scale.setScalar(K);
-  // Turned onto its corner so the gable and the unit's flank are both in
-  // view: this is the pose the object rests at when a drag lets go.
-  root.rotation.y = -1.05;
-  sp.add(root);
+  const [group, sp] = mk(0.02, -0.26);
+  // The scene's mass sits high and forward of the wall it hangs on, so the
+  // whole of it is shifted back onto the origin the stage scales about.
+  sp.position.set(0, 0.06, -0.20);
+  group.userData.spin = [0, 0.16, 0];
+  group.userData.hitR = 2.1;
+  const parts = group.userData.parts;
 
-  /* ---- the ground it sits on ---- */
-  root.add(ring(1.12, C.rhodium, 0.2, 'y'));
-  const tp = [];
-  for (let i = 0; i < 24; i += 1) {
-    const a = (i / 24) * Math.PI * 2;
-    tp.push(V(Math.cos(a) * 1.12, 0, Math.sin(a) * 1.12), V(Math.cos(a) * 1.21, 0, Math.sin(a) * 1.21));
+  /* ---- what it is mounted on ----
+     Not a room. A room drawn in full is graph paper, and a flat wall is a
+     sliver the moment the object turns side on — which it does, all day.
+     What is needed is only enough wall to say "indoors, mounted high", so
+     it is a panel a little wider than the unit, and a floor ellipse under
+     it of the kind everything else in this console stands on. */
+  const wallZ = -UD / 2 - 0.02;
+  const wallW = W * 0.34;
+  sp.add(keep(segs([
+    // the rail it hooks over, and the two arms down to the wall
+    V(-wallW, UY + UH * 0.44, wallZ), V(wallW, UY + UH * 0.44, wallZ),
+    V(-wallW, UY + UH * 0.44, wallZ), V(-wallW, UY - UH * 0.42, wallZ),
+    V(wallW, UY + UH * 0.44, wallZ), V(wallW, UY - UH * 0.42, wallZ),
+    V(-wallW, UY - UH * 0.42, wallZ), V(wallW, UY - UH * 0.42, wallZ),
+  ], C.rhodium, 0.3)));
+
+  // The floor the air arrives at.
+  const plinth = ring(0.86, C.rhodium, 0.26, 'y');
+  plinth.position.set(0, FLOOR, UD / 2 + 0.34);
+  sp.add(keep(plinth));
+  const plinth2 = ring(0.58, C.rhodium, 0.12, 'y');
+  plinth2.position.copy(plinth.position);
+  sp.add(keep(plinth2));
+
+  /* ---- the unit ---- */
+  const unitG = new THREE.Group();
+  unitG.position.set(0, UY, 0);
+  sp.add(unitG);
+
+  const body = new THREE.BoxGeometry(W, UH, UD);
+  unitG.add(occluder(body));
+  const shell = edges(body, C.steel, 0.9);
+  unitG.add(shell);
+
+  // The intake grille across the top face, and the maker's small display.
+  const grille = [];
+  for (let i = 1; i < 9; i += 1) {
+    const x = -W / 2 + (i / 9) * W;
+    grille.push(V(x, UH / 2 + 0.001, -UD / 2 + 0.03), V(x, UH / 2 + 0.001, UD / 2 - 0.03));
   }
-  root.add(segs(tp, C.rhodium, 0.18));
+  unitG.add(keep(segs(grille, C.rhodium, 0.4)));
 
-  /* ---- the house, context only ---- */
-  const bodySolid = occluder(new THREE.BoxGeometry(BW - 0.02, BH - 0.02, BD - 0.02));
-  const shell = edges(new THREE.BoxGeometry(BW, BH, BD), C.rhodium, 0.42);
-  bodySolid.position.y = BH / 2; shell.position.y = BH / 2;
-  const rs = occluder(roofSolid());
-  rs.material.side = THREE.DoubleSide;
-  root.add(bodySolid); root.add(shell); root.add(rs);
-  root.add(segs([
-    V(0, RY, -RD), V(0, RY, RD),
-    V(0, RY, -RD), V(-RW, BH, -RD), V(0, RY, -RD), V(RW, BH, -RD),
-    V(0, RY, RD), V(-RW, BH, RD), V(0, RY, RD), V(RW, BH, RD),
-    V(-RW, BH, -RD), V(-RW, BH, RD), V(RW, BH, -RD), V(RW, BH, RD),
-  ], C.rhodium, 0.45));
+  const face = new THREE.Group();
+  face.position.z = UD / 2 + 0.002;
+  unitG.add(face);
+  face.add(keep(poly([
+    V(-W / 2 + 0.06, -UH / 2 + 0.05), V(W / 2 - 0.06, -UH / 2 + 0.05),
+    V(W / 2 - 0.06, UH / 2 - 0.05), V(-W / 2 + 0.06, UH / 2 - 0.05),
+  ], C.rhodium, 0.28, true)));
 
-  root.add(rect(-0.45, 0.24, 0.28, 0.48, C.rhodium, 0.45));
-  const porch = node(0.022, C.brass, 0.12);          // the presence tell: a lamp by the door
-  porch.position.set(-0.27, 0.34, FZ); root.add(porch);
+  /* The readout on the unit's own face: the setpoint, the way these things
+     show it. Two marks either side stand in for the digits at this size. */
+  const readout = new THREE.Group();
+  readout.position.set(W / 2 - 0.30, 0, 0.003);
+  face.add(readout);
+  readout.add(keep(poly([
+    V(-0.13, -0.06), V(0.13, -0.06), V(0.13, 0.06), V(-0.13, 0.06),
+  ], C.steel, 0.5, true)));
+  const digits = keep(segs([
+    V(-0.07, -0.03, 0.001), V(-0.07, 0.03, 0.001),
+    V(-0.02, -0.03, 0.001), V(-0.02, 0.03, 0.001),
+    V(0.04, -0.03, 0.001), V(0.04, 0.03, 0.001),
+    V(0.09, -0.03, 0.001), V(0.09, 0.03, 0.001),
+  ], C.hot, 0.85));
+  readout.add(digits);
 
-  /* The lit window: the kit's additive annulus with almost no hole, so a
-     round pool of light sits inside a square frame the way spill does.
-     Small and dim on purpose — bloom makes brass carry, and the window
-     is not the subject. */
-  const glow = disc(0.001, 0.08, C.brass, 0.06);
-  glow.position.set(0.06, 0.56, FZ - 0.004);         // behind the frame, in front of the occluder
-  root.add(glow);
-  root.add(rect(0.06, 0.56, 0.3, 0.26, C.rhodium, 0.45));
-  root.add(rect(0.5, 0.56, 0.22, 0.26, C.rhodium, 0.35));
-  root.add(segs([                                    // the two windows' glazing bars
-    V(0.06, 0.43, FZ), V(0.06, 0.69, FZ), V(-0.09, 0.56, FZ), V(0.21, 0.56, FZ),
-    V(0.5, 0.43, FZ), V(0.5, 0.69, FZ),
-  ], C.rhodium, 0.28));
-
-  /* ---- the unit: the subject ---- */
-  const unitSolid = occluder(new THREE.BoxGeometry(UD * 0.94, UH * 0.88, UL * 0.96));
-  const unit = edges(new THREE.BoxGeometry(UD, UH, UL), C.steel, 0.95);
-  unitSolid.position.set(UX, UY, 0); unit.position.set(UX, UY, 0);
-  root.add(unitSolid); root.add(unit);
-
-  // Intake grille on the top face, four strokes: enough to say which
-  // way the air goes in without becoming texture.
-  const gp = [];
-  for (let i = 0; i < 4; i += 1) {
-    const z = -UL * 0.3 + i * (UL * 0.2);
-    gp.push(V(UX - UD * 0.4, UY + UH / 2, z), V(UX + UD * 0.4, UY + UH / 2, z));
+  /* ---- the louvre ----
+     Hinged along the unit's bottom front edge, so it swings the way one
+     does: shut flat against the body, or dropped to throw the air down. */
+  const louvre = new THREE.Group();
+  louvre.position.set(0, -UH / 2, UD / 2 - 0.01);
+  unitG.add(louvre);
+  const blade = new THREE.BoxGeometry(W - 0.10, 0.035, 0.20);
+  const bladeMesh = occluder(blade);
+  bladeMesh.position.z = 0.10;
+  louvre.add(bladeMesh);
+  const bladeEdge = edges(blade, C.steel, 0.75);
+  bladeEdge.position.z = 0.10;
+  louvre.add(bladeEdge);
+  // The vane slats inside the mouth, which is what you actually see of it.
+  const slats = [];
+  for (let i = 1; i < 6; i += 1) {
+    const x = -W / 2 + 0.05 + (i / 6) * (W - 0.10);
+    slats.push(V(x, 0.02, 0.02), V(x, 0.02, 0.19));
   }
-  root.add(segs(gp, C.steel, 0.4));
+  louvre.add(keep(segs(slats, C.rhodium, 0.35)));
 
-  // Four louvre blades across the mouth. Each blade spans the unit's
-  // length along Z and pivots about that same Z axis, which is the axis
-  // a real louvre turns on, so tilting them opens the mouth.
-  const blades = [];
-  for (let i = 0; i < 4; i += 1) {
-    const c = 0.032; const l = UL * 0.43;
-    const b = poly([V(-c, 0, -l), V(c, 0, -l), V(c, 0, l), V(-c, 0, l)], C.steel, 0.8, true);
+  /* ---- the air ----
+     Chevrons, not streams. Four curves running from the mouth to the floor
+     read as a waterfall, because that is what four long falling curves are
+     — and an air conditioner does not pour. What air looks like when it is
+     drawn is a stack of shallow arcs leaving a mouth and opening as they
+     go, and what it looks like when it is MOVING is that stack drifting
+     outward and fading. Three of them, over half a unit, and no further:
+     the news is that it is blowing, not where the air ends up. */
+  const MOUTH = V(0, UY - UH / 2 - 0.02, UD / 2 + 0.06);
+  const air = [];
+  for (let i = 0; i < STREAMS; i += 1) {
+    const arc = [];
+    const span = 0.30;
+    for (let k = 0; k <= 12; k += 1) {
+      const u = (k / 12) * 2 - 1;                 // -1 .. 1 across the mouth
+      arc.push(V(u * span, -Math.abs(u) * 0.055, 0));
+    }
+    const line = keep(poly(arc, C.beat, 0));
+    sp.add(line);
+    air.push({ line, phase: i / STREAMS });
+  }
+
+  /* ---- the wall scale ----
+     Where the room is, and where it has been told to be. Two marks on one
+     scale say the whole of it: far apart is working, together is arrived. */
+  const scaleG = new THREE.Group();
+  scaleG.position.set(SCALE_X, 0, wallZ + 0.01);
+  sp.add(scaleG);
+  scaleG.add(keep(poly([V(0, SCALE_BOT), V(0, SCALE_TOP)], C.rhodium, 0.3)));
+  const ticks = [];
+  for (let d = T_MIN; d <= T_MAX; d += 2) {
+    const y = atTemp(d);
+    const long = d % 8 === 0;
+    ticks.push(V(0, y), V(long ? -0.10 : -0.05, y));
+  }
+  scaleG.add(keep(segs(ticks, C.rhodium, 0.28)));
+
+  /** A mark on the scale: an arrow pointing at its own temperature. */
+  const mark = (colour, size, o) => {
     const g = new THREE.Group();
-    g.position.set(UX + (i - 1.5) * (UD * 0.24), MY, 0);
-    g.add(b); root.add(g); blades.push(g);
-  }
-
-  const air = [airFront(-0.34), airFront(0), airFront(0.34)];
-  air.forEach((a) => root.add(a.grp));
-
-  /* The pad ring doubles as the thermometer scale: indoor sits on it in
-     blued steel, the setpoint in brass, so the gap between them is the
-     reading without a single glyph. */
-  const tIn = node(0.03, C.blued, 0);
-  const tSet = node(0.03, C.brass, 0);
-  root.add(tIn); root.add(tSet);
-  const place = (m, v) => {
-    if (v === null) { m.material.opacity = 0; return; }
-    const a = -Math.PI * 0.72 + ((clamp(v, 15, 33) - 15) / 18) * Math.PI * 1.44;
-    m.position.set(Math.cos(a) * 1.165, 0, Math.sin(a) * 1.165);
-    m.material.opacity = 0.9;
+    g.add(keep(poly([V(0.02, 0), V(0.02 + size, size * 0.62),
+      V(0.02 + size, -size * 0.62)], colour, o, true)));
+    scaleG.add(g);
+    return g;
   };
+  const inMark = mark(C.hot, 0.11, 0.9);       // the room
+  const setMark = mark(C.beat, 0.09, 0.9);     // the setpoint
+  // The span between them, drawn as a bar: the work left to do.
+  const span = keep(poly([V(-0.02, 0), V(-0.02, 0)], C.beat, 0.5));
+  scaleG.add(span);
 
-  const parts = {
-    unit, blades, air, glow, porch, tIn, tSet, bladeA: 0,
-    st: { status: 'off', power: false, mode: null, indoor: null, target: null, home: false },
+  /* ---- occupancy ----
+     One ring on the floor under the unit. Somebody is home, or nobody is. */
+  const here = ring(0.34, C.ok, 0.0, 'y');
+  here.position.set(0, FLOOR + 0.006, UD / 2 + 0.34);
+  sp.add(here);
+
+  parts.unit = shell;
+  parts.louvre = louvre;
+  parts.air = air;
+  parts.here = here;
+
+  /* ---- state ---- */
+  const st = {
+    status: 'off', power: false, mode: null, indoor: null, target: null, home: false,
   };
-  group.userData.parts = parts;
-  group.userData.spin = [0, opts.spin ?? 0.1, 0];
-  group.userData.hitR = 1.9;
 
   function setState(s) {
     const o = s || {};
-    const st = {
-      status: Object.prototype.hasOwnProperty.call(STATUS_HEX, o.status) ? o.status : 'off',
-      power: !!o.power,
-      mode: (o.mode === 'cool' || o.mode === 'heat' || o.mode === 'fan') ? o.mode : null,
-      indoor: num(o.indoor),
-      target: num(o.target),
-      home: !!o.home,
-    };
-    parts.st = st;
+    st.status = Object.prototype.hasOwnProperty.call(STATUS_HEX, o.status) ? o.status : 'off';
+    st.power = !!o.power;
+    st.mode = (o.mode === 'cool' || o.mode === 'heat' || o.mode === 'fan') ? o.mode : null;
+    st.indoor = num(o.indoor);
+    st.target = num(o.target);
+    st.home = !!o.home;
+
     const hex = STATUS_HEX[st.status];
-    unit.material.color.setHex(hex);
-    unit.material.opacity = st.power ? 0.95 : 0.5;
-    // Fan moves air it has not conditioned, so it gets neither cyan nor brass.
-    const ac = st.mode === 'heat' ? C.brass : st.mode === 'cool' ? C.beat : C.steel;
-    air.forEach((x) => x.line.material.color.setHex(ac));
-    blades.forEach((b) => b.children[0].material.color.setHex(st.power ? hex : C.rhodium));
-    glow.material.opacity = st.home ? 0.2 : 0.055;
-    porch.material.opacity = st.home ? 0.9 : 0.12;
-    place(tIn, st.indoor);
-    place(tSet, st.target);
+    shell.material.color.setHex(hex);
+    shell.material.opacity = st.power ? 0.95 : 0.45;
+    digits.material.opacity = st.power ? 0.85 : 0.12;
+
+    /* Cool is the beat's cyan, heat is brass, and a fan that conditions
+       nothing gets steel — moving air is not the same as cooling it. */
+    const airC = st.mode === 'heat' ? C.brass : st.mode === 'cool' ? C.beat : C.steel;
+    for (const a of air) a.line.material.color.setHex(airC);
+    setMark.children[0].material.color.setHex(airC);
+    span.material.color.setHex(airC);
+
+    if (st.indoor != null) {
+      inMark.position.y = atTemp(st.indoor);
+      inMark.visible = true;
+    } else inMark.visible = false;
+    if (st.target != null) {
+      setMark.position.y = atTemp(st.target);
+      setMark.visible = true;
+    } else setMark.visible = false;
+
+    if (st.indoor != null && st.target != null) {
+      const a = atTemp(st.indoor); const b = atTemp(st.target);
+      span.geometry.setPositions(new Float32Array([-0.02, a, 0, -0.02, b, 0]));
+      span.material.opacity = Math.abs(a - b) > 0.01 ? 0.55 : 0;
+    } else span.material.opacity = 0;
+
+    here.material.opacity = st.home ? 0.5 : 0.08;
   }
-  setState(null);
 
+  /* ---- motion ---- */
+  let t0 = 0;
   group.userData.tick = (t, dt, p, env) => {
-    const on = p.st.power;
-    // The blades ease to their open or closed angle even under reduced
-    // motion: that easing is the one slow state change a power toggle is
-    // allowed to make. Only the swing on top of it is motion.
-    const swing = on && !env.reduced ? Math.sin(t * 0.7) * 0.2 : 0;
-    const want = (on ? -0.62 : 0) + swing;
-    // Snapped once it is within a hair of the target, so under reduced
-    // motion the blades genuinely stop instead of easing forever.
-    const d = want - p.bladeA;
-    p.bladeA = Math.abs(d) < 0.0015 ? want : p.bladeA + d * (1 - Math.exp(-dt * 3));
-    // Each blade lags the one before it a little, the way a stack of them does.
-    p.blades.forEach((b, i) => { b.rotation.z = p.bladeA * (1 - i * 0.06); });
+    const slow = env && env.reduced ? 0.3 : 1;
+    // The louvre sits where the swing put it, and eases rather than snaps.
+    const openTo = st.power ? -0.62 : 0.02;
+    louvre.rotation.x += (openTo - louvre.rotation.x) * Math.min(1, dt * 3);
 
-    p.air.forEach((x, i) => {
-      if (env.reduced) {
-        x.grp.scale.setScalar(1 + i * 0.8);
-        x.line.material.opacity = on ? 0.6 - i * 0.18 : 0;
-        return;
+    const running = st.power && !(env && env.locked);
+    t0 += dt * slow * (running ? 1 : 0);
+    /* The chevrons travel the way the louvre is pointing: straight out of
+       the mouth when it is shut, downward as it opens. One direction for
+       all of them, so they read as one body of air. */
+    const a = louvre.rotation.x;
+    const dir = V(0, Math.sin(a) * 0.9, Math.cos(a)).normalize();
+    for (let i = 0; i < p.air.length; i += 1) {
+      const c = p.air[i];
+      if (!running) {
+        c.line.material.opacity += (0 - c.line.material.opacity) * Math.min(1, dt * 5);
+        continue;
       }
-      const ph = (t * 0.5 + i / 3) % 1;
-      x.grp.scale.setScalar(1 + ph * 2.4);
-      // Fade in fast off the louvres, out slowly as the front spreads.
-      x.line.material.opacity = on ? 0.85 * (1 - ph) * Math.min(1, ph * 5) : 0;
-    });
+      const f = (t0 * 0.55 + c.phase) % 1;        // 0 at the mouth, 1 away
+      const reach = 0.62;
+      c.line.position.set(
+        MOUTH.x + dir.x * f * reach,
+        MOUTH.y + dir.y * f * reach,
+        MOUTH.z + dir.z * f * reach,
+      );
+      // Opening out as it goes, and gone before it reaches anything.
+      c.line.scale.set(1 + f * 0.9, 1 + f * 0.9, 1);
+      c.line.material.opacity = 0.75 * Math.sin(Math.PI * Math.min(1, f * 1.1)) ** 1.2;
+    }
+    if (p.here.material.opacity > 0.2) {
+      p.here.scale.setScalar(1 + Math.sin(t * 0.8) * 0.03);
+    }
   };
 
+  setState(opts.state ?? null);
   return { group, setState };
 }

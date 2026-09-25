@@ -23,6 +23,7 @@ import {
   esc, icon, toast, modal, relTime, ModuleHost, parseHash,
 } from '/chrome.js';
 import { mountChrono } from '/chrono.js';
+import { pref, setPref, onPrefs } from '/prefs.js';
 import * as timesync from '/timesync.js';
 
 // The native bridge. Every export is a no-op in a browser, so the shell has
@@ -729,6 +730,7 @@ function renderLauncher() {
               <div class="ov-caseline" id="ov-caseline"></div>
               <div class="ov-case">
                 ${crownHTML()}
+                ${displayHTML()}
                 <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
               </div>
             </div>
@@ -737,7 +739,10 @@ function renderLauncher() {
           <svg class="ov-leader" id="ov-leader" aria-hidden="true"></svg>
         </div>
         <footer class="ov-foot">
-          <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere · <kbd class="kbd">L</kbd> holds the movement still</span>
+          <span class="meta ov-keys">
+            <span class="ov-key">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
+            <span class="ov-key"><kbd class="kbd">L</kbd> holds the movement still</span>
+          </span>
           <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
         </footer>
       </section>`;
@@ -834,6 +839,7 @@ function teardownStage() {
 /* The crown: one control, wherever it appears, freezing every rotation so
    the thing can be read. A movement that will not hold still is jewellery. */
 function paintCrowns() {
+  paintDisplaySwitches();
   document.querySelectorAll('.crown').forEach((b) => {
     b.setAttribute('aria-pressed', crownLocked ? 'true' : 'false');
     b.querySelector('.crown-label').textContent = crownLocked ? 'locked' : 'turning';
@@ -852,6 +858,47 @@ const crownHTML = () => `
   <button class="crown" type="button" data-crown aria-pressed="${crownLocked ? 'true' : 'false'}">
     <span class="crown-label">${crownLocked ? 'locked' : 'turning'}</span>
   </button>`;
+
+/* ── the two display switches ─────────────────────────────────────────────
+   Which clock the readout keeps, and which half of the watch's bilingual
+   day wheel is showing. They sit beside the crown, because that is where
+   this console puts the controls that change what the movement shows
+   rather than what it is doing — and because a setting buried two screens
+   away is a setting nobody finds.
+
+   Each button says what it IS, not what it would become: reading "12H" off
+   a clock showing 12-hour is how every switch on an instrument works. The
+   title says what pressing it does. */
+const DISPLAY_SWITCHES = [
+  { key: 'clock24', on: '24H', off: '12H',
+    onTitle: 'Reading 24-hour — switch to 12-hour', offTitle: 'Reading 12-hour — switch to 24-hour' },
+  { key: 'dayLang', on: 'ع', off: 'EN',
+    onTitle: 'Day wheel in Arabic — switch to English', offTitle: 'Day wheel in English — switch to Arabic' },
+];
+
+const switchOn = (sw) => (sw.key === 'clock24' ? pref('clock24') === true : pref('dayLang') === 'ar');
+
+const displayHTML = () => DISPLAY_SWITCHES.map((sw) => {
+  const on = switchOn(sw);
+  return `<button class="dtog" type="button" data-dtog="${sw.key}" aria-pressed="${on}"
+    title="${esc(on ? sw.onTitle : sw.offTitle)}"><span class="dtog-l">${esc(on ? sw.on : sw.off)}</span></button>`;
+}).join('');
+
+function paintDisplaySwitches() {
+  for (const sw of DISPLAY_SWITCHES) {
+    const on = switchOn(sw);
+    document.querySelectorAll(`[data-dtog="${sw.key}"]`).forEach((b) => {
+      b.setAttribute('aria-pressed', String(on));
+      b.querySelector('.dtog-l').textContent = on ? sw.on : sw.off;
+      b.title = on ? sw.onTitle : sw.offTitle;
+    });
+  }
+}
+
+function toggleDisplay(key) {
+  if (key === 'clock24') setPref('clock24', !pref('clock24'));
+  else if (key === 'dayLang') setPref('dayLang', pref('dayLang') === 'ar' ? 'en' : 'ar');
+}
 
 /* What each object is told about its module. A module that describes its own
    state in `summary.model` gets its object driven properly; one that does not
@@ -1038,6 +1085,7 @@ function renderIdle() {
         </div>
         <div class="idle-tools">
           ${crownHTML()}
+          ${displayHTML()}
           <button class="iconbtn idle-fs" type="button"></button>
           <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>
         </div>
@@ -1223,8 +1271,14 @@ window.addEventListener('resize', fitView);
 
 document.addEventListener('click', (e) => {
   const crown = e.target.closest?.('[data-crown]');
-  if (crown) { e.preventDefault(); toggleCrown(); }
+  if (crown) { e.preventDefault(); toggleCrown(); return; }
+  const dtog = e.target.closest?.('[data-dtog]');
+  if (dtog) { e.preventDefault(); toggleDisplay(dtog.dataset.dtog); }
 });
+
+// Another tab can flip these too, so the buttons follow the value rather
+// than assuming they are the only thing that changes it.
+onPrefs(paintDisplaySwitches);
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'l' && e.key !== 'L') return;

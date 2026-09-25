@@ -43,6 +43,7 @@ import * as THREE from 'three';
 import {
   C, mk, edges, poly, segs, ring, occluder, node, pulseRing, V,
 } from './kit.js';
+import { pref } from '/prefs.js';
 
 /* ---- what the movement is made of ----------------------------------
    The case and the dial are steel and white: they are the outside of the
@@ -85,7 +86,57 @@ const INNER = {
    squeezes its figures to fit four millimetres — but a Seiko's day and date
    are printed at normal width in a fairly wide grotesque, and against the
    real thing the condensed version reads as a different typeface. */
-function printed(text, colour = '#dffcff', px = 46, aspect = 2) {
+/* The wheel faces.
+
+   Seiko does not publish a typeface name — it cuts its own numerals per
+   model and corrects them optically, so there is no font to go and buy.
+   What a 7S26 day-date disc is printed in is a plain neo-grotesque:
+   flat-topped five, flagged one with no foot, even stroke, a G with no
+   spur, letters spaced by their own widths. That is Helvetica's
+   description, and Nimbus Sans is the freely redistributable cut of it —
+   so the wheel is set in Nimbus Sans rather than in whatever `system-ui`
+   resolves to on the machine that happens to be looking.
+
+   The Arabic half of a bilingual 7S26 wheel is printed in a plain naskh.
+   Noto Naskh Arabic is that, and it shapes correctly — which matters,
+   because "الجمعة" drawn from unjoined letterforms is not a word.
+
+   Both are subset to the glyphs a day and a date can contain, which is
+   why they are a few kilobytes rather than a few hundred. */
+const WHEEL_EN = "'Wheel Latin', system-ui, sans-serif";
+const WHEEL_AR = "'Wheel Arabic', 'Wheel Latin', system-ui, sans-serif";
+
+const DAYS = {
+  en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+  // As printed on the wheels: the plain forms, without the hamza a
+  // typesetter would put on them and a watch disc does not.
+  ar: ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'],
+};
+
+const fontWaiters = new Set();
+let fontsReady = false;
+
+/** Load the wheel faces once for the page, and tell every disc when they
+    land — a texture drawn before the font arrived is drawn in the fallback
+    and would otherwise stay that way until the date changed. */
+(function loadWheelFaces() {
+  if (typeof FontFace !== 'function' || typeof document === 'undefined' || !document.fonts) return;
+  const at = (f) => String(new URL(`./fonts/${f}`, import.meta.url));
+  const faces = [
+    new FontFace('Wheel Latin', `url(${at('wheel-latin.woff2')})`, { weight: '400' }),
+    new FontFace('Wheel Latin', `url(${at('wheel-latin-bold.woff2')})`, { weight: '700' }),
+    new FontFace('Wheel Arabic', `url(${at('wheel-arabic.woff2')})`, { weight: '400' }),
+  ];
+  Promise.all(faces.map((f) => f.load().then((l) => document.fonts.add(l))))
+    .then(() => {
+      fontsReady = true;
+      for (const fn of fontWaiters) { try { fn(); } catch { /* one disc is not the others' problem */ } }
+      fontWaiters.clear();
+    })
+    .catch(() => { /* the fallback is a grotesque too; it is just not the right one */ });
+}());
+
+function printed(text, colour = '#dffcff', px = 46, aspect = 2, lang = 'en') {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
@@ -99,28 +150,72 @@ function printed(text, colour = '#dffcff', px = 46, aspect = 2) {
   const g = c.getContext('2d');
   g.clearRect(0, 0, w, h);
   g.fillStyle = colour;
-  g.font = `600 ${px}px system-ui, sans-serif`;
+  /* A day is printed lighter than a date on the real wheel, and an Arabic
+     day is a whole word where an English one is three letters — so it is
+     set down until it fits the pane rather than spilling out of it. */
+  const ar = lang === 'ar';
+  const fam = ar ? WHEEL_AR : WHEEL_EN;
+  const weight = ar ? 400 : 700;
+  /* Naskh carries far less ink per em than Latin caps do, so the same
+     point size prints visibly smaller. It is set larger to start with and
+     then brought down to fit, which lands both languages at about the
+     same weight of mark in the aperture. */
+  let size = ar ? px * 1.3 : px;
+  g.font = `${weight} ${size}px ${fam}`;
+  const room = w * 0.92;
+  const wide = g.measureText(text).width;
+  if (wide > room) {
+    size = Math.max(9, Math.floor((size * room) / wide));
+    g.font = `${weight} ${size}px ${fam}`;
+  }
   g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, w / 2, 34);
+  g.direction = ar ? 'rtl' : 'ltr';
+  /* Centred on the INK, not on the baseline. "FRI" has no descender and
+     "الجمعة" has a deep one, so a fixed baseline hangs one of them off
+     the middle of the window — and the window is the frame you read them
+     against. */
+  g.textBaseline = 'alphabetic';
+  let met = g.measureText(text);
+  let asc = met.actualBoundingBoxAscent || size * 0.72;
+  let desc = met.actualBoundingBoxDescent || 0;
+  // And a second fit, on height. A naskh word with a descender under it is
+  // taller than the canvas that a Latin day fits inside with room to spare.
+  if (asc + desc > h * 0.94) {
+    size = Math.max(9, Math.floor((size * h * 0.94) / (asc + desc)));
+    g.font = `${weight} ${size}px ${fam}`;
+    met = g.measureText(text);
+    asc = met.actualBoundingBoxAscent || size * 0.72;
+    desc = met.actualBoundingBoxDescent || 0;
+  }
+  g.fillText(text, w / 2, (h + asc - desc) / 2);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
 }
 
-function printedPlane(w, h, text, colour) {
+function printedPlane(w, h, text, colour, lang = 'en') {
   const aspect = w / h;
+  let cur = text;
+  let curLang = lang;
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour, 46, aspect), transparent: true, depthWrite: false,
+      map: printed(text, colour, 46, aspect, lang), transparent: true, depthWrite: false,
     }),
   );
-  m.userData.set = (next) => {
+  const draw = () => {
     m.material.map.dispose();
-    m.material.map = printed(next, colour, 46, aspect);
+    m.material.map = printed(cur, colour, 46, aspect, curLang);
     m.material.needsUpdate = true;
   };
+  m.userData.set = (next, nextLang = curLang) => {
+    if (next === cur && nextLang === curLang) return;
+    cur = next; curLang = nextLang;
+    draw();
+  };
+  // Redraw once the real face arrives, so the first paint is not the one
+  // that sticks.
+  if (!fontsReady) fontWaiters.add(draw);
   return m;
 }
 
@@ -718,7 +813,13 @@ export function build(o = {}) {
   winG.add(poly(roundRect(winW + 0.04, winH + 0.04, winH * 0.3, 0.001), C.steel, 0.5, true));
   const divide = -winW / 2 + winW * 0.63;
   winG.add(segs([V(divide, -winH / 2, 0.002), V(divide, winH / 2, 0.002)], C.hot, 0.45));
-  const dayText = printedPlane(winW * 0.46, winH * 0.86, 'FRI', '#dffcff');
+  /* The day pane is cut for the longer of the two languages, not for
+     "FRI": the glyphs are drawn at a fixed height either way, so a wider
+     pane costs an English day nothing but margin, while a narrower one
+     would shrink "الثلاثاء" until it was a smudge. */
+  const lang0 = pref('dayLang');
+  const dayText = printedPlane(winW * 0.58, winH * 0.86,
+    DAYS[lang0][new Date(now()).getDay()], '#dffcff', lang0);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
   const dateText = printedPlane(winW * 0.30, winH * 0.86, '25', '#dffcff');
@@ -1106,6 +1207,7 @@ export function build(o = {}) {
   let beat = 0;
   let lastSecond = -1;
   let lastDay = -1;
+  let lastLang = pref('dayLang');
   /* The weight is a pendulum, and the only honest way to move it is to let
      gravity do it.
 
@@ -1141,10 +1243,11 @@ export function build(o = {}) {
       p.secHand.rotation.z = Math.PI / 2 - (ticks / (60 * beatsPerSec)) * Math.PI * 2;
     }
     const day = d.getDate();
-    if (day !== lastDay) {
-      lastDay = day;
+    const lang = pref('dayLang');
+    if (day !== lastDay || lang !== lastLang) {
+      lastDay = day; lastLang = lang;
       p.dateText.userData.set(String(day));
-      p.dayText.userData.set(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()]);
+      p.dayText.userData.set(DAYS[lang][d.getDay()], lang);
     }
     const mins = d.getMinutes() + d.getSeconds() / 60;
     const hours = (d.getHours() % 12) + mins / 60;

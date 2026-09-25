@@ -22,6 +22,7 @@ import {
   now, info, start as startSync, onChange, parts, longDate, shortDate, utcOffset, zoneAbbr,
   isoWeek, dayOfYear, zoneCity,
 } from '/timesync.js';
+import { pref, onPrefs } from '/prefs.js';
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -115,7 +116,7 @@ export function mountChrono(el, { variant = 'home' } = {}) {
     <div class="ch-dialwrap">${dialHTML()}</div>
     <div class="ch-side">
       <div class="ch-readbox">
-        <div class="ch-read" aria-hidden="true"><span class="ch-hh">--</span><span class="ch-sep">:</span><span class="ch-mm">--</span><span class="ch-sep">:</span><span class="ch-ss">--</span></div>
+        <div class="ch-read" aria-hidden="true"><span class="ch-hh">--</span><span class="ch-sep">:</span><span class="ch-mm">--</span><span class="ch-sep">:</span><span class="ch-ss">--</span><span class="ch-ap"></span></div>
         ${railHTML()}
       </div>
       <p class="ch-date"></p>
@@ -129,7 +130,7 @@ export function mountChrono(el, { variant = 'home' } = {}) {
     </div>` : `
     <div class="ch-main">
       <div class="ch-readbox">
-        <div class="ch-read" aria-hidden="true"><span class="ch-hh">--</span><span class="ch-sep">:</span><span class="ch-mm">--</span><span class="ch-sep">:</span><span class="ch-ss">--</span></div>
+        <div class="ch-read" aria-hidden="true"><span class="ch-hh">--</span><span class="ch-sep">:</span><span class="ch-mm">--</span><span class="ch-sep">:</span><span class="ch-ss">--</span><span class="ch-ap"></span></div>
         ${railHTML()}
       </div>
       <div class="titleblock ch-tb">
@@ -143,7 +144,7 @@ export function mountChrono(el, { variant = 'home' } = {}) {
     <div class="ch-dialwrap">${dialHTML()}</div>`;
 
   const q = (s) => el.querySelector(s);
-  const $hh = q('.ch-hh'), $mm = q('.ch-mm'), $ss = q('.ch-ss');
+  const $hh = q('.ch-hh'), $mm = q('.ch-mm'), $ss = q('.ch-ss'), $ap = q('.ch-ap');
   const rail = [...el.querySelectorAll('.ch-rail i')];
   const hands = {
     h: q('.ch-hand--h'), m: q('.ch-hand--m'), s: q('.ch-hand--s'),
@@ -179,8 +180,18 @@ const paintFacts = () => {
     q('.ch-sr').setAttribute('datetime', new Date(t).toISOString());
   };
 
+  /* 12-hour by default, because this console is read at a glance from the
+     other side of a room and "7:45 PM" is one fewer subtraction than
+     "19:45". The meridiem is set small and after the seconds so the three
+     pairs still read as one figure; on the 24-hour setting it is simply
+     not there. The hour is NOT padded in 12-hour — a watch dial has no
+     "07" on it — so the readout is allowed to be one character narrower
+     for eleven hours of the day. */
   const paintSecond = (p) => {
-    $hh.textContent = p.hh; $mm.textContent = p.mm; $ss.textContent = p.ss;
+    const h24 = pref('clock24');
+    $hh.textContent = h24 ? p.hh : String(p.h % 12 || 12);
+    $ap.textContent = h24 ? '' : (p.h < 12 ? 'AM' : 'PM');
+    $mm.textContent = p.mm; $ss.textContent = p.ss;
     const s = p.s;
     // A full redraw on the minute, then one mark per second after it.
     if (s === 0 || lastSec === -1 || s < lastSec) rail.forEach((r, i) => r.classList.toggle('on', i <= s));
@@ -227,6 +238,9 @@ const paintFacts = () => {
   run();
   REDUCED.addEventListener('change', run);
   const offSync = onChange(paintFacts);
+  // Switching the clock has to land on the current second, not on the next
+  // one — a readout that waits a beat to change looks broken.
+  const offPrefs = onPrefs(() => { lastSec = -1; paintSecond(parts(now())); });
   paintFacts();
 
   return {
@@ -234,7 +248,7 @@ const paintFacts = () => {
     destroy() {
       cancelAnimationFrame(raf); clearTimeout(stepTimer); clearTimeout(flashTimer);
       REDUCED.removeEventListener('change', run);
-      offSync();
+      offSync(); offPrefs();
     },
   };
 }
