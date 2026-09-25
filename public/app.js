@@ -629,8 +629,10 @@ function drawLeader() {
   const to = stage.partPoint('clock', 'barrel');
   // The barrel is on the back of the watch. When the dial is toward you the
   // barrel is behind it, and a leader to a part you cannot see is a line to
-  // nowhere — so it waits until the watch turns round.
-  if (!to || to.depth < 0.05) { hide(); return; }
+  // nowhere — so it waits until the watch turns round. Facing, not depth:
+  // a part off the centre of a turning object can be nearer than the camera
+  // than the side it is on.
+  if (!to || !(to.facing > 0.25)) { hide(); return; }
 
   const sb = stg.getBoundingClientRect();
   const bb = block.getBoundingClientRect();

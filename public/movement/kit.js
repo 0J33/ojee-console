@@ -354,12 +354,18 @@ export function mount(host, o = {}) {
       const v = new THREE.Vector3();
       obj.getWorldPosition(v);
       const depth = v.z;
+      // Which way the part is FACING: the z of its own +Z axis in the world.
+      // Positive means it is turned toward the camera. A caller pointing at
+      // something on the back of an object needs this — the part's depth
+      // alone says nothing, because a part off the centre of a turning object
+      // can be nearer than the camera-facing side it belongs to.
+      const facing = new THREE.Vector3().setFromMatrixColumn(obj.matrixWorld, 2).normalize().z;
       v.project(camera);
       // `depth` is the part's distance toward the camera in world units. A
       // caller pointing at something can use it to tell whether the object
       // has turned that part away — a leader to a part behind the dial is a
       // leader to nothing.
-      return { x: (v.x * 0.5 + 0.5) * r.width, y: (-v.y * 0.5 + 0.5) * r.height, depth };
+      return { x: (v.x * 0.5 + 0.5) * r.width, y: (-v.y * 0.5 + 0.5) * r.height, depth, facing };
     },
     /** The crown: freeze every rotation so the thing can be read. */
     setLocked(v) {

@@ -177,7 +177,7 @@ export async function create(host, o = {}) {
       const pt = view.projectObject(part);
       if (!pt) return null;
       const hb = host.getBoundingClientRect();
-      return { x: hb.left + pt.x, y: hb.top + pt.y, depth: pt.depth };
+      return { x: hb.left + pt.x, y: hb.top + pt.y, depth: pt.depth, facing: pt.facing };
     },
 
     destroy() {
