@@ -780,14 +780,15 @@ export function build(o = {}) {
          group is drawn at, so that is what gravity acts on.
 
          The two constants are the whole character of the thing. The first is
-         how hard gravity pulls it back: lower reads as HEAVIER, because a
-         heavy rotor is slow to be turned and slow to come back — this one
-         takes the better part of seven seconds to swing, so the watch turns
-         visibly out from under it. The second is damping, kept light so it
-         carries well past the bottom and settles over a good many swings. A
-         weight that stops dead at the bottom is a weight with no mass. */
+         how hard gravity has hold of it — and a HEAVY weight falls hard, so
+         this is high: it drops to the bottom in well under a second rather
+         than drifting there. (Slowing it down reads as light and lazy, not as
+         heavy, which is the wrong way round and was the first guess.) The
+         second is damping, kept low against it so the weight carries well
+         past the bottom and swings back several times before it settles —
+         momentum is the other half of looking massive. */
       const mass = spin + Math.PI / 2;
-      spinV += (-0.85 * pull * Math.sin(mass - down) - 0.22 * spinV) * dd;
+      spinV += (-17 * pull * Math.sin(mass - down) - 0.95 * spinV) * dd;
       spin += spinV * dd;
       p.rotor.rotation.z = spin;
     }
