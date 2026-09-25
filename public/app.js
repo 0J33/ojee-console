@@ -687,6 +687,10 @@ function fitView() {
   const bar = $('.statusbar')?.getBoundingClientRect().height || 0;
   const h = Math.max(360, window.innerHeight - top - bar);
   document.documentElement.style.setProperty('--view-h', `${Math.round(h)}px`);
+  // Where the page's content actually starts, under whatever chrome is
+  // sticky above it. A sticky column needs it, and it is not a constant:
+  // the bars differ by viewport and the safe area differs by device.
+  document.documentElement.style.setProperty('--chrome-top', `${Math.round(el.getBoundingClientRect().top)}px`);
   // Then check the answer. Padding below the view, a wrapper's own margin, a
   // scrollbar that appeared because of the first guess — all of them are
   // cheaper to measure once than to enumerate in CSS.

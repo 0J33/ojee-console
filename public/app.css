@@ -539,13 +539,28 @@ body.mv-turning { cursor: grabbing; user-select: none; }
    and the object is the page's subject, not a component on it. */
 body.is-module .wrap {
   display: grid;
-  grid-template-columns: minmax(0, 0.44fr) minmax(0, 1fr);
-  gap: clamp(20px, 3vw, 56px);
-  align-items: stretch;
-  height: var(--view-h, auto);
+  /* The object column is a FIXED width, not a fraction of the page. A
+     module's own screens were drawn against the whole of it and their CSS
+     breaks on the viewport, not on the box they are actually in — so every
+     pixel the object takes as a share is a pixel the module quietly
+     overflows by. It gets enough to be looked at and not one more. */
+  grid-template-columns: clamp(190px, 18vw, 280px) minmax(0, 1fr);
+  gap: clamp(16px, 2.2vw, 36px);
+  /* The 1180px cap is a measure for a column of TEXT. This page is not one —
+     it is an object beside a module's own screens — so it takes the width the
+     shell gives it, and the module keeps the room it was drawn against. */
+  max-width: none;
+  align-items: start;
   min-height: 0;
 }
+/* The object STAYS while its module's page scrolls past it. Scrolling the
+   whole page and pinning the left column beats an inner scroll container:
+   the page keeps one scroll position, the wheel works wherever the pointer
+   is, and a long table is not trapped in a box two thirds of the screen. */
 body.is-module .modhead {
+  position: sticky;
+  top: calc(var(--chrome-top, 96px) + var(--s-3));
+  max-height: calc(100dvh - var(--chrome-top, 96px) - var(--s-5));
   display: grid;
   /* Declared, not implicit. Left implicit the single column is content-sized,
      and the object's own `width: 100%` contributes nothing to it — a circular
@@ -557,7 +572,7 @@ body.is-module .modhead {
      the SHORT side of its box, so a tall box is dead space, not a bigger
      drawing. */
   grid-template-rows: auto auto;
-  align-content: center;
+  align-content: start;
   justify-items: stretch;
   gap: var(--s-4);
   margin: 0;
@@ -578,26 +593,34 @@ body.is-module .modhead-dial {
 body.is-module .modhead-name { font-size: 0.72rem; }
 body.is-module .modhead-line { font-size: 1rem; color: var(--ink); white-space: normal; }
 .modhead-facts { display: grid; gap: 3px; margin: var(--s-2) 0 0; }
-/* The module's own screens scroll INSIDE their column, so the page itself
-   never does and the object never leaves the screen. */
 body.is-module #view {
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  /* So a module's own CSS can ask how wide its BOX is rather than how wide
+     the window is, which is the question it actually needs answered here. */
+  container-type: inline-size;
 }
+
+/* No scrollbars anywhere in the console. The shell is a fixed frame with the
+   content moving inside it, and a gutter that appears and disappears with the
+   content shifts the whole layout sideways every time you open a long page.
+   Scrolling still works by every means that is not a dragged bar. */
+body.app, body.app * { scrollbar-width: none; }
+body.app ::-webkit-scrollbar { width: 0; height: 0; }
 
 /* A phone has one column and a page that scrolls: the object over its
    readings, then the module's own screens under them. */
 @media (max-width: 900px) {
   body.is-module .wrap {
     grid-template-columns: minmax(0, 1fr);
-    height: auto;
     min-height: 0;
   }
-  body.is-module .modhead { grid-template-rows: auto auto; }
+  body.is-module .modhead {
+    position: static;
+    max-height: none;
+    grid-template-rows: auto auto;
+  }
   body.is-module .modhead-dial { height: auto; aspect-ratio: 1; }
-  body.is-module #view { overflow: visible; }
 }
 
 /* ── phones ────────────────────────────────────────────────────────────── */
