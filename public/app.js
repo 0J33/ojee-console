@@ -874,8 +874,13 @@ function bindModels(screen, ids) {
     // the module is about. On the plate it is one of five in a column, so it
     // keeps the register's fill.
     const fill = screen.startsWith('mod:') ? 0.85 : 0.78;
-    for (const id of ids) st.bind(id, `[data-dial="${id}"]`, { fill });
+    const binds = ids.map((id) => st.bind(id, `[data-dial="${id}"]`, { fill }));
+    // Once now, for anything already in the scene, and once more when the
+    // models that were still loading have landed. The stage holds state for
+    // a model that has not arrived, so neither of these can be too early —
+    // but a page that never pushes again must not be left showing defaults.
     pushModelStates();
+    Promise.all(binds).then(() => pushModelStates());
   });
 }
 

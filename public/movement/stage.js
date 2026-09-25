@@ -216,28 +216,54 @@ export async function create(host, o = {}) {
       const group = built.group || built;
       view.add(group);
       ro.observe(el);
+      // Whatever arrived while this was loading. A module's state is pushed
+      // the moment the page paints, which is long before a dynamically
+      // imported model exists — so it is held on the reservation and handed
+      // over here, the instant there is something to hand it to.
+      const pending = slots.get(id);
       slots.set(id, {
         el,
         selector: typeof selector === 'string' ? selector : `[data-dial="${id}"]`,
         group,
         api: built,
         fill: opts.fill,
+        state: pending?.state,
+        alert: pending?.alert,
       });
+      if (pending?.state !== undefined) built.setState?.(pending.state);
+      if (pending?.alert !== undefined) built.setAlert?.(pending.alert);
       queueSync();
       return built;
     },
 
-    /** Hand a model its module's live state. */
+    /**
+     * Hand a model its module's live state.
+     *
+     * REMEMBERED, always — even when the model it is for does not exist yet.
+     * This used to return early on a slot that was still loading, which threw
+     * the state away without a word: the page pushes state as soon as it
+     * paints, a model arrives a moment later over the network, and it arrived
+     * with nothing. What you got was the model's default — a bare grey
+     * wireframe with no lit AC, no signal arcs, no failing bars — until some
+     * later repaint happened to push again. Which is exactly why it looked
+     * right, and then wrong after a refresh, and right again twenty seconds
+     * on when the poll came round.
+     */
     setState(id, state) {
       const slot = slots.get(id);
-      if (slot?.reserved) return;
-      slot?.api?.setState?.(state);
+      if (!slot) return;
+      slot.state = state;
+      if (slot.reserved) return;
+      slot.api?.setState?.(state);
     },
 
-    /** The alert that rides the mainspring barrel. */
+    /** The alert that rides the mainspring barrel. Held the same way. */
     setAlert(level) {
       const slot = slots.get('clock');
-      if (!slot?.reserved) slot?.api?.setAlert?.(level);
+      if (!slot) return;
+      slot.alert = level;
+      if (slot.reserved) return;
+      slot.api?.setAlert?.(level);
     },
 
     sync: queueSync,
