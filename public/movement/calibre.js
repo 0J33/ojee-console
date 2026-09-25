@@ -77,31 +77,40 @@ const INNER = {
    squeezes its figures to fit four millimetres — but a Seiko's day and date
    are printed at normal width in a fairly wide grotesque, and against the
    real thing the condensed version reads as a different typeface. */
-function printed(text, colour = '#dffcff', px = 46) {
+function printed(text, colour = '#dffcff', px = 46, aspect = 2) {
+  /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
+     A fixed 128x64 texture stretched over a narrower plane squeezes the
+     glyphs by exactly the ratio between the two, and the date pane is a
+     third of the aperture: 1.29 wide against the texture's 2.0, which
+     printed "25" at 65% of its width. That is what still read as condensed
+     after the type itself was set straight — not the typeface, the box. */
+  const h = 64;
+  const w = Math.max(24, Math.round(h * aspect));
   const c = document.createElement('canvas');
-  c.width = 128; c.height = 64;
+  c.width = w; c.height = h;
   const g = c.getContext('2d');
-  g.clearRect(0, 0, 128, 64);
+  g.clearRect(0, 0, w, h);
   g.fillStyle = colour;
   g.font = `600 ${px}px system-ui, sans-serif`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(text, 64, 34);
+  g.fillText(text, w / 2, 34);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
 }
 
 function printedPlane(w, h, text, colour) {
+  const aspect = w / h;
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour), transparent: true, depthWrite: false,
+      map: printed(text, colour, 46, aspect), transparent: true, depthWrite: false,
     }),
   );
   m.userData.set = (next) => {
     m.material.map.dispose();
-    m.material.map = printed(next, colour);
+    m.material.map = printed(next, colour, 46, aspect);
     m.material.needsUpdate = true;
   };
   return m;
