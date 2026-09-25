@@ -325,11 +325,24 @@ export function build(o = {}) {
   const LUG_OUT = 0.94;
   for (const sy of [1, -1]) {
     for (const sx of [1, -1]) {
+      /* The lug BEGINS at the case, and its root is the case's own curve.
+         Run into the case instead and you get a horn drawn across the inside
+         of a watch — which is what you see whenever the object is tilted far
+         enough to look over the bezel. Clipping it here rather than hiding it
+         with another solid also means there is nothing to leak. */
+      const yIn = Math.sqrt(Math.max(0, CASE_R * CASE_R - LUG_IN * LUG_IN));
+      const yOut = Math.sqrt(Math.max(0, CASE_R * CASE_R - LUG_OUT * LUG_OUT));
+      const aIn = Math.atan2(yIn, LUG_IN);
+      const aOut = Math.atan2(yOut, LUG_OUT);
       const lug = new THREE.Shape();
-      lug.moveTo(sx * LUG_IN, sy * 0.82);            // rooted inside the case
-      lug.lineTo(sx * LUG_OUT, sy * 0.9);
-      lug.lineTo(sx * (LUG_OUT - 0.03), sy * 1.5);
-      lug.lineTo(sx * (LUG_OUT - 0.09), sy * 1.64);  // the tip, chamfered
+      lug.moveTo(sx * LUG_IN, sy * yIn);
+      // along the rim, a hair inside it so the two never leave a seam
+      for (let k = 1; k <= 6; k += 1) {
+        const a = aIn + ((aOut - aIn) * k) / 6;
+        lug.lineTo(sx * Math.cos(a) * (CASE_R - 0.012), sy * Math.sin(a) * (CASE_R - 0.012));
+      }
+      lug.lineTo(sx * (LUG_OUT - 0.02), sy * 1.5);
+      lug.lineTo(sx * (LUG_OUT - 0.08), sy * 1.64);   // the tip, chamfered
       lug.lineTo(sx * (LUG_IN + 0.06), sy * 1.66);
       lug.lineTo(sx * (LUG_IN + 0.01), sy * 1.52);
       lug.closePath();
@@ -645,6 +658,21 @@ export function build(o = {}) {
   back.add(rotor);
   parts.rotor = rotor;
 
+  /* The movement's layout was drawn against a larger case, and parts of it —
+     the ends of two bridges, their screws — reached past the caseback's
+     opening and showed outside the watch. Rather than nudge a dozen
+     coordinates and have it drift again the next time the case changes, the
+     whole thing is measured and scaled to fit the opening it goes in. That is
+     also how a movement works: it is a size, and a case is built round it. */
+  {
+    const box = new THREE.Box3().setFromObject(back);
+    let far = 0;
+    for (const x of [box.min.x, box.max.x]) {
+      for (const y of [box.min.y, box.max.y]) far = Math.max(far, Math.hypot(x, y));
+    }
+    if (far > 0) back.scale.setScalar(Math.min(1, (MOV_R * 0.97) / far));
+  }
+
   /* ---- motion ---------------------------------------------------------
      The hands come from the clock, the train turns at the ratios its tooth
      counts give it, and the balance beats three times a second — 21,600
@@ -735,12 +763,13 @@ export function build(o = {}) {
 
          The two constants are the whole character of the thing. The first is
          how hard gravity pulls it back: lower reads as HEAVIER, because a
-         heavy rotor is slow to be turned and slow to come back — a swing of
-         about three and a half seconds. The second is damping, kept light so
-         it carries past the bottom and takes several swings to settle. A
-         weight that stops dead at the bottom is a weight with no mass. */
+         heavy rotor is slow to be turned and slow to come back — this one
+         takes about five seconds to swing. The second is damping, kept light
+         so it carries well past the bottom and takes half a dozen swings to
+         settle. A weight that stops dead at the bottom is a weight with no
+         mass at all. */
       const mass = spin + Math.PI / 2;
-      spinV += (-3.2 * pull * Math.sin(mass - down) - 0.55 * spinV) * dd;
+      spinV += (-1.6 * pull * Math.sin(mass - down) - 0.34 * spinV) * dd;
       spin += spinV * dd;
       p.rotor.rotation.z = spin;
     }
