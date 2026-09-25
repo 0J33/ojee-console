@@ -440,7 +440,19 @@ body.mv-turning { cursor: grabbing; user-select: none; }
    The result was phone-only and total: the bottom tab bar, which IS the
    primary navigation under 860px, stopped being fixed and fell to the end of
    the document, and the view strip stopped sticking. Nothing to restate. */
-.shell { position: relative; z-index: 2; }
+/* NO z-index here, and that is the whole point.
+
+   `position: relative; z-index: 2` on the shell was written to put the page
+   under the canvas, and it did — along with everything a module ever builds
+   inside it. A positioned element with a z-index is a stacking context, and a
+   stacking context CAPS its descendants: the remote module's fullscreen
+   session asks for `--z-modal` (300) and got clamped to the shell's 2, so it
+   opened underneath the hudbar, the nav, the status strip and the movement's
+   canvas — an RDP screen with the console drawn on top of it.
+
+   The canvas is above ordinary content because IT has a z-index and ordinary
+   content does not. Anything a module raises deliberately now clears it. */
+.shell { position: relative; }
 /* Toasts and modals are left alone for the same reason, and one more: a
    `position: relative; z-index: 60` on `#modal-root` is a stacking context,
    and a context caps everything inside it — the backdrop's own `z-index: 300`
