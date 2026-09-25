@@ -131,14 +131,38 @@ attrs=$(ev "(() => { const i = document.querySelector('#code');
                                       || bad "code field attrs are ${attrs}"
 
 # Six digits should submit on their own — the button is under the keypad.
+# Login lands on the PLATE, not inside whichever module happened to be ready
+# first: the console has a front door, and arriving somewhere arbitrary is
+# what it was built to stop.
 agent-browser fill "#code" "$(code)" >/dev/null 2>&1
 agent-browser wait 2200 >/dev/null 2>&1
 url=$(agent-browser get url 2>/dev/null | tail -n 1)
-[[ "$url" == *"#/demo/"* ]] && ok "six digits auto-submit and land on the first ready module" \
-                            || bad "after login, url is ${url}"
+[[ "$url" != *"/login"* ]] && ok "six digits auto-submit and land on the plate (${url})" \
+                           || bad "after login, url is ${url}"
+
+# Every enabled module gets a seat on it, each carrying its own headline —
+# including the dead one, marked down. Hiding a module that will not start
+# makes a broken deploy look like a feature that was never built.
+plate=$(ev "(() => { const s = document.querySelector('.ov-stage');
+  if (!s) return 'no plate';
+  const seats = [...s.querySelectorAll('.comp')];
+  const heads = seats.filter(c => c.querySelector('.comp-head')?.textContent.trim()).length;
+  const ghost = seats.find(c => /ghost/i.test(c.textContent));
+  return seats.length + '/' + heads + '/' + (ghost ? ghost.dataset.state : 'no-ghost'); })()")
+[[ "$plate" == "2/2/down" ]] && ok "the plate seats every module with its headline, the dead one marked down (${plate})" \
+                             || bad "plate seats/headlines/ghost are '${plate}', expected 2/2/down"
+
+# The movement is one canvas over the whole viewport, never one per dial.
+canvases=$(ev "document.querySelectorAll('canvas').length")
+[[ "$canvases" -le 1 ]] && ok "one canvas for the whole scene (${canvases})" \
+                        || bad "${canvases} canvases — a context per dial will be dropped by the browser"
 
 echo ""
 echo "=== module contract ================================================"
+
+# Into a module from the plate, the way a reader would.
+agent-browser open "$BASE/#/demo" >/dev/null 2>&1
+agent-browser wait 1200 >/dev/null 2>&1
 
 mounted=$(ev "!!document.querySelector('#demo-reading')")
 [ "$mounted" = "true" ] && ok "module UI mounted into the shell" || bad "demo module did not mount"
@@ -148,11 +172,16 @@ nav=$(ev "[...document.querySelectorAll('.nav-link')].map(a => a.textContent.tri
                                                 || bad "nav is '${nav}'"
 
 # The dead module must still be listed. Hiding it makes a broken deploy look
-# like a feature that was never built.
-ghost=$(ev "(() => { const a = [...document.querySelectorAll('.nav-link')].find(x => /ghost/i.test(x.textContent));
-  return a ? (a.classList.contains('nav-link--down') ? 'listed-and-marked' : 'listed-unmarked') : 'hidden'; })()")
-[ "$ghost" = "listed-and-marked" ] && ok "unreachable module stays in the nav, marked down" \
+# like a feature that was never built. The view row carries the ACTIVE
+# module's views only — switching modules is the plate's job and the side
+# rail's — so this asks the rail, which is where every module is listed.
+ghost=$(ev "(() => { const a = [...document.querySelectorAll('#sidenav .sn-item')].find(x => /ghost/i.test(x.textContent));
+  if (!a) return 'hidden';
+  const marked = a.classList.contains('is-down') || !!a.querySelector('.dot--err, .dot--warn');
+  return marked ? 'listed-and-marked' : 'listed-unmarked'; })()")
+[ "$ghost" = "listed-and-marked" ] && ok "unreachable module stays in the rail, marked down" \
                                    || bad "unreachable module is '${ghost}'"
+
 
 # ...and explains itself rather than showing a blank panel.
 agent-browser open "$BASE/#/ghost" >/dev/null 2>&1

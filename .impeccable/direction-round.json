@@ -1,0 +1,131 @@
+{
+  "title": "ojee.console — cockpit concept",
+  "question": "The roll assigned the panoramic cockpit display. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Panoramic Cockpit Display",
+      "kicker": "THE ROLL",
+      "lineage": "F-35 Lightning II single-panel glass cockpit",
+      "thesis": "The console as one wide glass cockpit panel, every module a portal.",
+      "palette": ["#000000", "#00ffff", "#3dff7a", "#ffb000", "#ff2d2d", "#d6d6d6"],
+      "materials": ["vector stroke symbology on true black", "portal bezels on one glass panel", "spinnable 3D wireframe own-ship"],
+      "viewport": "Desktop: one landscape panel of portals around a spinnable 3D airframe of your network; phone: portals stack as pages behind soft-key tabs.",
+      "risk": "Tips into movie-prop HUD if symbology decorates instead of measuring.",
+      "raised": [
+        { "from": "challenger-seven-segment", "raise": "Fixed mask: instruments never reflow; only what is lit changes, and unlit cells are drawn as ghosts." },
+        { "from": "challenger-crt-arcade", "raise": "Colour is law: each cockpit colour means one state only; amber is caution, red is warning, never decoration." },
+        { "from": "challenger-lineup", "raise": "Billing by severity: the system that needs you is drawn largest; healthy ones shrink to a line." },
+        { "from": "challenger-seedbed", "raise": "True black owns the panel: no grey fills or card backgrounds, only strokes and light." },
+        { "from": "challenger-cloud-edge", "raise": "Colour lives on instrument strokes; text stays white unless it carries a state." },
+        { "from": "challenger-orizuru", "raise": "One continuous panel: every portal arrangement is a recoverable, deep-linkable state." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Bezel-Button MFD",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "F-16 / F/A-18 multifunction displays with option-select buttons",
+      "thesis": "Every module is a display page, picked by labelled buttons round the screen's edge.",
+      "palette": ["#000000", "#33ff66", "#e8e8e8", "#ffb000", "#ff2d2d"],
+      "materials": ["square monochrome display", "machined bezel", "twenty labelled pushbuttons"],
+      "viewport": "Two square MFDs either side of a scratchpad clock; phone: one MFD, bezel buttons along the bottom edge.",
+      "risk": "Where most cockpit-themed dashboards land, and square displays waste a wide screen."
+    },
+    {
+      "id": "challenger-seven-segment",
+      "label": "Seven-Segment Panel",
+      "verdict": "competitive",
+      "lineage": "bedside clocks, price totems and scoreboards",
+      "thesis": "Every number on the console is lit segments in a fixed mask; absence is drawn too.",
+      "palette": ["#0a0a0a", "#ff3b30", "#ffb400", "#00ff66", "#1a1a1a"],
+      "materials": ["LED segments", "ghost cells", "matte black"],
+      "viewport": "The clock at full width in segment cells, module values in fixed cells beneath it.",
+      "case": "Wins the watch-setting job; loses the fighter-cockpit identity and fits text facts badly.",
+      "risk": "Module facts are sentences, not digits; drifts toward a petrol-station totem.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock.webp"
+    },
+    {
+      "id": "challenger-crt-arcade",
+      "label": "Arcade Cabinet CRT",
+      "verdict": "declined",
+      "lineage": "pixel-art arcade screens",
+      "thesis": "The console as an arcade attract screen with phosphor glow.",
+      "palette": ["#000000", "#ffd400", "#ff2a6d", "#05d9e8"],
+      "materials": ["fat pixels", "scanlines", "phosphor bloom"],
+      "viewport": "Score-style readouts pinned to the top, modules as tiles on a pixel grid.",
+      "case": "Loses both: reads as a game, not an instrument you trust.",
+      "kept": "Palette law: each colour means exactly one state.",
+      "risk": "Novelty over trust.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-crt-arcade-pixel-glow-hero.webp"
+    },
+    {
+      "id": "challenger-lineup",
+      "label": "Festival Lineup Sheet",
+      "verdict": "declined",
+      "lineage": "music festival lineup posters",
+      "thesis": "Hierarchy by type size alone; the headliner is what needs you.",
+      "palette": ["#ff5a1f", "#111111"],
+      "materials": ["one condensed face", "saturated ground"],
+      "viewport": "Modules billed by urgency, largest first, as justified type.",
+      "case": "Loses both: no instruments, and a saturated ground fights true black.",
+      "kept": "Billing by severity: size says what matters.",
+      "risk": "A poster, not a panel.",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-festival-lineup-poster-hero.webp"
+    },
+    {
+      "id": "challenger-seedbed",
+      "label": "Floating Capsules",
+      "verdict": "declined",
+      "lineage": "contemporary product marketing",
+      "thesis": "Detached pill controls floating over one colour field.",
+      "palette": ["#82cc5c", "#ffffff", "#2f3130"],
+      "materials": ["pills", "rounded slabs"],
+      "viewport": "A green field with white capsule nav and rounded panels.",
+      "case": "Loses both: rounded and soft, the opposite of a cockpit.",
+      "kept": "Total commitment of one ground: here, true black.",
+      "risk": "Marketing site, not console.",
+      "hero": "https://impeccable.style/worlds/cards/sd-seedbed-lobes-hero.webp"
+    },
+    {
+      "id": "challenger-cloud-edge",
+      "label": "Iridescent Cloud Edge",
+      "verdict": "declined",
+      "lineage": "atmospheric optics",
+      "thesis": "Achromatic fields with colour only on hairline edges.",
+      "palette": ["#f6f7f8", "#5d6670", "#8fe3c8", "#e7a1c0"],
+      "materials": ["cloud white", "spectral fringes"],
+      "viewport": "White field, grey text, pastel bands on the edges.",
+      "case": "Loses both: a light, pastel world is the reverse of the brief.",
+      "kept": "Colour lives on strokes; text stays achromatic.",
+      "risk": "Too quiet to glance at.",
+      "hero": "https://impeccable.style/worlds/cards/clouds-storms-auroras-iridescent-cloud-edge-hero.webp"
+    },
+    {
+      "id": "challenger-orizuru",
+      "label": "Origami Fold Sequence",
+      "verdict": "declined",
+      "lineage": "orizuru crane folding diagrams",
+      "thesis": "One uncut sheet passing through numbered, recoverable states.",
+      "palette": ["#d8392b", "#f2e9dc", "#1b1b1b", "#c9a227"],
+      "materials": ["washi", "crease lines"],
+      "viewport": "A folding diagram with numbered steps in a margin column.",
+      "case": "Loses both: paper craft has nothing to do with a cockpit.",
+      "kept": "One continuous surface whose every state is recoverable.",
+      "risk": "Charming and irrelevant.",
+      "hero": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-orizuru-crane-sequence-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A self-hosted dashboard as Home Assistant and Grafana ship it, done impeccably.",
+    "palette": ["#111827", "#1f2937", "#3b82f6", "#e5e7eb"],
+    "materials": ["rounded status cards", "line charts", "sidebar"],
+    "viewport": "Sidebar, a grid of rounded status cards and small charts.",
+    "risk": "Indistinguishable from every self-hosted dashboard by design."
+  },
+  "steer": true
+}

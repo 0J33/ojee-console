@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<title>ojee.console · cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./cockpit.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-full" viewBox="0 -960 960 960"><path d="M120-120v-193h60v133h133v60H120Zm527 0v-60h133v-133h60v193H647ZM120-647v-193h193v60H180v133h-60Zm660 0v-133H647v-60h193v193h-60Z"/></symbol>
+  <symbol id="i-close" viewBox="0 -960 960 960"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></symbol>
+</svg>
+
+<header class="band" id="band">
+  <div class="band-l">
+    <span class="wm">ojee<b>.</b>console</span>
+    <span class="tag tag--sim" title="Every value on this page is synthetic">sim data</span>
+  </div>
+  <div class="band-c">
+    <button type="button" class="mc mc--caut" id="mc-caut" aria-label="Master caution"><span>master</span><span>caution</span></button>
+    <p class="band-status" id="band-status" role="status">—</p>
+    <button type="button" class="mc mc--warn" id="mc-warn" aria-label="Master warning"><span>master</span><span>warning</span></button>
+  </div>
+  <div class="band-r">
+    <div class="sim" role="group" aria-label="Simulated state">
+      <span class="sim-k">sim</span>
+      <button type="button" class="sk-key" data-sim="nom" aria-pressed="true">nom</button>
+      <button type="button" class="sk-key" data-sim="caut" aria-pressed="false">caut</button>
+      <button type="button" class="sk-key" data-sim="warn" aria-pressed="false">warn</button>
+    </div>
+    <button type="button" class="sk-key sk-key--solo" id="btn-idle" title="Idle display  I">idle</button>
+    <span class="band-utc">utc <b id="band-utc">--:--:--</b></span>
+  </div>
+</header>
+
+<main class="pcd" id="pcd">
+
+  <!-- CLOCK -->
+  <section class="portal p-clk" id="p-clk" aria-labelledby="t-clk">
+    <h2 class="sr-only" id="t-clk">Clock</h2>
+    <div class="sk" role="group" aria-label="Clock page">
+      <button type="button" class="sk-key" data-clk="loc" aria-pressed="true">loc</button>
+      <button type="button" class="sk-key" data-clk="utc" aria-pressed="false">utc</button>
+      <button type="button" class="sk-key" data-clk="hack" aria-pressed="false">hack</button>
+      <span class="sk-title">time</span>
+    </div>
+    <div class="pb clk">
+      <div class="clk-top">
+        <div class="clk-read" id="clk-read" aria-hidden="true"><span class="clk-hh">--</span><span class="clk-sep">:</span><span class="clk-mm">--</span><span class="clk-sep">:</span><span class="clk-ss">--</span></div>
+        <div class="tape" aria-hidden="true">
+          <div class="tape-strip" id="tape-strip"></div>
+          <i class="tape-lubber"></i>
+        </div>
+      </div>
+      <dl class="facts clk-facts" id="clk-facts"></dl>
+      <time class="sr-only" id="clk-sr"></time>
+    </div>
+  </section>
+
+  <!-- OWN-SHIP -->
+  <section class="portal p-sys" id="p-sys" aria-labelledby="t-sys">
+    <h2 class="sr-only" id="t-sys">Systems</h2>
+    <div class="sk" role="group" aria-label="System page">
+      <button type="button" class="sk-key" data-zone="" aria-pressed="true">sys</button>
+      <button type="button" class="sk-key" data-zone="ecs" aria-pressed="false">ecs</button>
+      <button type="button" class="sk-key" data-zone="eng" aria-pressed="false">eng</button>
+      <button type="button" class="sk-key" data-zone="dlnk" aria-pressed="false">dlnk</button>
+      <button type="button" class="sk-key" data-zone="msn" aria-pressed="false">msn</button>
+      <span class="sk-title">own-ship</span>
+    </div>
+    <div class="pb af-host" id="af-host">
+      <div class="af-detail" id="af-detail" hidden></div>
+      <p class="af-hint" id="af-hint">drag to turn · select a system</p>
+    </div>
+  </section>
+
+  <!-- CAUTIONS -->
+  <section class="portal p-caut" id="p-caut" aria-labelledby="t-caut">
+    <h2 class="sr-only" id="t-caut">Cautions and systems</h2>
+    <div class="sk" role="group" aria-label="Caution page">
+      <button type="button" class="sk-key" data-caut="sys" aria-pressed="true">sys</button>
+      <button type="button" class="sk-key" data-caut="caut" aria-pressed="false">caut</button>
+      <button type="button" class="sk-key" data-caut="log" aria-pressed="false">log</button>
+      <span class="sk-title">icaws</span>
+    </div>
+    <div class="pb caut" id="caut-body"></div>
+  </section>
+
+  <!-- INSTRUMENTS -->
+  <section class="strip" id="p-inst" aria-label="Instruments">
+    <div class="portal inst" data-sys="home">
+      <div class="sk"><span class="sk-title sk-title--l"><i class="lamp"></i>ecs · home</span></div>
+      <div class="pb inst-b" id="inst-home"></div>
+    </div>
+    <div class="portal inst" data-sys="fleet">
+      <div class="sk"><span class="sk-title sk-title--l"><i class="lamp"></i>eng · fleet</span></div>
+      <div class="pb inst-b" id="inst-fleet"></div>
+    </div>
+    <div class="portal inst" data-sys="remote">
+      <div class="sk"><span class="sk-title sk-title--l"><i class="lamp"></i>dlnk · remote</span></div>
+      <div class="pb inst-b" id="inst-remote"></div>
+    </div>
+    <div class="portal inst" data-sys="agent">
+      <div class="sk"><span class="sk-title sk-title--l"><i class="lamp"></i>msn · agent</span></div>
+      <div class="pb inst-b" id="inst-agent"></div>
+    </div>
+  </section>
+</main>
+
+<nav class="softbar" id="softbar" aria-label="Portals">
+  <a href="#p-clk" class="sk-key">clk</a>
+  <a href="#p-sys" class="sk-key">sys</a>
+  <a href="#p-caut" class="sk-key">caut</a>
+  <a href="#p-inst" class="sk-key">inst</a>
+  <button type="button" class="sk-key" id="btn-idle-m">idle</button>
+</nav>
+
+<div class="idle-tools" id="idle-tools" hidden>
+  <button type="button" class="ico" id="idle-fs" aria-label="Full screen" title="Full screen  F"><svg class="ic" aria-hidden="true"><use href="#i-full"></use></svg></button>
+  <button type="button" class="ico" id="idle-x" aria-label="Leave idle" title="Leave  Esc"><svg class="ic" aria-hidden="true"><use href="#i-close"></use></svg></button>
+</div>
+
+<script type="module" src="./cockpit.js"></script>
+</body>
+</html>

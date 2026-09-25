@@ -4,3 +4,6 @@ data/
 config/console.json
 *.log
 .DS_Store
+
+# Impeccable capture packets — regenerated on demand, not source.
+.impeccable/review/

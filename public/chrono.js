@@ -152,13 +152,20 @@ export function mountChrono(el, { variant = 'home' } = {}) {
 
   let lastSec = -1, lastMin = -1, raf = 0, stepTimer = 0, flashTimer = 0;
 
-  const paintFacts = () => {
+  /** Everything interpolated below is generated from a Date, but innerHTML
+    still gets an escape — the rule is the rule. */
+const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const paintFacts = () => {
     const t = now(), inf = info(), p = parts(t);
     const abbr = zoneAbbr(t);
     const zone = `${zoneCity(inf.zone)} · ${utcOffset(t)}${abbr ? ` · ${abbr}` : ''}`;
     const src = sourceLine(inf);
     if (idle) {
-      q('.ch-date').textContent = `${longDate(t)} · week ${isoWeek(p.date)} · day ${dayOfYear(p.date)}`;
+      // Two lines by design rather than wherever the box happens to run out:
+      // the date, then where in the year it falls.
+      q('.ch-date').innerHTML = `${esc(longDate(t))}<span class="ch-date-b">week ${
+        isoWeek(p.date)} · day ${dayOfYear(p.date)}</span>`;
     } else {
       q('.ch-date').textContent = shortDate(t);
     }

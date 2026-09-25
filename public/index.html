@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#08080e">
+<meta name="theme-color" content="#0b0f12">
 <meta name="description" content="Tailnet-only control console.">
 <title>console</title>
 
@@ -27,11 +27,26 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 <link rel="stylesheet" href="/ojee-ui.css">
+<!-- The movement: tokens first, then the parts a calibre has that a
+     dashboard does not. -->
+<link rel="stylesheet" href="/themes/calibre.css">
+<link rel="stylesheet" href="/calibre.css">
 <!-- Branding theme overlay; src set at runtime from config. -->
 <link id="theme-link" rel="stylesheet" href="">
 <link rel="stylesheet" href="/app.css">
+
+<!-- three.js for the movement. It is loaded as a module by the scene code,
+     which carries on without it: a console whose clock and status depend on
+     a CDN is not a local console. -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" crossorigin>
 </head>
-<body class="app grid-bg">
+<body class="app plate">
 
 <!--
   Shell icon sprite. Modules reference these ids through ctx.icon(), and may
@@ -64,6 +79,11 @@
   <symbol id="i-unfull" viewBox="0 -960 960 960"><path d="M253-120v-133H120v-60h193v193h-60Zm394 0v-193h193v60H707v133h-60ZM120-647v-60h133v-133h60v193H120Zm527 0v-193h60v133h133v60H647Z"/></symbol>
 
 </svg>
+
+<!-- The movement. One canvas for the whole console, behind everything,
+     bound to the boxes the layout puts on the page. Decorative to a screen
+     reader: everything it draws is stated in text beside it. -->
+<div class="mv-host" id="mv" aria-hidden="true"></div>
 
 <a class="skip" href="#main">Skip to content</a>
 
@@ -100,6 +120,9 @@
   <aside class="sidenav" id="sidenav" aria-label="Modules and views"></aside>
 
   <main class="wrap" id="main">
+    <!-- The active module's own object, its headline, and the crown. Owned by
+         the shell so it survives every module mount. -->
+    <div class="modhead" id="modhead" hidden></div>
     <div id="view"></div>
   </main>
 </div>

@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T00:00:00Z",
+  "title": "Design System: ojee.console — Calibre",
+  "extensions": {
+    "colorMeta": {
+      "plate": { "role": "neutral", "displayName": "Plate Near-Black", "canonical": "#0b0f12", "tonalRamp": ["#07090b", "#0b0f12", "#101519", "#19242a", "#2b3c44", "#46565e", "#7d8b93", "#e9eef0"] },
+      "bridge": { "role": "neutral", "displayName": "Bridge Face", "canonical": "#0d1216", "tonalRamp": ["#070a0c", "#0d1216", "#131b20", "#1d282e", "#2e3f47", "#485b64", "#7e8f97", "#e5ecee"] },
+      "ink": { "role": "neutral", "displayName": "Instrument Ink", "canonical": "#e9eef0", "tonalRamp": ["#171b1d", "#242a2d", "#3a4347", "#566267", "#74828a", "#9fb0b8", "#c7d4d9", "#e9eef0"] },
+      "ink-2": { "role": "neutral", "displayName": "Engraved Grey", "canonical": "#9fb0b8", "tonalRamp": ["#151a1c", "#222a2d", "#374247", "#4e5c63", "#6b7c84", "#8a9da5", "#9fb0b8", "#cfdbe0"] },
+      "dim": { "role": "neutral", "displayName": "Faint Rhodium (large type only, 4.1:1)", "canonical": "#71848d", "tonalRamp": ["#121618", "#1d2326", "#2f383c", "#445055", "#5c6b72", "#71848d", "#94a5ac", "#c2cfd4"] },
+      "rhodium-line": { "role": "neutral", "displayName": "Rhodium Line (3.2:1, WCAG 1.4.11)", "canonical": "#5f747e", "tonalRamp": ["#101416", "#1a2124", "#2a353a", "#3d4c53", "#4f6169", "#5f747e", "#86a0aa", "#bccdd4"] },
+      "rhodium-solid": { "role": "neutral", "displayName": "Rhodium (scene structure)", "canonical": "#46565e", "tonalRamp": ["#0c0f10", "#151a1d", "#222b2f", "#303c41", "#3d4b52", "#46565e", "#6d818a", "#a9bcc3"] },
+      "steel": { "role": "neutral", "displayName": "Steel", "canonical": "#7d8b93", "tonalRamp": ["#131618", "#1e2325", "#30383c", "#454f55", "#5c686e", "#7d8b93", "#a3aeb4", "#cfd6d9"] },
+      "beat": { "role": "primary", "displayName": "Beat Cyan", "canonical": "#00ffff", "tonalRamp": ["#002526", "#00393b", "#005558", "#00797d", "#00a3a8", "#00cdd3", "#00ffff", "#b5ffff"] },
+      "hot-value": { "role": "primary", "displayName": "Hot Value", "canonical": "#dffcff", "tonalRamp": ["#1b2426", "#28363a", "#3c5257", "#557176", "#749499", "#9bb9bd", "#c3e2e6", "#dffcff"] },
+      "brass": { "role": "secondary", "displayName": "Brass", "canonical": "#ffbf3f", "tonalRamp": ["#2a1d00", "#3f2c00", "#5d4200", "#805b00", "#a67700", "#cf9500", "#ffbf3f", "#ffe0a3"] },
+      "blued-steel": { "role": "secondary", "displayName": "Blued Steel", "canonical": "#4a8fe0", "tonalRamp": ["#0a1622", "#102237", "#193654", "#234a75", "#2e6099", "#3a76bd", "#4a8fe0", "#b3d2f4"] },
+      "ruby": { "role": "secondary", "displayName": "Ruby", "canonical": "#ff4a6e", "tonalRamp": ["#2b0710", "#41101b", "#611a2b", "#83253c", "#a8314e", "#cf3e60", "#ff4a6e", "#ffb6c4"] },
+      "ok": { "role": "tertiary", "displayName": "Luminous Green", "canonical": "#5bffa5", "tonalRamp": ["#042515", "#073a22", "#0b5634", "#107a49", "#16a361", "#1ccd7a", "#5bffa5", "#c2ffdd"] },
+      "warn": { "role": "tertiary", "displayName": "Amber", "canonical": "#ffb000", "tonalRamp": ["#2a1a00", "#3f2700", "#5d3a00", "#805000", "#a66800", "#cf8200", "#ffb000", "#ffdb99"] },
+      "err": { "role": "tertiary", "displayName": "Red Flag", "canonical": "#ff2d2d", "tonalRamp": ["#2c0505", "#420b0b", "#631414", "#861e1e", "#ac2727", "#d42a2a", "#ff2d2d", "#ffb0b0"] }
+    },
+    "typographyMeta": {
+      "wordmark": { "displayName": "Wordmark", "purpose": "\"ojee.console\" in the nav only. Major Mono Display appears nowhere else." },
+      "figures": { "displayName": "Figures", "purpose": "The time readout at full size — the launcher's and the idle display's clock. Weight 300, tabular, tight leading: an instrument's numerals, not a headline." },
+      "figures-seated": { "displayName": "Figures (seated)", "purpose": "The readout inside the movement's core, where the calibre leads and the figures answer it." },
+      "headline": { "displayName": "Headline", "purpose": "A complication's headline fact." },
+      "body": { "displayName": "Body", "purpose": "All prose, alerts, tables. 14px Geist Mono at 1.6." },
+      "reading": { "displayName": "Reading", "purpose": "A fact's value: tabular, right-aligned against a dotted leader, wraps rather than overflowing its seat." },
+      "engraving": { "displayName": "Engraving", "purpose": "The caseline under the movement (date, zone, accuracy), the crown's state word, the rate scale. Departure Mono in tracked caps." },
+      "register-mark": { "displayName": "Register Mark", "purpose": "The module's name printed on its dial, the way a chronograph prints \"minutes\" on its register." }
+    },
+    "shadows": [
+      { "name": "glow-faint", "value": "0 0 4px rgba(0,255,255,0.16)", "purpose": "The lowest cyan emission, for a mark that is barely live." },
+      { "name": "glow-soft", "value": "0 0 6px rgba(0,255,255,0.22)", "purpose": "The rate pointer and small lit hairlines." },
+      { "name": "glow", "value": "0 0 10px rgba(0,255,255,0.35)", "purpose": "Standard emission from a live part." },
+      { "name": "glow-mid", "value": "0 0 14px rgba(0,255,255,0.4)", "purpose": "The seconds figure's text-shadow on the true second." },
+      { "name": "glow-strong", "value": "0 0 22px rgba(0,255,255,0.55)", "purpose": "The single strongest emission in a frame; use once." },
+      { "name": "glow-ok", "value": "0 0 10px rgba(91,255,165,0.35)", "purpose": "A jewel or pip reading nominal." },
+      { "name": "glow-warn", "value": "0 0 10px rgba(255,176,0,0.35)", "purpose": "A jewel or pip needing attention." },
+      { "name": "glow-err", "value": "0 0 10px rgba(255,45,45,0.4)", "purpose": "A jewel or pip in failure." },
+      { "name": "jewel-chaton", "value": "0 0 0 1px rgba(255,191,63,0.55)", "purpose": "The hard brass setting ring around a ruby. A setting, not a shadow." }
+    ],
+    "motion": [
+      { "name": "dur", "value": "0.26s", "purpose": "Considered transitions: the rate pointer, the leader's fade." },
+      { "name": "dur-2", "value": "0.14s", "purpose": "Immediate state feedback: hover, focus, the seconds figure's colour." },
+      { "name": "t", "value": "all 0.14s cubic-bezier(0.2, 0.7, 0.3, 1)", "purpose": "The single transition shorthand every control shares." },
+      { "name": "ease-snap", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The beat: the 0.9s flash on the minute rail and the hub pulse on the true second." },
+      { "name": "bloom", "value": "UnrealBloomPass(256, strength 0.9, radius 0.55, threshold 0.12)", "purpose": "The only light in the 3D scene." },
+      { "name": "reduced-motion", "value": "idle rotation stops; each object's own tick is told; the crown defaults to locked", "purpose": "Reduced motion reaches the parts, not just the outer group." }
+    ],
+    "breakpoints": [
+      { "name": "arrangement", "value": ".ov-stage:not(.is-ringed)" },
+      { "name": "phone-dials-off", "value": "640px" },
+      { "name": "stacked-core", "value": "900px" },
+      { "name": "sidebar-rail", "value": "1100px" },
+      { "name": "scene-min-object", "value": "30px" },
+      { "name": "ortho-scale", "value": "120px per world unit" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bridge",
+      "kind": "card",
+      "refersTo": "bridge",
+      "description": "The system's only container: a chamfered plate held down by two screws, with côtes striping across it. Nothing here is a card.",
+      "html": "<div class=\"ds-bridge ds-bridge--screwed\"><div class=\"ds-bridge-title\">GOING TRAIN</div><p class=\"ds-bridge-body\">Four wheels, 28,800 vibrations per hour.</p></div>",
+      "css": ".ds-bridge { position: relative; background: linear-gradient(158deg, #0d1216, #0b0f12 62%); border: 1px solid rgba(190,214,222,0.10); clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); padding: 24px; color: #e9eef0; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 14px; line-height: 1.6; transition: all 0.14s cubic-bezier(0.2,0.7,0.3,1); } .ds-bridge::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(96deg, rgba(190,214,222,0.032) 0 1px, transparent 1px 11px); } .ds-bridge--screwed::after { content: ''; position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border: 1px solid #5f747e; border-radius: 50%; background: linear-gradient(90deg, transparent 43%, #5f747e 43% 57%, transparent 57%); opacity: 0.6; } .ds-bridge:hover { border-color: #86a0aa; background: linear-gradient(158deg, #0f161a, #0b0f12 62%); } .ds-bridge-title { font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.68rem; letter-spacing: 0.24em; text-transform: uppercase; color: #9fb0b8; margin-bottom: 10px; } .ds-bridge-body { margin: 0; color: #9fb0b8; }"
+    },
+    {
+      "name": "Complication",
+      "kind": "custom",
+      "refersTo": "complication",
+      "description": "A module as a register: its object turns in the dial, its name is printed on the dial, its facts read beneath. The signature component of the system.",
+      "html": "<a class=\"ds-comp\" href=\"#\" data-state=\"warn\"><div class=\"ds-comp-dial\"><span class=\"ds-comp-mark\">FLEET</span></div><div class=\"ds-comp-read\"><div class=\"ds-comp-head\">11 of 12 services up</div><dl class=\"ds-comp-facts\"><div class=\"ds-comp-fact\"><dt>HOSTS</dt><span class=\"ds-lead\"></span><dd>3</dd></div><div class=\"ds-comp-fact\"><dt>LOAD</dt><span class=\"ds-lead\"></span><dd>0.42</dd></div></dl></div></a>",
+      "css": ".ds-comp { display: grid; justify-items: center; gap: 10px; width: 196px; text-decoration: none; color: #9fb0b8; font-family: 'Geist Mono', ui-monospace, monospace; } .ds-comp-dial { position: relative; width: 112px; height: 112px; background: radial-gradient(60% 60% at 50% 45%, rgba(0,255,255,0.05), transparent 72%); } .ds-comp-dial::before { content: ''; position: absolute; inset: 0; border: 1px solid rgba(190,214,222,0.10); border-radius: 50%; } .ds-comp-dial::after { content: ''; position: absolute; inset: 7px; background: linear-gradient(90deg, #5f747e 0 1px, transparent 1px) 50% 0 / 1px 8px no-repeat, linear-gradient(90deg, #5f747e 0 1px, transparent 1px) 50% 100% / 1px 8px no-repeat, linear-gradient(180deg, #5f747e 0 1px, transparent 1px) 0 50% / 8px 1px no-repeat, linear-gradient(180deg, #5f747e 0 1px, transparent 1px) 100% 50% / 8px 1px no-repeat; } .ds-comp-mark { position: absolute; left: 0; right: 0; bottom: 13px; text-align: center; font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.68rem; letter-spacing: 0.24em; text-transform: uppercase; color: #9fb0b8; } .ds-comp-read { display: grid; gap: 7px; justify-items: inherit; width: 100%; } .ds-comp-head { font-size: 0.88rem; line-height: 1.3; color: #e9eef0; } .ds-comp-facts { display: grid; gap: 3px; margin: 0; width: 100%; } .ds-comp-fact { display: flex; align-items: baseline; gap: 8px; min-width: 0; } .ds-comp-fact dt { font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9fb0b8; white-space: nowrap; } .ds-lead { flex: 1 1 auto; border-bottom: 1px dotted rgba(190,214,222,0.10); align-self: center; min-width: 8px; } .ds-comp-fact dd { margin: 0; font-size: 0.78rem; color: #e9eef0; font-variant-numeric: tabular-nums; text-align: right; } .ds-comp[data-state=\"warn\"] .ds-comp-dial::before { border-color: rgba(255,176,0,0.55); } .ds-comp[data-state=\"err\"] .ds-comp-dial::before { border-color: rgba(255,45,45,0.55); } .ds-comp[data-state=\"down\"] { opacity: 0.68; } .ds-comp:hover .ds-comp-dial::before { border-color: #86a0aa; } .ds-comp:hover .ds-comp-head { color: #ffffff; } .ds-comp:focus-visible { outline: 2px solid #00ffff; outline-offset: 6px; }"
+    },
+    {
+      "name": "Crown",
+      "kind": "button",
+      "refersTo": "crown",
+      "description": "The rotation lock. Knurled, with two real states: pulled out (free) and pushed in (locked). Locked is the reduced-motion default.",
+      "html": "<button class=\"ds-crown\" aria-pressed=\"true\">LOCKED</button>",
+      "css": ".ds-crown { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 6px; background: none; border: 1px solid #5f747e; color: #9fb0b8; font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; border-radius: 0; transition: all 0.14s cubic-bezier(0.2,0.7,0.3,1); } .ds-crown::before { content: ''; width: 16px; height: 17px; flex: none; background: linear-gradient(90deg, #5f747e 0 3px, transparent 3px), repeating-linear-gradient(90deg, #5f747e 0 1px, transparent 1px 3px); border: 1px solid #5f747e; transition: all 0.14s cubic-bezier(0.2,0.7,0.3,1); } .ds-crown:hover { color: #e9eef0; border-color: #86a0aa; } .ds-crown[aria-pressed=\"true\"] { color: #00ffff; border-color: #00ffff; background: rgba(0,255,255,0.08); } .ds-crown[aria-pressed=\"true\"]::before { background: linear-gradient(90deg, #00ffff 0 3px, transparent 3px), repeating-linear-gradient(90deg, #00ffff 0 1px, transparent 1px 3px); border-color: #00ffff; transform: translateX(2px); } .ds-crown:focus-visible { outline: 2px solid #00ffff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Rate Scale",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "How the clock is regulated: a graduated scale with zero in the middle and a cyan pointer where this clock actually sits against true time.",
+      "html": "<div class=\"ds-rate\"><span>RATE</span><span class=\"ds-rate-scale\"><i class=\"ds-rate-pointer\" style=\"left: 56%\"></i></span><span class=\"ds-rate-value\">+12 MS</span></div>",
+      "css": ".ds-rate { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.64rem; letter-spacing: 0.16em; text-transform: uppercase; color: #9fb0b8; } .ds-rate-scale { position: relative; height: 14px; border-left: 1px solid #5f747e; border-right: 1px solid #5f747e; background: linear-gradient(180deg, transparent 45%, rgba(190,214,222,0.10) 45% 55%, transparent 55%), repeating-linear-gradient(90deg, rgba(190,214,222,0.05) 0 1px, transparent 1px 9px); } .ds-rate-scale::before { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #5f747e; } .ds-rate-pointer { position: absolute; top: -3px; width: 1px; height: calc(100% + 6px); background: #00ffff; box-shadow: 0 0 6px rgba(0,255,255,0.22); transform: translateX(-0.5px); transition: left 0.26s cubic-bezier(0.2,0.7,0.3,1); } .ds-rate-value { color: #e9eef0; font-variant-numeric: tabular-nums; } @media (prefers-reduced-motion: reduce) { .ds-rate-pointer { transition: none; } }"
+    },
+    {
+      "name": "Barrel Alert",
+      "kind": "custom",
+      "refersTo": "barrel-alert",
+      "description": "What needs attention, engraved beside the mainspring with a leader drawn to it. Never a full-width banner.",
+      "html": "<div class=\"ds-barrel\"><span class=\"ds-barrel-leader\"></span><div class=\"ds-barrel-body\"><div class=\"ds-barrel-count\">2 NEED YOU</div><a class=\"ds-barrel-item\" href=\"#\">fleet · nginx restarted 4×</a><a class=\"ds-barrel-item\" href=\"#\">home · hall sensor offline</a></div></div>",
+      "css": ".ds-barrel { display: flex; gap: 8px; max-width: 36ch; font-family: 'Geist Mono', ui-monospace, monospace; } .ds-barrel-leader { flex: none; width: 34px; align-self: flex-start; margin-top: 9px; border-top: 1px solid #ffb000; position: relative; } .ds-barrel-leader::after { content: ''; position: absolute; right: -3px; top: -3px; width: 5px; height: 5px; background: #ffb000; } .ds-barrel-body { display: grid; gap: 5px; min-width: 0; } .ds-barrel-count { font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; color: #ffb000; } .ds-barrel-item { font-size: 0.8rem; color: #e9eef0; justify-self: start; text-decoration: underline dotted #5f747e; text-underline-offset: 4px; } .ds-barrel-item:hover { color: #00ffff; text-decoration-color: #00ffff; } .ds-barrel-item:focus-visible { outline: 2px solid #00ffff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Square-cut, top-lit, tracked caps optional. Hover takes the border and text to cyan; the 44px hit area is kept while the drawn size stays dense.",
+      "html": "<button class=\"ds-btn\">SET WATCH</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 24px; min-height: 44px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.75rem; letter-spacing: 0.14em; border-radius: 0; background: linear-gradient(180deg, rgba(190,214,222,0.05), transparent); border: 1px solid #5f747e; color: #e9eef0; cursor: pointer; transition: all 0.14s cubic-bezier(0.2,0.7,0.3,1); } .ds-btn:hover { background: rgba(190,214,222,0.08); border-color: #00ffff; color: #00ffff; } .ds-btn:focus-visible { outline: 2px solid #00ffff; outline-offset: 2px; } .ds-btn:active { background: rgba(0,255,255,0.08); }"
+    },
+    {
+      "name": "Jewel",
+      "kind": "chip",
+      "refersTo": "jewel",
+      "description": "A 7px ruby in a brass chaton: the system's list mark, with ok / warn / err / off variants. Used where a dot would be anonymous.",
+      "html": "<ul class=\"ds-jewel-list\"><li><span class=\"ds-jewel ds-jewel--ok\"></span>tailnet up</li><li><span class=\"ds-jewel ds-jewel--warn\"></span>ntp drift 12 ms</li><li><span class=\"ds-jewel ds-jewel--off\"></span>remote idle</li></ul>",
+      "css": ".ds-jewel-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.78rem; color: #9fb0b8; } .ds-jewel-list li { display: flex; align-items: center; gap: 10px; } .ds-jewel { display: inline-block; width: 7px; height: 7px; flex: none; border-radius: 50%; background: #ff4a6e; box-shadow: 0 0 0 1px rgba(255,191,63,0.55), 0 0 6px rgba(255,74,110,0.5); } .ds-jewel--ok { background: #5bffa5; box-shadow: 0 0 0 1px rgba(255,191,63,0.4), 0 0 10px rgba(91,255,165,0.35); } .ds-jewel--warn { background: #ffb000; box-shadow: 0 0 0 1px rgba(255,191,63,0.4), 0 0 10px rgba(255,176,0,0.35); } .ds-jewel--err { background: #ff2d2d; box-shadow: 0 0 0 1px rgba(255,191,63,0.4), 0 0 10px rgba(255,45,45,0.4); } .ds-jewel--off { background: #71848d; box-shadow: 0 0 0 1px rgba(190,214,222,0.2); }"
+    },
+    {
+      "name": "Verdict Line",
+      "kind": "custom",
+      "refersTo": "verdict-line",
+      "description": "The first answer on the plate. Healthy is one quiet hairline row; the bordered box is reserved for when something needs looking at, so its appearance means something.",
+      "html": "<div class=\"ds-verdict ds-verdict--line is-ok\"><strong>All nominal</strong><span class=\"ds-verdict-meta\">5 modules · ±12 ms</span></div>",
+      "css": ".ds-verdict { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 10px 16px; border: 1px solid rgba(190,214,222,0.10); background: #0d1216; border-radius: 0; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.82rem; color: #9fb0b8; } .ds-verdict--line strong { color: #e9eef0; font-size: 0.8rem; font-weight: 400; } .ds-verdict-meta { margin-left: auto; font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: #9fb0b8; } .ds-verdict.is-bad { border-color: #ffb000; color: #ffb000; }"
+    },
+    {
+      "name": "Caseline",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Date, zone and how well the time is known, engraved along the case under the movement where a caseback's markings go. The crown sits on this line.",
+      "html": "<div class=\"ds-caseline\"><span>THU 25 SEP</span><span>AEST UTC+10</span><span>NTP <b>±12 MS</b></span></div>",
+      "css": ".ds-caseline { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; font-family: 'Departure Mono', 'Geist Mono', monospace; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: #9fb0b8; } .ds-caseline b { color: #e9eef0; font-weight: 400; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Display Back",
+    "overview": "The console is one watch movement seen from behind the sapphire. The clock is the balance; every module is a complication seated on the same plate; the alert is engraved beside the barrel because in a movement the barrel is what everything downstream depends on. There is no grid of status cards anywhere in this system, and that absence is the design: a repeating panel per module is the arrangement this world exists to refuse.\n\nNothing is shaded and nothing is lit. Every three-dimensional part in the console is unlit line art — LineBasicMaterial outlines, edge geometry, additive glow shells, expanding discs for anything that pulses — with one bloom pass as the only light in the scene. Tone is carried by opacity, not by value: the same rhodium line at 0.3 is background structure and at 0.9 is the subject. The material ramp is metal rather than phosphor: rhodium and steel carry structure, brass carries anything transmitting force, blued steel is a hand, ruby is a bearing. Cyan is spent on one thing only — the second that is alive right now.\n\nThe plate is measured, not composed by eye. One orthographic camera spans the whole console at 120 pixels per world unit, so its frustum is the viewport: an object's world position lands on the pixel the layout put its dial at, and an assembly drawing gets no vanishing point. The seat arrangement is chosen by measuring the room available, not by a media query. Type is monospace throughout at three faces, boxes are square-cut at zero radius, and the only circles in the system are the ones that are genuinely dials, wheels, jewels or screw heads.",
+    "keyCharacteristics": [
+      "Unlit line art under one bloom pass; opacity is the tonal system, never shading.",
+      "Near-black plate (#0b0f12) carrying perlage and a darkened case rim, never flat black.",
+      "Cyan (#00ffff) reserved for the live beat and the focus ring; state wears green/amber/red.",
+      "Zero radius on every box; circles exist only as drawn instrument geometry.",
+      "Mono-only type: Geist Mono for figures and prose, Departure Mono for engraved micro-type, Major Mono Display for the wordmark.",
+      "Depth from bevels, hairlines and emitted glow — no drop shadow anywhere.",
+      "Arrangement decided by measurement (round ring or flanking wings), not by width."
+    ],
+    "rules": [
+      { "name": "The Reserved Beat Rule", "body": "Cyan belongs to the live second and the focused control. A heading, a border, a hover, a chart series that is not the beat: none of them may take it.", "section": "colors" },
+      { "name": "The Colour-Is-Never-The-Message Rule", "body": "Every coloured state also changes its words or its shape — the degraded HUD segment reads \"2 down\" as well as turning amber, a downed nav link is struck through as well as coloured, the healthy verdict is a line and the unhealthy one is a box. Contrast is verified: 20 checks, 0 failing.", "section": "colors" },
+      { "name": "The One Meaning Per Material Rule", "body": "Brass is force, blued steel is a hand, ruby is a bearing, rhodium is structure. A part is not coloured for variety; if a new part needs a colour, it inherits the material it mechanically is.", "section": "colors" },
+      { "name": "The Eleven Pixel Floor Rule", "body": "No type in this system is set below 0.68rem (~11px), and nothing small is set in dim (#71848d). A name you have to lean in for is not a label.", "section": "typography" },
+      { "name": "The Room Floor Rule", "body": "The idle display is read from further away than anything else, so it sets its own floor: nothing under 0.78rem (~12.5px), register names at 0.85rem, and every reading off the dimmest ink.", "section": "typography" },
+      { "name": "The No Eyebrow Rule", "body": "A complication is a dial with its name printed on it and its reading beside or beneath it. No tracked label sits above a heading anywhere in this system.", "section": "typography" },
+      { "name": "The No Cast Shadow Rule", "body": "No box-shadow in this system has an X or Y offset and none is used to lift a surface. If a part needs to read as forward, give it a brighter line or a bevel.", "section": "elevation" },
+      { "name": "The Light Comes From The Part Rule", "body": "Glow is emitted by the thing that is alive — the beat, a jewel, a pip in state. An inert surface never glows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do draw new parts as unlit line art and give them tone with opacity, in one of the six material colours.",
+      "Do keep cyan for the live second and the focus ring; take green, amber or red for a state, and rhodium for structure.",
+      "Do make every container a bridge: eight-point chamfer, hairline border, two screws, côtes under 0.04 alpha.",
+      "Do print a register's name on its dial and read its facts beside it, with a dotted leader and tabular values.",
+      "Do key responsive behaviour to the arrangement (.ov-stage:not(.is-ringed)) and let the script decide by measuring; reserve width queries for the two cases that are genuinely about physical size (300px core at 900px, dials dropped at 640px).",
+      "Do reinforce every coloured state with a word or a shape change.",
+      "Do stay on the 4/8/16/24/40/64 rhythm and set type at 0.68rem or larger (0.78rem on the idle plate).",
+      "Do honour reduced motion in the part itself, and let the crown default to locked."
+    ],
+    "donts": [
+      "Don't build a grid of status cards, or a panel-per-module repeat. That arrangement is what this world exists to refuse.",
+      "Don't put a radius on a box. Circles are drawn instrument geometry — a dial, a wheel, a jewel, a screw head — never a rounded container.",
+      "Don't add a box-shadow with an offset, or use blur for depth. Glow is emitted light from a live part; depth is bevel and hairline.",
+      "Don't add a light to the scene, or a shaded/textured material. A shaded brass movement is a skeuomorph and fights the mono type above it.",
+      "Don't spend cyan on a heading, a border, a hover or a decorative accent.",
+      "Don't set a tracked micro-label above a heading. The register name goes on the dial.",
+      "Don't introduce a non-mono face, or a fourth face at all.",
+      "Don't set small type in dim (#71848d, 4.1:1) — ink-2 (#9fb0b8) is the floor for anything under body size.",
+      "Don't let the scene carry meaning: every fact has to survive a dead WebGL context.",
+      "Don't make the plate scroll. It is one screenful, with the chrome subtracted."
+    ]
+  }
+}

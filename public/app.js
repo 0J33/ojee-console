@@ -28,6 +28,7 @@ import * as timesync from '/timesync.js';
 // The native bridge. Every export is a no-op in a browser, so the shell has
 // one code path rather than a web build and an app build.
 import * as nativeBridge from '/native.js';
+import * as movement from '/movement/stage.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -273,6 +274,11 @@ async function mountModule(m, viewId) {
     return;
   }
 
+  // The module's own object, in a strip above its screens. It belongs to the
+  // shell, not the module: it survives every mount and unmount, and a module
+  // needs no code of its own to have one.
+  paintModuleHead(m);
+
   // Point the host at this module before mounting: ctx.api('/state') must
   // resolve to /{id}/api/state, and ctx.sse likewise.
   host.base = `/${m.id}`;
@@ -289,6 +295,30 @@ async function mountModule(m, viewId) {
     const btn = $('#view [data-retry]');
     btn?.addEventListener('click', () => mountModule(m, viewId));
   }
+}
+
+function paintModuleHead(m) {
+  const head = $('#modhead');
+  if (!head) return;
+  const sum = state.summaries.get(m.id);
+  const ready = m.status === 'ready';
+  const jewelClass = !ready ? (m.status === 'degraded' ? 'jewel--warn' : 'jewel--err')
+    : sum?.status === 'err' ? 'jewel--err' : sum?.status === 'warn' ? 'jewel--warn' : 'jewel--ok';
+  head.hidden = false;
+  head.innerHTML = `
+    <span class="modhead-dial" data-dial="${esc(m.id)}" aria-hidden="true"></span>
+    <span class="modhead-name"><i class="jewel ${jewelClass}"></i>${esc(m.name)}</span>
+    <span class="modhead-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+    ${crownHTML()}`;
+  bindModels(`mod:${m.id}`, [m.id]);
+  paintCrowns();
+}
+
+function clearModuleHead() {
+  const head = $('#modhead');
+  if (!head) return;
+  head.hidden = true;
+  head.innerHTML = '';
 }
 
 /* ── settings (shell-owned, not a module) ─────────────────────────────── */
@@ -515,38 +545,6 @@ function overviewAlerts() {
   return alerts;
 }
 
-function moduleCard(m, i) {
-  const ready = m.status === 'ready';
-  const views = m.views || [];
-  const first = views[0]?.id;
-  const href = ready ? `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}` : '#/settings';
-  const sum = state.summaries.get(m.id);
-  const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
-    : sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok';
-
-  const facts = (sum?.facts || []).slice(0, 4).map((f) => `
-    <div class="ov-fact"><dt>${esc(f.k)}</dt><dd>${esc(String(f.v))}</dd></div>`).join('');
-
-  return `
-    <a class="ov-card${ready ? '' : ' ov-card--down'}" href="${href}" style="--i:${i}">
-      <span class="ov-card-head">
-        ${icon(moduleIcon(m), 'ic ic--lg')}
-        <span class="ov-card-name">${esc(m.name)}</span>
-        <span class="dot ${dot}"></span>
-      </span>
-      <span class="ov-card-line">${esc(sum?.headline || (ready
-        // A module with no summary says nothing rather than counting its own
-        // tabs at you: "4 views" is a fact about the navigation, not about
-        // anything happening.
-        ? 'running'
-        : m.reason || 'unavailable'))}</span>
-      ${facts ? `<dl class="ov-facts">${facts}</dl>` : ''}
-    </a>`;
-}
-
-/* The launcher is built ONCE per visit and then only its data is refreshed.
-   It used to rewrite the whole view every 20 seconds, which was harmless while
-   it was static — and would restart a running clock three times a minute. */
 let homeChrono = null;
 let idleRig = null;
 
@@ -556,30 +554,256 @@ function teardownHome() {
   document.body.classList.remove('is-idle');
 }
 
-function statusHTML(mods, alerts) {
-  const ready = mods.filter((m) => m.status === 'ready').length;
-  const peer = state.session?.peer?.display || state.session?.user || '';
-  if (!alerts.length) {
-    // Healthy is one line. It used to be a full-width bordered box — the
-    // biggest thing on the page, used to say that nothing needed looking at.
-    return `
-      <div class="ov-verdict ov-verdict--line is-ok">
-        ${icon('i-shield', 'ic')}
-        <strong>All ${mods.length} modules healthy</strong>
-        <span class="meta">${ready} of ${mods.length} reporting${peer ? ` · ${esc(peer)}` : ''}</span>
-      </div>`;
+/* ---------- the plate ----------
+   One movement fills the screen: the calibre at its centre with the figures
+   under it, and the five modules as sub-dials ringed around it, each holding
+   its own object and what it reports. There is no card grid here on purpose —
+   a repeating panel per module is the arrangement this whole world exists to
+   refuse, and it is what the first build shipped by reflex.
+
+   The ring is placed in script rather than CSS because it is trigonometry
+   against a measured box, and because the same routine serves the launcher
+   and the idle display at two different scales. */
+
+/* Where the seats go.
+
+   Two arrangements, and the plate takes the first that fits.
+
+   ROUND is the ring proper — a seat every 360/n from twelve, on an ellipse
+   rather than a circle because screens are wide and movements are not. It
+   needs a whole seat's room above and below the movement, which a laptop
+   launcher has.
+
+   WINGS is the same ellipse sampled only at its sides: the seats flank the
+   movement, nothing sits above or below it, and the centre is free to take
+   the height of the screen. It is how a calibre with three registers down one
+   side is actually laid out, and it is what lets the idle display give the
+   movement the field instead of squeezing it between two rows of sub-dials.
+
+   Under both, a seat clears the centre when it is far enough out on ONE axis;
+   the arithmetic below is that clearance, measured, never a fraction that
+   looks right at one size and collides at the next. */
+function ringAngles(n, mode) {
+  if (mode === 'round') return Array.from({ length: n }, (_, i) => -90 + (i * 360) / n);
+  // Down the left flank, then down the right: reading order, one side at a
+  // time. The arcs are shallow — 205°..155° and -25°..25° — so every seat
+  // stands past |cos| 0.9 of the way out, which is what buys the reading
+  // beside each dial its width without crowding the movement.
+  const spread = (count, from, to) => (
+    count < 1 ? []
+      : count === 1 ? [(from + to) / 2]
+        : Array.from({ length: count }, (_, i) => from + ((to - from) * i) / (count - 1)));
+  const left = Math.ceil(n / 2);
+  // The right flank is deliberately NOT a mirror: matched heights read as
+  // pairs, and with an odd count the odd one out looks like a seat that
+  // failed to render rather than a composition.
+  return [...spread(left, 205, 155), ...spread(n - left, -28, 28)];
+}
+
+const sideOf = (deg, mode) => {
+  const c = Math.cos((deg * Math.PI) / 180);
+  if (mode === 'wing') return c < 0 ? 'left' : 'right';
+  return c < -0.2 ? 'left' : c > 0.2 ? 'right' : 'centre';
+};
+
+function placeRing(stage) {
+  if (!stage) return;
+  const mods = [...stage.querySelectorAll('.comp')];
+  const core = stage.querySelector('.ov-core');
+  if (!mods.length || !core) return;
+  const gap = 26;
+
+  /* What needs attention takes a seat on the plate like anything else, and it
+     takes the one on the barrel's side — the barrel sits at the movement's
+     upper left, and the callout that names it should not have to cross the
+     movement to reach it. Six things in six seats also balances the flanks,
+     which five never did: three and two leaves one register looking for a
+     partner that does not exist. */
+  const alert = stage.querySelector('.ov-barrel');
+  const n = mods.length + (alert ? 1 : 0);
+  const leftCount = Math.ceil(n / 2);
+  const alertSlot = alert ? Math.floor((leftCount - 1) / 2) : -1;
+  const seats = [];
+  for (let i = 0, m = 0; i < n; i += 1) {
+    seats.push(i === alertSlot ? alert : mods[m++]);
   }
+
+  for (const mode of ['round', 'wing']) {
+    // Measure IN the arrangement being tested, not out of it. Out of it the
+    // seats are in flow and the stage is as tall as they stack, so the height
+    // being tested is the height of the layout being replaced — the decision
+    // fed on its own consequence and flickered between the two. The side
+    // matters as much: on a wing a seat is a wide row, on the ring a tall
+    // stack, and the two measure nothing alike.
+    const angles = ringAngles(seats.length, mode);
+    stage.classList.add('is-ringed');
+    stage.dataset.ring = mode;
+    seats.forEach((s, i) => { s.dataset.side = sideOf(angles[i], mode); });
+
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+    const cb = core.getBoundingClientRect();
+    if (!w || !h) break;
+    const rad = angles.map((a) => (a * Math.PI) / 180);
+    const minCos = Math.min(...rad.map((a) => Math.abs(Math.cos(a)))) || 1;
+    const maxSin = Math.max(...rad.map((a) => Math.abs(Math.sin(a)))) || 1;
+    // Nothing is reserved at the edges any more: the crown sits on the
+    // caseline under the movement, where a crown is wound, and the alert has
+    // a seat of its own rather than a corner to hide in.
+    const reserve = 8;
+
+    // A flank seat is as wide as the plate can afford: solve the clearance
+    // for the width rather than picking one and hoping. Written out, the seat
+    // must clear the centre by `gap` and still stand inside the plate —
+    //   C/2 + sw/2 + gap  <=  minCos * (w/2 - reserve - sw/2)
+    // which is the line below. Under 300px the reading is narrower than the
+    // headlines that go in it, and the flank is not worth having.
+    if (mode === 'wing') {
+      const afford = (2 * (minCos * (w / 2 - reserve) - cb.width / 2 - gap)) / (1 + minCos);
+      if (afford < 300) continue;
+      stage.style.setProperty('--seat', `${Math.floor(Math.min(afford, 440))}px`);
+    } else {
+      stage.style.removeProperty('--seat');
+    }
+    if (alert) alert.dataset.seated = mode;
+
+    // Measured after the width is set: it decides what wraps, and what wraps
+    // decides the height.
+    const sw = Math.max(...seats.map((s) => s.getBoundingClientRect().width));
+    const sh = Math.max(...seats.map((s) => s.getBoundingClientRect().height));
+    if (!sw || !sh) break;
+    const needX = cb.width / 2 + sw / 2 + gap;
+    const needY = cb.height / 2 + sh / 2 + gap;
+    const maxRx = w / 2 - sw / 2 - reserve;
+    const maxRy = h / 2 - sh / 2 - 4;
+
+    // The ring takes the plate it is given. A seat is clear of the movement
+    // when it stands far enough out on EITHER axis — checking both, as the
+    // first cut did, rejected arrangements that were fine and accepted ones
+    // where the low seats sat fifty pixels inside the centre.
+    const rx = maxRx;
+    const ry = mode === 'round' ? maxRy : maxRy / maxSin;
+    const clears = rad.every((a) => Math.abs(Math.cos(a)) * rx >= needX
+      || Math.abs(Math.sin(a)) * ry >= needY);
+    if (!clears || rx <= 0 || ry <= 0) continue;
+    if (mode === 'wing') {
+      // Neighbours on the same flank, by how far apart their sines are: that
+      // difference times ry is the space between them.
+      let dSin = Infinity;
+      for (let i = 1; i < rad.length; i += 1) {
+        if (Math.sign(Math.cos(rad[i])) !== Math.sign(Math.cos(rad[i - 1]))) continue;
+        dSin = Math.min(dSin, Math.abs(Math.sin(rad[i]) - Math.sin(rad[i - 1])));
+      }
+      if (Number.isFinite(dSin) && dSin * ry < sh + 20) continue;
+    }
+
+    seats.forEach((seat, i) => {
+      const a = rad[i];
+      seat.style.left = `${((w / 2 + Math.cos(a) * rx) / w) * 100}%`;
+      seat.style.top = `${((h / 2 + Math.sin(a) * ry) / h) * 100}%`;
+    });
+    return;
+  }
+
+  // Neither fits: everything goes back into flow, under the movement.
+  stage.classList.remove('is-ringed');
+  delete stage.dataset.ring;
+  stage.style.removeProperty('--seat');
+  if (alert) delete alert.dataset.seated;
+  seats.forEach((s) => { s.style.left = ''; s.style.top = ''; delete s.dataset.side; });
+}
+
+/* Fonts land, a headline wraps to two lines, a summary arrives: all of them
+   change what fits, none of them fire a resize. One more pass on the next
+   frame settles it. */
+function settleRing(stage) {
+  placeRing(stage);
+  requestAnimationFrame(() => placeRing(stage));
+}
+
+/** One module as a sub-dial. The name is engraved on the dial the way a
+    register's name is printed on a watch, so the headline stands on its own
+    rather than wearing a label above it. */
+function complication(m, i, factCount = 2) {
+  const sum = state.summaries.get(m.id);
+  const ready = m.status === 'ready';
+  const views = m.views || [];
+  const href = ready ? `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}` : '#/settings';
+  const facts = (sum?.facts || []).slice(0, factCount).map((f) => `
+    <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
+  const st = !ready ? 'down' : (sum?.status || 'ok');
+
   return `
-    <div class="ov-verdict is-bad">
-      ${icon('i-warn', 'ic')}
-      <div class="ov-verdict-body">
-        <strong>${alerts.length} thing${alerts.length > 1 ? 's need' : ' needs'} attention</strong>
-        <div class="ov-alerts">${alerts.slice(0, 6).map((a) => `
-          <a class="ov-alert ov-alert--${esc(a.severity)}"
-             href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">${esc(a.text)}</a>`).join('')}</div>
-        <span class="meta">${ready} of ${mods.length} modules ready${peer ? ` · ${esc(peer)}` : ''}</span>
+    <a class="comp" href="${href}" data-state="${esc(st)}" style="--i:${i}">
+      <span class="comp-dial" data-dial="${esc(m.id)}">
+        <span class="comp-mark">${esc(m.name)}</span>
+      </span>
+      <span class="comp-read">
+        <span class="comp-head">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+        ${facts ? `<dl class="comp-facts">${facts}</dl>` : ''}
+      </span>
+    </a>`;
+}
+
+/* Something wrong rides the barrel: the mainspring is what everything in a
+   movement depends on, so an alert is engraved beside it with a leader line
+   rather than banded across the page in a bordered box. */
+function barrelAlertHTML(alerts) {
+  if (!alerts.length) return '';
+  const worst = alerts.some((a) => a.severity === 'err') ? 'err' : 'warn';
+  return `
+    <div class="ov-barrel ov-barrel--${worst}">
+      <span class="ov-barrel-leader" aria-hidden="true"></span>
+      <div class="ov-barrel-body">
+        <span class="ov-barrel-count">${alerts.length} ${alerts.length > 1 ? 'things need' : 'thing needs'} attention</span>
+        ${alerts.slice(0, 3).map((a) => `
+          <a class="ov-barrel-item" href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">${esc(a.text)}</a>`).join('')}
       </div>
     </div>`;
+}
+
+/* The callout from the alert to the mainspring it is about. One polyline: a
+   short shelf off the text, then a straight run to wherever the barrel has
+   turned to, and a tick on the end. It is drawn rather than styled because
+   the barrel is part of a turning object — where it lands changes every
+   frame — and it is hidden whenever there is nothing to point at or nothing
+   to point with, so no stroke is ever left orphaned in the field. */
+function drawLeader() {
+  const svg = $('#ov-leader') || $('#idle-leader');
+  if (!svg) return;
+  const stg = svg.parentElement;
+  const block = stg?.querySelector('.ov-barrel');
+  const hide = () => { if (svg.dataset.on) { delete svg.dataset.on; svg.innerHTML = ''; } };
+  if (!block || !block.dataset.seated || !stage) { hide(); return; }
+  const to = stage.partPoint('clock', 'barrel');
+  if (!to) { hide(); return; }
+
+  const sb = stg.getBoundingClientRect();
+  const bb = block.getBoundingClientRect();
+  // The shelf leaves from the edge of the text that faces the movement.
+  const left = block.dataset.side === 'left';
+  const x0 = (left ? bb.right : bb.left) - sb.left;
+  const y0 = bb.top + bb.height / 2 - sb.top;
+  const x1 = x0 + (left ? 18 : -18);
+  const x2 = to.x - sb.left;
+  const y2 = to.y - sb.top;
+  // A leader that points back across the text it belongs to is nonsense.
+  if ((left && x2 < x1) || (!left && x2 > x1)) { hide(); return; }
+
+  svg.dataset.on = '1';
+  svg.dataset.sev = block.classList.contains('ov-barrel--err') ? 'err' : 'warn';
+  // Built once and then moved: this runs on every frame the movement draws,
+  // and re-parsing two tags sixty times a second to change four numbers is
+  // work for nothing.
+  let line = svg.firstElementChild;
+  if (!line || line.tagName !== 'polyline') {
+    svg.innerHTML = '<polyline/><circle r="3"/>';
+    line = svg.firstElementChild;
+  }
+  const dot = svg.lastElementChild;
+  line.setAttribute('points', `${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y0.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`);
+  dot.setAttribute('cx', x2.toFixed(1));
+  dot.setAttribute('cy', y2.toFixed(1));
 }
 
 function renderLauncher() {
@@ -599,22 +823,186 @@ function renderLauncher() {
     $('#view').innerHTML = `
       <section class="ov">
         <h1 class="sr-only">Overview</h1>
-        <div class="ov-chrono panel corners"><span class="c"></span>
-          <div class="ov-clock" id="ov-clock"></div>
-          <a class="iconbtn ov-chrono-max" href="#/idle"
-             aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
+        <div class="ov-stage" id="ov-stage">
+          <div class="ov-core">
+            <div class="ov-cal" id="ov-cal" aria-hidden="true"></div>
+            <div class="ov-clock" id="ov-clock"></div>
+            <div class="ov-regulator">
+              <div id="ov-rate"></div>
+              <div class="ov-caseline" id="ov-caseline"></div>
+              <div class="ov-case">
+                ${crownHTML()}
+                <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
+              </div>
+            </div>
+          </div>
+          <div class="ov-ring" id="ov-ring"></div>
+          <div class="ov-alert" id="ov-barrel"></div>
+          <svg class="ov-leader" id="ov-leader" aria-hidden="true"></svg>
         </div>
-        <div id="ov-status"></div>
-        <div class="ov-grid" id="ov-grid"></div>
         <footer class="ov-foot">
-          <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere</span>
+          <span class="meta">Press <kbd class="kbd">/</kbd> to jump anywhere · <kbd class="kbd">L</kbd> holds the movement still</span>
           <a class="lc-link" href="#/settings">${icon('i-cog')} Settings</a>
         </footer>
       </section>`;
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
   }
-  $('#ov-status').innerHTML = statusHTML(mods, alerts);
-  $('#ov-grid').innerHTML = mods.map(moduleCard).join('');
+  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 2)).join('');
+  $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
+  $('#ov-rate').innerHTML = rateHTML();
+  $('#ov-caseline').innerHTML = caselineHTML();
+  watchRate();
+  settleRing($('#ov-stage'));
+  bindModels('launcher', mods.map((m) => m.id));
+  paintCrowns();
+}
+
+/* ── the movement ─────────────────────────────────────────────────────────
+   One scene for the whole console. It is created the first time a screen
+   wants an object in it and torn down when the last one leaves, and every
+   screen binds its own boxes: the launcher binds the calibre and one dial
+   per module, the idle display binds the same set larger, a module page
+   binds its own object in the header strip.
+
+   Nothing here is load-bearing. If three.js never arrives the dials stay
+   empty, the host is marked, and every word, number and control on the page
+   is exactly where it was. */
+
+let stage = null;
+let stageFor = null;          // which screen the current bindings belong to
+let crownLocked = movement.initialLock();
+
+function mvHost() { return $('#mv'); }
+
+let stagePending = null;
+
+async function ensureStage(screen) {
+  const host = mvHost();
+  if (!host) return null;
+  if (stage && stageFor === screen) return stage;
+  // Every one of these screens paints more than once — on first route, again
+  // when the summaries land, again on each poll — and each paint asks for the
+  // stage. Without one in-flight promise to wait on, two paints a frame apart
+  // each build a scene and the console ends up with two of everything.
+  if (stagePending && stageFor === screen) return stagePending;
+  if (stage) { stage.destroy(); stage = null; }
+  stageFor = screen;
+  stagePending = movement.create(host, {
+    now: () => timesync.now(),
+    locked: crownLocked,
+    bloom: screen === 'idle' ? 1.05 : 0.85,
+    onLock: (v) => { crownLocked = v; paintCrowns(); },
+    // The movement turns, so the callout on its barrel is redrawn with it.
+    onFrame: () => drawLeader(),
+  }).then((made) => {
+    // A later screen may have won while this was loading; its own call owns
+    // the stage, and this one's result is thrown away rather than leaked.
+    if (stageFor !== screen) { made?.destroy(); return stage; }
+    stage = made;
+    stagePending = null;
+    return stage;
+  });
+  return stagePending;
+}
+
+function teardownStage() {
+  stage?.destroy();
+  stage = null;
+  stagePending = null;
+  stageFor = null;
+}
+
+/* The crown: one control, wherever it appears, freezing every rotation so
+   the thing can be read. A movement that will not hold still is jewellery. */
+function paintCrowns() {
+  document.querySelectorAll('.crown').forEach((b) => {
+    b.setAttribute('aria-pressed', crownLocked ? 'true' : 'false');
+    b.querySelector('.crown-label').textContent = crownLocked ? 'locked' : 'turning';
+    b.title = crownLocked ? 'Let the movement turn  (L)' : 'Hold the movement still  (L)';
+  });
+}
+
+function toggleCrown() {
+  crownLocked = !crownLocked;
+  movement.rememberLock(crownLocked);
+  stage?.setLocked(crownLocked);
+  paintCrowns();
+}
+
+const crownHTML = () => `
+  <button class="crown" type="button" data-crown aria-pressed="${crownLocked ? 'true' : 'false'}">
+    <span class="crown-label">${crownLocked ? 'locked' : 'turning'}</span>
+  </button>`;
+
+/* What each object is told about its module. A module that describes its own
+   state in `summary.model` gets its object driven properly; one that does not
+   still gets its status, so it recolours and dims like the rest. */
+function modelState(m) {
+  const sum = state.summaries.get(m.id);
+  const status = m.status !== 'ready'
+    ? (m.status === 'degraded' ? 'warn' : 'err')
+    : (sum?.status || 'ok');
+  return { status, ...(sum?.model || {}) };
+}
+
+function bindModels(screen, ids) {
+  ensureStage(screen).then((st) => {
+    if (!st) return;
+    st.bind('clock', screen === 'idle' ? '#idle-cal' : '#ov-cal', { fill: 0.92 });
+    for (const id of ids) st.bind(id, `[data-dial="${id}"]`, { fill: 0.78 });
+    pushModelStates();
+  });
+}
+
+/** Push live state into every bound object, including the alert that rides
+    the mainspring barrel. */
+function pushModelStates() {
+  if (!stage) return;
+  const mods = state.modules.filter((m) => m.enabled);
+  for (const m of mods) stage.setState(m.id, modelState(m));
+  const alerts = overviewAlerts();
+  const worst = alerts.some((a) => a.severity === 'err') ? 'err'
+    : alerts.length ? 'warn' : null;
+  stage.setAlert(worst);
+}
+
+/** The NTP rate, drawn the way a watch is regulated: zero in the middle,
+    the pointer where this clock actually sits against true time. */
+let rateSub = null;
+function watchRate() {
+  rateSub?.();
+  rateSub = timesync.onChange(() => {
+    const box = $('#ov-rate');
+    if (box) box.innerHTML = rateHTML();
+  });
+}
+
+/* What the caseback says: the day, where this clock stands, and where its
+   time comes from. */
+function caselineHTML() {
+  const t = timesync.info();
+  const now = timesync.now();
+  return `
+    <span>${esc(timesync.shortDate(now))}</span>
+    <span>${esc(timesync.zoneCity(t.zone))} · ${esc(timesync.zoneAbbr(now))}</span>
+    <span>source <b>${t.verified ? 'NTP' : t.synced ? 'console' : 'device'}</b></span>`;
+}
+
+function rateHTML() {
+  const t = timesync.info();
+  // deviceMs is this machine's own clock against the reference: the number a
+  // watch's rate scale shows, in the units a watch shows it in.
+  const off = Number.isFinite(t.deviceMs) ? t.deviceMs : null;
+  // +-250 ms of scale. Past that the pointer pins and the number still reads.
+  const pos = off === null ? 50 : Math.max(2, Math.min(98, 50 + (off / 250) * 48));
+  const acc = Number.isFinite(t.accuracyMs) ? `±${t.accuracyMs} ms` : 'unsynced';
+  return `
+    <div class="rate" title="This device's clock against the reference, and how well the reference is known">
+      <span>rate</span>
+      <div class="rate-scale"><span class="rate-pointer" style="left:${pos.toFixed(1)}%"></span></div>
+      <span class="rate-value">${off === null ? '—' : `${off > 0 ? '+' : ''}${off} ms`}</span>
+      <span class="rate-acc">${esc(acc)}</span>
+    </div>`;
 }
 
 /* ── the idle display ─────────────────────────────────────────────────────
@@ -624,32 +1012,9 @@ function renderLauncher() {
    when nobody is using them, the whole layout drifts a few pixels each minute
    so nothing sits on the same pixels for hours, and it dims at night. */
 
-function idleStatusHTML() {
-  const mods = state.modules.filter((m) => m.enabled);
-  const alerts = overviewAlerts();
-  const row = (m) => {
-    const ready = m.status === 'ready';
-    const sum = state.summaries.get(m.id);
-    const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
-      : sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok';
-    const facts = (sum?.facts || []).slice(0, 3)
-      .map((f) => `<span><em>${esc(f.k)}</em> ${esc(String(f.v))}</span>`).join('');
-    return `
-      <li class="idle-mod${ready ? '' : ' is-down'}">
-        <span class="dot ${dot}"></span>
-        <b>${esc(m.name)}</b>
-        <span class="idle-mod-h">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
-        ${facts ? `<span class="idle-mod-f">${facts}</span>` : ''}
-      </li>`;
-  };
-  return `
-    ${alerts.length ? `
-      <div class="idle-alerts" role="status">
-        ${icon('i-warn', 'ic')}
-        <div>${alerts.slice(0, 4).map((a) => `<p class="idle-alert idle-alert--${esc(a.severity)}">${esc(a.text)}</p>`).join('')}</div>
-      </div>` : ''}
-    <ul class="idle-mods">${mods.map(row).join('')}</ul>`;
-}
+/* The idle display is the same movement, given the whole screen. It used to
+   be a clock with a list of modules beside it; a list is not a scene, and the
+   answer to "what is happening" should be readable from across the room. */
 
 function startIdleRig(root) {
   const stage = root.querySelector('.idle-stage');
@@ -722,15 +1087,25 @@ function startIdleRig(root) {
 }
 
 function renderIdle() {
+  const mods = state.modules.filter((m) => m.enabled);
+  const alerts = overviewAlerts();
+
   if (!$('#view > .idle')) {
     teardownHome();
     document.body.classList.add('is-idle');
     $('#view').innerHTML = `
       <section class="idle" aria-label="Clock and status">
-        <div class="idle-stage">
-          <div class="idle-clock" id="idle-clock"></div>
+        <div class="ov-stage idle-stage" id="idle-stage">
+          <div class="ov-core">
+            <div class="ov-cal idle-cal" id="idle-cal" aria-hidden="true"></div>
+            <div class="idle-clock" id="idle-clock"></div>
+          </div>
+          <div class="ov-ring" id="idle-ring"></div>
+          <div class="ov-alert" id="idle-barrel"></div>
+          <svg class="ov-leader" id="idle-leader" aria-hidden="true"></svg>
         </div>
         <div class="idle-tools">
+          ${crownHTML()}
           <button class="iconbtn idle-fs" type="button"></button>
           <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>
         </div>
@@ -738,7 +1113,11 @@ function renderIdle() {
     homeChrono = mountChrono($('#idle-clock'), { variant: 'idle' });
     idleRig = startIdleRig($('#view > .idle'));
   }
-  $('#idle-clock .ch-slot').innerHTML = idleStatusHTML();
+  $('#idle-ring').innerHTML = mods.map((m, i) => complication(m, i, 3)).join('');
+  $('#idle-barrel').innerHTML = barrelAlertHTML(alerts);
+  settleRing($('#idle-stage'));
+  bindModels('idle', mods.map((m) => m.id));
+  paintCrowns();
 }
 
 async function renderSettings() {
@@ -886,6 +1265,7 @@ function startOverviewPoll() {
     if (document.hidden) return;
     if (state.active.module && state.active.module !== 'idle') return;
     await refreshSummaries();
+    pushModelStates();
     if (!state.active.module) { renderLauncher(); renderSidenav(); }
     else if (state.active.module === 'idle') renderIdle();
   }, 20000);
@@ -894,6 +1274,25 @@ function startOverviewPoll() {
 function stopOverviewPoll() {
   if (overviewTimer) { clearInterval(overviewTimer); overviewTimer = null; }
 }
+
+window.addEventListener('resize', () => {
+  settleRing($('#ov-stage'));
+  settleRing($('#idle-stage'));
+});
+
+document.addEventListener('click', (e) => {
+  const crown = e.target.closest?.('[data-crown]');
+  if (crown) { e.preventDefault(); toggleCrown(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'l' && e.key !== 'L') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = document.activeElement;
+  if (t?.closest?.('input, textarea, [contenteditable]') || paletteOpen) return;
+  e.preventDefault();
+  toggleCrown();
+});
 
 async function route() {
   if (routing) return;
@@ -914,8 +1313,9 @@ async function route() {
       renderLauncher();
       // Paint immediately with what we know, then fill in what the modules
       // say about themselves.
+      clearModuleHead();
       refreshSummaries().then(() => {
-        if (!state.active.module) { renderLauncher(); renderSidenav(); }
+        if (!state.active.module) { renderLauncher(); renderSidenav(); pushModelStates(); }
       });
       startOverviewPoll();
       return;
@@ -926,8 +1326,11 @@ async function route() {
       renderNav();
       setTitle();
       await host.unmount();
+      clearModuleHead();
       renderIdle();
-      refreshSummaries().then(() => { if (state.active.module === 'idle') renderIdle(); });
+      refreshSummaries().then(() => {
+        if (state.active.module === 'idle') { renderIdle(); pushModelStates(); }
+      });
       startOverviewPoll();
       return;
     }
@@ -939,6 +1342,8 @@ async function route() {
       state.active = { module: 'settings', view: null };
       renderNav();
       setTitle();
+      clearModuleHead();
+      teardownStage();
       await renderSettings();
       return;
     }
