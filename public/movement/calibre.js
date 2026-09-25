@@ -626,8 +626,11 @@ export function build(o = {}) {
      real one does — carried round by the wrist, never driven. */
   const rotor = new THREE.Group();
   rotor.position.z = 0.14;
-  const rOut = MOV_R * 0.99;
-  const rIn = 0.34;
+  // Inside the movement's edge, not level with it: a rotor has to clear the
+  // bridges it sweeps over, and one that runs out to the very rim reads as a
+  // lid rather than as a weight sitting on top of the works.
+  const rOut = MOV_R * 0.86;
+  const rIn = 0.3;
   const seg = new THREE.Shape();
   seg.absarc(0, 0, rOut, Math.PI * 0.02, Math.PI * 0.98, false);
   seg.absarc(0, 0, rIn, Math.PI * 0.98, Math.PI * 0.02, true);
@@ -779,12 +782,12 @@ export function build(o = {}) {
          The two constants are the whole character of the thing. The first is
          how hard gravity pulls it back: lower reads as HEAVIER, because a
          heavy rotor is slow to be turned and slow to come back — this one
-         takes about five seconds to swing. The second is damping, kept light
-         so it carries well past the bottom and takes half a dozen swings to
-         settle. A weight that stops dead at the bottom is a weight with no
-         mass at all. */
+         takes the better part of seven seconds to swing, so the watch turns
+         visibly out from under it. The second is damping, kept light so it
+         carries well past the bottom and settles over a good many swings. A
+         weight that stops dead at the bottom is a weight with no mass. */
       const mass = spin + Math.PI / 2;
-      spinV += (-1.6 * pull * Math.sin(mass - down) - 0.34 * spinV) * dd;
+      spinV += (-0.85 * pull * Math.sin(mass - down) - 0.22 * spinV) * dd;
       spin += spinV * dd;
       p.rotor.rotation.z = spin;
     }
