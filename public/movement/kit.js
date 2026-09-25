@@ -188,7 +188,17 @@ export function mount(host, o = {}) {
   composer.addPass(new RenderPass(scene, camera));
   let bloom = null;
   if ((o.bloom ?? 0.9) > 0) {
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), o.bloom ?? 0.9, 0.55, 0.12);
+    /* The threshold is in LINEAR light, and the numbers you read off a
+       stylesheet are not. A line at #7d8b93 half-opaque is 0.245 in sRGB and
+       about 0.048 linear — under a 0.12 threshold it contributes nothing at
+       all, and the only reason anything glowed was that densely packed
+       objects stack several transparent lines on the same pixels until the
+       sum clears the bar. Which is why the same object glowed at 130px and
+       went flat and crisp at 330: not a different setting, the same one
+       meeting lines that no longer overlap.
+
+       At 0.03 a single line carries its own light. */
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), o.bloom ?? 0.9, 0.62, 0.03);
     composer.addPass(bloom);
   }
 

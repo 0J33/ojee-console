@@ -782,7 +782,14 @@ async function ensureStage(screen) {
   stagePending = movement.create(host, {
     now: () => timesync.now(),
     locked: crownLocked,
-    bloom: screen === 'idle' ? 1.05 : 0.85,
+    /* Bloom is a screen effect, not an object one, so the same setting reads
+       differently at different sizes: five objects at 130px have their lines
+       packed close enough that each line's glow overlaps its neighbours and
+       sums into a halo, while one object at 330px has the same lines spread
+       three times as far apart, each glowing alone and faintly. A module's
+       page shows exactly one object and shows it big, so it gets the strength
+       that buys back the light the spreading cost. */
+    bloom: screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 0.8 : 0.85,
     onLock: (v) => { crownLocked = v; paintCrowns(); },
     // The movement turns, so the callout on its barrel is redrawn with it.
     onFrame: () => drawLeader(),
