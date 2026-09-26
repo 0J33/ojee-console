@@ -44,25 +44,40 @@ const CAP_H = 0.07;
 const WASD = [[2, 2], [3, 1], [3, 2], [3, 3]];
 
 /* ---- the mouse ------------------------------------------------------------
-   A small symmetrical shell: widest just behind the middle, a hump a third of
-   the way up from the back, the two buttons split down the front half. */
-const M_X = 1.5;
-const M_L = 0.98;               // length
-const M_H = 0.3;                // hump height
-const M_SEG_U = 22;             // along
-const M_SEG_V = 14;             // across
+   The V5: a small symmetrical shell. In plan a rounded superellipse, widest a
+   little behind the middle and narrowing toward the buttons; in profile a hump
+   behind centre falling to a low nose, over a short upright side wall. Built
+   nose-first along +z and then turned round, so it points AWAY from you with
+   the thumb buttons on its left — the way it sits on the desk. */
+const M_X = 1.48;
+const M = { L: 0.98, W: 0.56, H: 0.27, wall: 0.045, m: 2.6 };
+const M_SEG_U = 30;             // nose to tail
+const M_SEG_V = 18;             // across
 
-const width = (t) => 0.5 * (0.84 + 0.1 * Math.sin(Math.PI * (1 - t)) - 0.12 * t * t) * 0.62;   // t 0 back → 1 front
-const height = (t) => M_H * (0.42 + 0.58 * Math.sin(Math.PI * Math.min(1, t * 1.25 + 0.05)) ** 0.8) * (1 - 0.55 * t * t);
-
-function shellPoint(t, v) {
-  // v -1..1 across; a dome whose shoulders round over rather than a box's
-  const w = width(t);
-  const x = v * w;
-  const y = height(t) * Math.sqrt(Math.max(0, 1 - v * v)) ** 0.9;
-  const z = (t - 0.5) * M_L;
+function halfW(z) {
+  const u = z / (M.L / 2);                              // -1 tail .. +1 nose
+  return (M.W / 2) * (1 - 0.1 * (u + 0.25) ** 2 - (u > 0 ? 0.07 * u : 0));
+}
+function crown(z) {
+  const u = z / (M.L / 2);
+  return M.wall + (M.H - M.wall) * Math.max(0, 1 - 0.6 * (u + 0.24) ** 2);
+}
+/* A point on the shell from (u, v): u runs tail to nose, v across. The plan
+   edge is a superellipse, so the ends round off instead of stopping flat —
+   which is what made the last one look like a slipper. */
+function shellPoint(u, v) {
+  const z = u * (M.L / 2);
+  const edge = (1 - Math.abs(u) ** M.m) ** (1 / M.m);   // how much width is left at this z
+  const x = v * halfW(z) * edge;
+  const s = (Math.abs(v) ** M.m * (1 - Math.abs(u) ** M.m) + Math.abs(u) ** M.m) ** (1 / M.m);
+  const y = M.wall + (crown(z) - M.wall) * Math.sqrt(Math.max(0, 1 - s ** 2.4));
   return V(x, y, z);
 }
+const footPoint = (u, v, y = 0) => { const p = shellPoint(u, v); return V(p.x, y, p.z); };
+/* Lines drawn exactly ON the solid lose the depth test to it about half the
+   time and vanish — the split, the seam and the thumb buttons were all there
+   and none of them showed. So every line rides a hair above the shell. */
+const onShell = (u, v) => { const p = shellPoint(u, v); return V(p.x * 1.012, p.y + 0.007, p.z * 1.006); };
 
 /** A solid box, as raw triangles, appended to `pos`. */
 function box(pos, cx, cy, cz, w, h, d) {
@@ -158,56 +173,73 @@ export function build(opts = {}) {
 
   /* ---- the mouse ---- */
   const mouse = new THREE.Group();
-  mouse.position.set(M_X, Y0, 0.08);
-  mouse.rotation.y = -0.12;
+  mouse.position.set(M_X, Y0, 0.12);
+  /* Nose away from you — but not straight away. Seen square from behind, the
+     hump hides the split, the wheel and the thumb buttons, and a mouse from
+     behind is an egg. Turned a quarter of the way round, it shows its left
+     flank and the front of its back, the way you glance at it on a desk. */
+  // Away and to the LEFT: that is the turn that brings the left flank, and the
+  // thumb buttons on it, round toward you. Away-right hides them.
+  mouse.rotation.y = Math.PI + 0.55;
   sp.add(mouse);
 
   const shellPos = [];
+  const quad = (a, b, c, d) => shellPos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z);
   for (let i = 0; i < M_SEG_U; i += 1) {
+    const u0 = -1 + (2 * i) / M_SEG_U, u1 = -1 + (2 * (i + 1)) / M_SEG_U;
     for (let j = 0; j < M_SEG_V; j += 1) {
-      const t0 = i / M_SEG_U, t1 = (i + 1) / M_SEG_U;
       const v0 = -1 + (2 * j) / M_SEG_V, v1 = -1 + (2 * (j + 1)) / M_SEG_V;
-      const a = shellPoint(t0, v0), b = shellPoint(t1, v0), c = shellPoint(t1, v1), d = shellPoint(t0, v1);
-      shellPos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z);
+      quad(shellPoint(u0, v0), shellPoint(u1, v0), shellPoint(u1, v1), shellPoint(u0, v1));
     }
+    // the upright side wall, both sides
+    for (const v of [-1, 1]) quad(footPoint(u0, v), footPoint(u1, v), shellPoint(u1, v), shellPoint(u0, v));
   }
   const shellGeo = new THREE.BufferGeometry();
   shellGeo.setAttribute('position', new THREE.Float32BufferAttribute(shellPos, 3));
-  mouse.add(occluder(shellGeo));
+  const shellSolid = occluder(shellGeo);
+  shellSolid.material.side = THREE.DoubleSide;
+  mouse.add(shellSolid);
 
-  const outline = [];
-  for (let i = 0; i <= 40; i += 1) outline.push(shellPoint(i / 40, 1));
-  for (let i = 40; i >= 0; i -= 1) outline.push(shellPoint(i / 40, -1));
-  const foot = poly(outline, C.steel, 0.75, true);
+  const loopAt = (fn) => {
+    const pts = [];
+    for (let i = 0; i <= 48; i += 1) pts.push(fn(-1 + (2 * i) / 48, 1));
+    for (let i = 48; i >= 0; i -= 1) pts.push(fn(-1 + (2 * i) / 48, -1));
+    return pts;
+  };
+  const foot = poly(loopAt((u, v) => footPoint(u, v)), C.steel, 0.75, true);
   mouse.add(foot);
+  const rim = poly(loopAt((u, v) => onShell(u, v)), C.steel, 0.5, true);
+  mouse.add(rim);
 
   const lines = [];
-  // Cross-sections: where the palm meets the buttons, and one through the hump.
-  for (const t of [0.3, 0.58]) {
-    for (let j = 0; j < 20; j += 1) lines.push(shellPoint(t, -1 + j / 10), shellPoint(t, -1 + (j + 1) / 10));
+  const across = (u) => { for (let j = 0; j < 24; j += 1) lines.push(onShell(u, -1 + j / 12), onShell(u, -1 + (j + 1) / 12)); };
+  across(0.14);                             // where the buttons end and the palm begins
+  across(-0.5);                             // the fall of the tail
+  for (let i = 0; i < 14; i += 1) {         // the split between the buttons
+    const a = 0.14 + (i / 14) * 0.86, b = 0.14 + ((i + 1) / 14) * 0.86;
+    lines.push(onShell(a, 0), onShell(b, 0));
   }
-  // The button split, down the front from the wheel.
-  for (let i = 0; i < 10; i += 1) {
-    const t0 = 0.58 + (i / 10) * 0.42, t1 = 0.58 + ((i + 1) / 10) * 0.42;
-    lines.push(shellPoint(t0, 0), shellPoint(t1, 0));
+  // Thumb buttons on the left flank: +v here, which the turn puts on your left.
+  for (const [ua, ub] of [[0.0, 0.2], [0.24, 0.44]]) {
+    const va = 0.84, vb = 0.97;
+    const edge = (u0, v0, u1, v1) => { for (let k = 0; k < 6; k += 1) lines.push(onShell(u0 + (u1 - u0) * k / 6, v0 + (v1 - v0) * k / 6), onShell(u0 + (u1 - u0) * (k + 1) / 6, v0 + (v1 - v0) * (k + 1) / 6)); };
+    edge(ua, va, ub, va); edge(ub, va, ub, vb); edge(ub, vb, ua, vb); edge(ua, vb, ua, va);
   }
-  // Side buttons on the left flank.
-  for (const [ta, tb] of [[0.5, 0.62], [0.64, 0.76]]) {
-    const v = -0.9;
-    lines.push(shellPoint(ta, v), shellPoint(tb, v), shellPoint(ta, v + 0.14), shellPoint(tb, v + 0.14),
-      shellPoint(ta, v), shellPoint(ta, v + 0.14), shellPoint(tb, v), shellPoint(tb, v + 0.14));
-  }
-  const shellLines = segs(lines, C.steel, 0.55);
+  const shellLines = segs(lines, C.steel, 0.7);
   mouse.add(shellLines);
 
   // The wheel, standing up in the split.
-  const wheelAt = shellPoint(0.7, 0);
-  const wheel = ring(0.05, C.steel, 0.8, 'x', 28);
-  wheel.position.set(wheelAt.x, wheelAt.y + 0.005, wheelAt.z);
+  const wheelAt = shellPoint(0.46, 0);
+  const wheel = ring(0.046, C.steel, 0.85, 'x', 28);
+  wheel.position.set(wheelAt.x, wheelAt.y + 0.012, wheelAt.z);
   mouse.add(wheel);
+  // The slot the wheel sits in.
+  const slot = poly([V(-0.028, 0, -0.07), V(0.028, 0, -0.07), V(0.028, 0, 0.07), V(-0.028, 0, 0.07)], C.steel, 0.4, true);
+  slot.position.set(wheelAt.x, wheelAt.y + 0.008, wheelAt.z);
+  mouse.add(slot);
 
   // The DPI lamp, behind the wheel: the colour of the stage the mouse is on.
-  const lampAt = shellPoint(0.56, 0);
+  const lampAt = shellPoint(0.25, 0);
   const lamp = node(0.022, C.beat, 0.9);
   lamp.position.set(lampAt.x, lampAt.y + 0.012, lampAt.z);
   mouse.add(lamp);
@@ -225,8 +257,9 @@ export function build(opts = {}) {
   mouse.add(batTrack, batFill);
 
   // The cable, off the nose, while it is on the wire.
-  const nose = shellPoint(1, 0);
-  const cablePts = [nose.clone().add(V(0, -0.02, 0)), V(0.02, 0.02, 0.62), V(-0.1, 0.004, 0.86), V(-0.35, 0.004, 0.95)];
+  // Off the nose and away across the desk, toward whatever it is plugged into.
+  const nose = footPoint(1, 0, 0.03);
+  const cablePts = [nose, V(0.0, 0.02, 0.66), V(0.14, 0.006, 0.9), V(0.4, 0.004, 1.02)];
   const cableCurve = new THREE.CatmullRomCurve3(cablePts);
   const cable = poly(cableCurve.getPoints(30), C.rhodium, 0.6);
   mouse.add(cable);
