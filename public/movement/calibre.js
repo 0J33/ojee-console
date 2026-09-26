@@ -93,7 +93,7 @@ const INNER = {
 
      day     Sweet Sans Pro Medium — drawn from engravers' lettering,
              which is where watch-dial capitals come from
-     figures Engravers' Gothic — the same lineage, wider and lighter
+     figures Engravers Gothic Bold — the same lineage, wider and lighter
      Arabic  Amiri, a revival of the Bulaq Press naskh, matched against a
              photograph of a bilingual 7S26 wheel
 
@@ -104,12 +104,14 @@ const INNER = {
    dial's own capitals than for the day-date disc, and this object has to
    look like one watch rather than like a parts photograph.
 
-   Only Regular exists here for the figures; Engravers' Gothic Bold was
-   not in the package, so `wheel-num` is the Regular at weight 500.
+   The figures are the Bold. The Regular went in first because that was
+   all the package had; the Bold's cap height is 530 against the
+   Regular's 539, so the swap changed the weight and nothing else — the
+   fitter targets ink height, not a point size.
 
    Each is subset to the glyphs its pane can contain — A-Z for the day,
    0-9 for the date — which is why they are kilobytes. */
-const FACE_V = 3;
+const FACE_V = 4;
 const WHEEL_DAY = "'Wheel Day', system-ui, sans-serif";
 const WHEEL_NUM = "'Wheel Num', 'Wheel Day', system-ui, sans-serif";
 const WHEEL_AR = "'Wheel Arabic', 'Wheel Day', system-ui, sans-serif";
@@ -138,7 +140,7 @@ let fontsReady = false;
   const at = (f) => `${new URL(`./fonts/${f}`, import.meta.url)}?v=${FACE_V}`;
   const faces = [
     new FontFace('Wheel Day', `url(${at('wheel-day.woff2')})`, { weight: '500' }),
-    new FontFace('Wheel Num', `url(${at('wheel-num.woff2')})`, { weight: '500' }),
+    new FontFace('Wheel Num', `url(${at('wheel-num.woff2')})`, { weight: '700' }),
     new FontFace('Wheel Arabic', `url(${at('wheel-arabic.woff2')})`, { weight: '400' }),
   ];
   Promise.all(faces.map((f) => f.load().then((l) => document.fonts.add(l))))
@@ -165,10 +167,14 @@ let fontsReady = false;
    by measuring the ink — so they hold whatever face the wheel is set in
    and whatever the glyphs happen to be. */
 const INK = {
-  day: 0.49 / 0.86,    // caps, against the aperture; 0.86 is the plane in it
-  date: 0.58 / 0.86,   // figures, a fifth taller than the day
+  day: 0.49 / 0.86,    // Latin caps, against the aperture; 0.86 is the plane in it
+  num: 0.58 / 0.86,    // figures, a fifth taller than the day
+  /* Naskh gets a bigger budget than Latin caps for the same apparent size.
+     Its ink height is set by the alef and the lam, which tower over the
+     letters that carry the word — so a naskh measured to the same number
+     as a cap height prints a word that LOOKS half the size beside it. */
+  ar: 0.62 / 0.86,
 };
-
 /* Every date is printed at one size, and so is every day. A wheel is
    struck once; "WED" is not smaller than "FRI" because it is wider, and
    "28" is not smaller than "1". So the fit is computed against the whole
@@ -176,8 +182,12 @@ const INK = {
    drawn at that size, on the baseline the set shares. Fitting each word
    on its own is what makes a date window look like a text box. */
 const DATES = Array.from({ length: 31 }, (_, i) => String(i + 1));
+/* How far the printing may be squeezed before it is set down instead.
+   Below about four fifths a grotesque stops looking condensed and starts
+   looking broken. */
+const XS_MIN = 0.74;
 
-function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, face = 'day', gauge = null) {
+function printed(text, colour = '#dffcff', aspect = 2, face = 'day', gauge = null) {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
@@ -198,14 +208,16 @@ function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, face = 'd
 
   const ar = face === 'ar';
   const fam = ar ? WHEEL_AR : face === 'num' ? WHEEL_NUM : WHEEL_DAY;
-  /* Both Latin faces are cut at 500. Amiri is the fine weight, because
-     its bold thickens the strokes until the contrast that makes it naskh
-     is gone — and the 128-tall canvas is there so that survives. */
-  const weight = ar ? 400 : 500;
+  /* The figures are bold and the day is the medium it is cut at. Amiri
+     stays on the fine weight, because its bold thickens the strokes until
+     the contrast that makes it naskh is gone — and the 128-tall canvas is
+     there so that survives. */
+  const weight = ar ? 400 : face === 'num' ? 700 : 500;
   g.textAlign = 'center';
   g.direction = ar ? 'rtl' : 'ltr';
   g.textBaseline = 'alphabetic';
 
+  const fill = INK[face] ?? INK.day;
   const set = (gauge && gauge.length) ? gauge : [text];
   const PROBE = 100;
   const metrics = (px, t) => {
@@ -226,8 +238,30 @@ function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, face = 'd
     ink = Math.max(ink, m.asc + m.desc);
     wide = Math.max(wide, m.w);
   }
+  /* Height first, and the width is made to fit by CONDENSING rather than
+     by shrinking.
+
+     The widest word in the set decides, and for the day that is WED, or
+     الأربعاء. Sweet Sans is a wide face and Amiri a sprawling one, so at
+     the height the aperture wants, the widest word does not fit across
+     the pane — and scaling the whole set down to it printed every day a
+     fifth shorter than the date beside it, which is backwards. On the
+     real wheel the day and the date are near enough the same height and
+     the DAY is the narrower drawing.
+
+     So the set is squeezed horizontally instead, all of it by the same
+     amount so the face still reads as one face, and only then set down if
+     even a full squeeze will not do. That is what a wheel's type designer
+     does; it is why a date wheel's figures are narrow in the first
+     place. */
+  const room = w * 0.96;
   let size = (PROBE * (h * fill)) / Math.max(1, ink);
-  if ((wide * size) / PROBE > w * 0.92) size = (w * 0.92 * PROBE) / wide;
+  let xs = 1;
+  const span = (wide * size) / PROBE;
+  if (span > room) {
+    xs = Math.max(XS_MIN, room / span);
+    if (span * xs > room) size *= room / (span * xs);
+  }
   if ((ink * size) / PROBE > h * 0.96) size = (h * 0.96 * PROBE) / ink;
 
   // The baseline the whole set shares, placed so the set's ink sits in the
@@ -240,13 +274,17 @@ function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, face = 'd
     gDesc = Math.max(gDesc, m.desc);
   }
   g.font = `${weight} ${size}px ${fam}`;
-  g.fillText(text, w / 2, (h + gAsc - gDesc) / 2);
+  g.save();
+  g.translate(w / 2, 0);
+  g.scale(xs, 1);
+  g.fillText(text, 0, (h + gAsc - gDesc) / 2);
+  g.restore();
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
 }
 
-function printedPlane(w, h, text, colour, face = 'day', fill = INK.day, gauge = null) {
+function printedPlane(w, h, text, colour, face = 'day', gauge = null) {
   const aspect = w / h;
   let cur = text;
   let curFace = face;
@@ -254,12 +292,12 @@ function printedPlane(w, h, text, colour, face = 'day', fill = INK.day, gauge = 
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour, fill, aspect, face, gauge), transparent: true, depthWrite: false,
+      map: printed(text, colour, aspect, face, gauge), transparent: true, depthWrite: false,
     }),
   );
   const draw = () => {
     m.material.map.dispose();
-    m.material.map = printed(cur, colour, fill, aspect, curFace, curGauge);
+    m.material.map = printed(cur, colour, aspect, curFace, curGauge);
     m.material.needsUpdate = true;
   };
   m.userData.set = (next, nextFace = curFace, nextGauge = curGauge) => {
@@ -875,7 +913,12 @@ export function build(o = {}) {
      day on 63%, which left the date pane too narrow for two figures at
      the size they are actually printed and was half of why "25" kept
      reading as condensed. */
-  const DAY_PANE = 0.537;
+  /* 56%, a shade over the 54% the photograph gives. The measured watch
+     prints its day in a NARROW face; this one is set in a wide one, and
+     at 54% the widest day had to be squeezed past the point where it
+     still looks like the same typeface. Two points of pane buys that
+     back. */
+  const DAY_PANE = 0.56;
   const divide = -winW / 2 + winW * DAY_PANE;
   winG.add(segs([V(divide, -winH / 2, 0.002), V(divide, winH / 2, 0.002)], C.hot, 0.45));
   /* The day pane is cut for the longer of the two languages, not for
@@ -885,11 +928,11 @@ export function build(o = {}) {
   const lang0 = pref('dayLang');
   const dayText = printedPlane(winW * DAY_PANE * 0.94, winH * 0.86,
     DAYS[lang0][new Date(now()).getDay()], '#dffcff',
-    lang0 === 'ar' ? 'ar' : 'day', INK.day, DAYS[lang0]);
+    lang0 === 'ar' ? 'ar' : 'day', DAYS[lang0]);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
   const dateText = printedPlane(winW * (1 - DAY_PANE) * 0.94, winH * 0.86,
-    '25', '#dffcff', 'num', INK.date, DATES);
+    '25', '#dffcff', 'num', DATES);
   dateText.position.set((divide + winW / 2) / 2, 0, 0.006);
   winG.add(dateText);
   face.add(winG);
