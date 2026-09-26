@@ -73,7 +73,12 @@ function glowRect(w, h, o, feather = false) {
 
 export function build(opts = {}) {
   const [group, sp] = mk(0, -0.14);
-  group.userData.spin = [0, 0.11, 0];
+  /* A lean, not a revolution: the front of this is the side worth
+     looking at, and turning it all the way round spent half the time
+     showing its back. */
+  group.userData.sway = [0.055, 0.30, 0.022];
+  group.userData.swayPeriod = 11.0;
+  group.userData.swayPhase = 4.4;
   group.userData.hitR = 2.0;
   const P = group.userData.parts;
 

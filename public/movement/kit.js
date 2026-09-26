@@ -196,9 +196,22 @@ export function mk(tiltZ = 0, tiltX = 0) {
   t.rotation.z = tiltZ; t.rotation.x = tiltX;
   t.add(sp); g.add(t);
   g.rotation.order = 'YXZ';
-  g.userData = { sp, tilt: t, spin: [0, 0.12, 0], rx: 0, ry: 0, av: { x: 0, y: 0 }, hitR: 1.8, parts: {} };
+  /* `spin` turns the object all the way round for ever. `sway`, if an
+     object sets it, replaces that with a lean back and forth about the
+     pose it was drawn at — three amplitudes in radians and a period in
+     seconds. Only the watch turns the whole way now: for everything else
+     the interesting face is the front, and a full revolution spends half
+     its time showing you the back of something and the other half
+     edge-on. */
+  g.userData = {
+    sp, tilt: t, spin: [0, 0.12, 0], sway: null, swayPeriod: 9, swayPhase: 0,
+    rx: 0, ry: 0, av: { x: 0, y: 0 }, hitR: 1.8, parts: {},
+  };
   return [g, sp];
 }
+
+/** An angle brought back into (-PI, PI] — the short way to it. */
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /* ---- the mount ---------------------------------------------------- */
 
@@ -469,11 +482,20 @@ export function mount(host, o = {}) {
       // at whatever angle it happened to be at.
       const held = locked && u.lockable;
       if (!held) {
-        u.sp.rotation.x += u.spin[0] * dt;
-        u.sp.rotation.y += u.spin[1] * dt;
-        u.sp.rotation.z += u.spin[2] * dt;
-      } else {
-        u.rest?.();
+        if (u.sway) {
+          /* Three sines on periods that do not divide into each other, so
+             the lean never repeats exactly and never reads as a mechanism
+             counting. Set, not integrated: a sway has a pose to be at at
+             any moment, and integrating it would drift. */
+          const w = (Math.PI * 2) / (u.swayPeriod || 9);
+          u.sp.rotation.x = u.sway[0] * Math.sin(clock.t * w * 0.73 + u.swayPhase + 1.1);
+          u.sp.rotation.y = u.sway[1] * Math.sin(clock.t * w + u.swayPhase);
+          u.sp.rotation.z = u.sway[2] * Math.sin(clock.t * w * 0.41 + u.swayPhase + 2.3);
+        } else {
+          u.sp.rotation.x += u.spin[0] * dt;
+          u.sp.rotation.y += u.spin[1] * dt;
+          u.sp.rotation.z += u.spin[2] * dt;
+        }
       }
       if (!drag.on) {
         // A throw runs out and the object STAYS where it was left. Easing
@@ -485,10 +507,24 @@ export function mount(host, o = {}) {
         u.av.x *= decay; u.av.y *= decay;
         if (Math.abs(u.av.y) > 0.0015) u.ry += u.av.y;
         if (Math.abs(u.av.x) > 0.0015) u.rx += u.av.x;
+        // Kept inside one turn. The value is modular so this shows nothing,
+        // but it stops the drag angle growing without bound over an
+        // afternoon and it is what makes the homing below honest.
+        u.ry = wrap(u.ry);
         if (held && Math.hypot(u.av.x, u.av.y) < 0.0015) {
-          u.ry = Math.atan2(Math.sin(u.ry), Math.cos(u.ry));
-          const k = 1 - Math.exp(-dt * 2.6);
-          u.ry += (0 - u.ry) * k;
+          /* ONE homing, along the short way round.
+
+             What you see is the drag angle PLUS the idle spin, and those
+             used to come home separately — the drag eased to zero while
+             the object's own rotation eased to its nearest whole turn.
+             Two independent journeys of up to half a turn each, at once,
+             which after a good spin was most of a revolution in about a
+             third of a second: the watch whipped round before it settled.
+
+             So the sum is what comes home, by the shorter way, and the
+             idle rotation is simply left where it stopped. */
+          const k = 1 - Math.exp(-dt * 3);
+          u.ry -= wrap(u.ry + u.sp.rotation.y) * k;
           u.rx += (0 - u.rx) * k;
         }
       }

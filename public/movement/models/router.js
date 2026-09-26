@@ -72,7 +72,12 @@ function loft(a, b) {
 
 export function build(opts = {}) {
   const [group, sp] = mk(0, -0.22);
-  group.userData.spin = [0, 0.19, 0];
+  /* A lean, not a revolution: the front of this is the side worth
+     looking at, and turning it all the way round spent half the time
+     showing its back. */
+  group.userData.sway = [0.055, 0.34, 0.022];
+  group.userData.swayPeriod = 9.5;
+  group.userData.swayPhase = 1.7;
   group.userData.hitR = 2.0;
   const parts = group.userData.parts;
 

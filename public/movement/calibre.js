@@ -1444,12 +1444,5 @@ export function build(o = {}) {
   /* The crown, held: the watch comes back to face you. A locked movement
      stopped wherever it happened to be would be locked at an angle, which is
      not what "hold it still so I can read it" means. */
-  group.userData.rest = () => {
-    const y = sp.rotation.y;
-    const target = Math.round(y / (Math.PI * 2)) * Math.PI * 2;
-    sp.rotation.y += (target - y) * 0.12;
-    if (Math.abs(target - sp.rotation.y) < 0.002) sp.rotation.y = target;
-  };
-
   return { group, setAlert };
 }

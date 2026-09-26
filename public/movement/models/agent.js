@@ -66,7 +66,12 @@ function component(x, y, w, h) {
 
 export function build(opts = {}) {
   const [group, sp] = mk(0.16, -0.98);   // rolled a little, then raked hard over
-  group.userData.spin = [0, 0.10, 0];
+  /* A lean, not a revolution: the front of this is the side worth
+     looking at, and turning it all the way round spent half the time
+     showing its back. */
+  group.userData.sway = [0.055, 0.28, 0.022];
+  group.userData.swayPeriod = 10.0;
+  group.userData.swayPhase = 5.6;
   group.userData.hitR = 1.75;
   const parts = group.userData.parts;
 

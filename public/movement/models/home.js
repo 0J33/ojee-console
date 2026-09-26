@@ -51,7 +51,12 @@ export function build(opts = {}) {
   // The scene's mass sits high and forward of the wall it hangs on, so the
   // whole of it is shifted back onto the origin the stage scales about.
   sp.position.set(0, 0.06, -0.20);
-  group.userData.spin = [0, 0.16, 0];
+  /* A lean, not a revolution: the front of this is the side worth
+     looking at, and turning it all the way round spent half the time
+     showing its back. */
+  group.userData.sway = [0.055, 0.30, 0.022];
+  group.userData.swayPeriod = 10.5;
+  group.userData.swayPhase = 0.0;
   group.userData.hitR = 2.1;
   const parts = group.userData.parts;
 

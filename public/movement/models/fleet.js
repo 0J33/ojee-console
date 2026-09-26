@@ -155,7 +155,12 @@ export function build(opts = {}) {
   sp.add(parts.pulse.mesh);
 
   group.userData.parts = parts;
-  group.userData.spin = [0, 0.10, 0];
+  /* A lean, not a revolution: the front of this is the side worth
+     looking at, and turning it all the way round spent half the time
+     showing its back. */
+  group.userData.sway = [0.055, 0.26, 0.022];
+  group.userData.swayPeriod = 12.0;
+  group.userData.swayPhase = 3.1;
   group.userData.hitR = 2.0;
 
   group.userData.tick = (t, dt, p, env) => {
