@@ -150,16 +150,36 @@ let fontsReady = false;
     .catch(() => { /* the fallback is a grotesque too; it is just not the right one */ });
 }());
 
-function printed(text, colour = '#dffcff', px = 92, aspect = 2, lang = 'en') {
+/* How big the printing sits in the window — measured off a macro
+   photograph of a 7S26 aperture, not chosen.
+
+   On the real watch the ink is MUCH bigger in the window than it was
+   here. Measured against the aperture's inner height: the day's caps are
+   about half of it and the date's figures nearly three fifths, so the
+   date stands about a fifth taller than the day rather than matching it.
+   This was drawing both at 0.44 and at the same size as each other, which
+   is why the window read as a label with room around it instead of a
+   wheel seen through a hole.
+
+   These are fractions of the PLANE height, and the fitter below hits them
+   by measuring the ink — so they hold whatever face the wheel is set in
+   and whatever the glyphs happen to be. */
+const INK = {
+  day: 0.49 / 0.86,    // caps, against the aperture; 0.86 is the plane in it
+  date: 0.58 / 0.86,   // figures, a fifth taller than the day
+};
+
+function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, lang = 'en') {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
      third of the aperture: 1.29 wide against the texture's 2.0, which
      printed "25" at 65% of its width. That is what still read as condensed
-     after the type itself was set straight — not the typeface, the box. */
-  /* 128 rather than 64. The Latin was fine either way, but a calligraphic
-     naskh has detail in it — the tail of a seen, the join under a lam — and
-     at 64 that detail landed between two pixels and came out as a smudge. */
+     after the type itself was set straight — not the typeface, the box.
+
+     128 tall rather than 64: the Latin was fine either way, but a
+     calligraphic naskh has detail in it — the tail of a seen, the join
+     under a lam — and at 64 that landed between two pixels and smudged. */
   const h = 128;
   const w = Math.max(24, Math.round(h * aspect));
   const c = document.createElement('canvas');
@@ -167,9 +187,6 @@ function printed(text, colour = '#dffcff', px = 92, aspect = 2, lang = 'en') {
   const g = c.getContext('2d');
   g.clearRect(0, 0, w, h);
   g.fillStyle = colour;
-  /* A day is printed lighter than a date on the real wheel, and an Arabic
-     day is a whole word where an English one is three letters — so it is
-     set down until it fits the pane rather than spilling out of it. */
   const ar = lang === 'ar';
   const fam = ar ? WHEEL_AR : WHEEL_EN;
   /* The Latin is bold — white ink on a black wheel fattens every stroke,
@@ -178,56 +195,56 @@ function printed(text, colour = '#dffcff', px = 92, aspect = 2, lang = 'en') {
      that makes it naskh is gone, and what is printed on the wheel is the
      fine weight. The canvas is 128 tall precisely so that survives. */
   const weight = ar ? 400 : 700;
-  /* Naskh carries far less ink per em than Latin caps do, so the same
-     point size prints visibly smaller. It is set larger to start with and
-     then brought down to fit, which lands both languages at about the
-     same weight of mark in the aperture. */
-  let size = ar ? px * 1.25 : px;
-  g.font = `${weight} ${size}px ${fam}`;
-  const room = w * 0.92;
-  const wide = g.measureText(text).width;
-  if (wide > room) {
-    size = Math.max(9, Math.floor((size * room) / wide));
-    g.font = `${weight} ${size}px ${fam}`;
-  }
   g.textAlign = 'center';
   g.direction = ar ? 'rtl' : 'ltr';
+  g.textBaseline = 'alphabetic';
+
+  /* Set to the INK, not to a point size. A point size means one thing in
+     a condensed grotesque and another in a naskh, and the thing that has
+     to be right is how much of the window the printing fills. So it is
+     measured at a probe size and scaled to the target, then pulled back
+     if it is too wide for the pane. */
+  const measure = (px) => {
+    g.font = `${weight} ${px}px ${fam}`;
+    const m = g.measureText(text);
+    return {
+      w: m.width,
+      asc: m.actualBoundingBoxAscent || px * 0.72,
+      desc: m.actualBoundingBoxDescent || 0,
+    };
+  };
+  const PROBE = 100;
+  let m = measure(PROBE);
+  let size = (PROBE * (h * fill)) / Math.max(1, m.asc + m.desc);
+  m = measure(size);
+  const room = w * 0.92;
+  if (m.w > room) { size *= room / m.w; m = measure(size); }
+  // Nothing may leave the window, whatever the fit asked for.
+  if (m.asc + m.desc > h * 0.96) { size *= (h * 0.96) / (m.asc + m.desc); m = measure(size); }
+
   /* Centred on the INK, not on the baseline. "FRI" has no descender and
      "الجمعة" has a deep one, so a fixed baseline hangs one of them off
      the middle of the window — and the window is the frame you read them
      against. */
-  g.textBaseline = 'alphabetic';
-  let met = g.measureText(text);
-  let asc = met.actualBoundingBoxAscent || size * 0.72;
-  let desc = met.actualBoundingBoxDescent || 0;
-  // And a second fit, on height. A naskh word with a descender under it is
-  // taller than the canvas that a Latin day fits inside with room to spare.
-  if (asc + desc > h * 0.94) {
-    size = Math.max(9, Math.floor((size * h * 0.94) / (asc + desc)));
-    g.font = `${weight} ${size}px ${fam}`;
-    met = g.measureText(text);
-    asc = met.actualBoundingBoxAscent || size * 0.72;
-    desc = met.actualBoundingBoxDescent || 0;
-  }
-  g.fillText(text, w / 2, (h + asc - desc) / 2);
+  g.fillText(text, w / 2, (h + m.asc - m.desc) / 2);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
 }
 
-function printedPlane(w, h, text, colour, lang = 'en') {
+function printedPlane(w, h, text, colour, lang = 'en', fill = INK.day) {
   const aspect = w / h;
   let cur = text;
   let curLang = lang;
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour, 92, aspect, lang), transparent: true, depthWrite: false,
+      map: printed(text, colour, fill, aspect, lang), transparent: true, depthWrite: false,
     }),
   );
   const draw = () => {
     m.material.map.dispose();
-    m.material.map = printed(cur, colour, 92, aspect, curLang);
+    m.material.map = printed(cur, colour, fill, aspect, curLang);
     m.material.needsUpdate = true;
   };
   m.userData.set = (next, nextLang = curLang) => {
@@ -830,21 +847,33 @@ export function build(o = {}) {
   const winG = new THREE.Group();
   winG.position.set(TRACK * 0.66, 0, 0.004);
   const winW = TRACK * 0.74;
-  const winH = TRACK * 0.20;
+  /* The aperture is 2.7 wide to 1 tall, measured on the photograph. It was
+     3.7 here — a letterbox — and no amount of setting the type right fixes
+     a window of the wrong shape: the figures had to stay small to sit in
+     it, so the whole thing read as a label printed on the dial rather than
+     a wheel seen through a hole. */
+  const winH = winW / 2.73;
   winG.add(poly(roundRect(winW, winH, winH * 0.24, 0.002), C.hot, 0.75, true));
   winG.add(poly(roundRect(winW + 0.04, winH + 0.04, winH * 0.3, 0.001), C.steel, 0.5, true));
-  const divide = -winW / 2 + winW * 0.63;
+  /* Where the wheels meet. Measured on the photograph the day takes 54%
+     of the aperture and the date 46% — near enough halves. This had the
+     day on 63%, which left the date pane too narrow for two figures at
+     the size they are actually printed and was half of why "25" kept
+     reading as condensed. */
+  const DAY_PANE = 0.537;
+  const divide = -winW / 2 + winW * DAY_PANE;
   winG.add(segs([V(divide, -winH / 2, 0.002), V(divide, winH / 2, 0.002)], C.hot, 0.45));
   /* The day pane is cut for the longer of the two languages, not for
      "FRI": the glyphs are drawn at a fixed height either way, so a wider
      pane costs an English day nothing but margin, while a narrower one
      would shrink "الثلاثاء" until it was a smudge. */
   const lang0 = pref('dayLang');
-  const dayText = printedPlane(winW * 0.58, winH * 0.86,
-    DAYS[lang0][new Date(now()).getDay()], '#dffcff', lang0);
+  const dayText = printedPlane(winW * DAY_PANE * 0.94, winH * 0.86,
+    DAYS[lang0][new Date(now()).getDay()], '#dffcff', lang0, INK.day);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
-  const dateText = printedPlane(winW * 0.30, winH * 0.86, '25', '#dffcff');
+  const dateText = printedPlane(winW * (1 - DAY_PANE) * 0.94, winH * 0.86,
+    '25', '#dffcff', 'en', INK.date);
   dateText.position.set((divide + winW / 2) / 2, 0, 0.006);
   winG.add(dateText);
   face.add(winG);
