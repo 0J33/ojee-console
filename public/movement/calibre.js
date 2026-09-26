@@ -86,33 +86,33 @@ const INNER = {
    squeezes its figures to fit four millimetres — but a Seiko's day and date
    are printed at normal width in a fairly wide grotesque, and against the
    real thing the condensed version reads as a different typeface. */
-/* The wheel faces — matched against photographs of the real disc, not
-   reasoned about.
+/* The wheel faces.
 
-   Seiko publishes no typeface name; it cuts its own per model. So this was
-   settled by looking at macro shots of 7S26 day-date discs, and both
-   earlier guesses were wrong.
+   Three of them, because the wheel is three different things: a day in
+   Latin, a day in Arabic, and a date in figures.
 
-   LATIN. It is CONDENSED. This was set in Nimbus Sans — Helvetica, normal
-   width — on the reasoning that a Seiko wheel is "a fairly wide grotesque",
-   and against the photograph that is plainly not what is printed there: the
-   O in MON is a narrow oval, the U in THU has parallel sides, and SAT fits
-   three caps in the width Helvetica needs for two. Nimbus Sans NARROW is the
-   free cut of Helvetica Narrow, and it matches — flat-topped five, flagged
-   one with no foot, S with horizontal terminals, even stroke.
+     day     Sweet Sans Pro Medium — drawn from engravers' lettering,
+             which is where watch-dial capitals come from
+     figures Engravers' Gothic — the same lineage, wider and lighter
+     Arabic  Amiri, a revival of the Bulaq Press naskh, matched against a
+             photograph of a bilingual 7S26 wheel
 
-   ARABIC. It is a fine CALLIGRAPHIC naskh, not a screen one. This was set in
-   Noto Naskh Arabic, which is a text face: upright, even-stroked, drawn to
-   stay legible at 11px. The wheel is the opposite — thin strokes with real
-   contrast, long flat baselines, deep curved tails, letters stacking into
-   each other the way hand naskh does. Amiri is that: a revival of the Bulaq
-   Press naskh, and next to the photograph it is the same hand.
+   The Latin pair are the user's call rather than mine. For the record,
+   against the photographed wheel they run lighter and wider than what is
+   printed there, which is a narrow even-stroke grotesque — the earlier
+   Nimbus Sans Narrow is nearer that disc. They are a better match for the
+   dial's own capitals than for the day-date disc, and this object has to
+   look like one watch rather than like a parts photograph.
 
-   Both are subset to the glyphs a day and a date can contain, which is why
-   they are kilobytes rather than hundreds of them. */
-const FACE_V = 2;
-const WHEEL_EN = "'Wheel Latin', system-ui, sans-serif";
-const WHEEL_AR = "'Wheel Arabic', 'Wheel Latin', system-ui, sans-serif";
+   Only Regular exists here for the figures; Engravers' Gothic Bold was
+   not in the package, so `wheel-num` is the Regular at weight 500.
+
+   Each is subset to the glyphs its pane can contain — A-Z for the day,
+   0-9 for the date — which is why they are kilobytes. */
+const FACE_V = 3;
+const WHEEL_DAY = "'Wheel Day', system-ui, sans-serif";
+const WHEEL_NUM = "'Wheel Num', 'Wheel Day', system-ui, sans-serif";
+const WHEEL_AR = "'Wheel Arabic', 'Wheel Day', system-ui, sans-serif";
 
 const DAYS = {
   en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
@@ -137,8 +137,8 @@ let fontsReady = false;
      changes. */
   const at = (f) => `${new URL(`./fonts/${f}`, import.meta.url)}?v=${FACE_V}`;
   const faces = [
-    new FontFace('Wheel Latin', `url(${at('wheel-latin.woff2')})`, { weight: '400' }),
-    new FontFace('Wheel Latin', `url(${at('wheel-latin-bold.woff2')})`, { weight: '700' }),
+    new FontFace('Wheel Day', `url(${at('wheel-day.woff2')})`, { weight: '500' }),
+    new FontFace('Wheel Num', `url(${at('wheel-num.woff2')})`, { weight: '500' }),
     new FontFace('Wheel Arabic', `url(${at('wheel-arabic.woff2')})`, { weight: '400' }),
   ];
   Promise.all(faces.map((f) => f.load().then((l) => document.fonts.add(l))))
@@ -169,7 +169,15 @@ const INK = {
   date: 0.58 / 0.86,   // figures, a fifth taller than the day
 };
 
-function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, lang = 'en') {
+/* Every date is printed at one size, and so is every day. A wheel is
+   struck once; "WED" is not smaller than "FRI" because it is wider, and
+   "28" is not smaller than "1". So the fit is computed against the whole
+   SET a pane can ever show — the gauge — and the chosen word is then
+   drawn at that size, on the baseline the set shares. Fitting each word
+   on its own is what makes a date window look like a text box. */
+const DATES = Array.from({ length: 31 }, (_, i) => String(i + 1));
+
+function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, face = 'day', gauge = null) {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
@@ -187,69 +195,76 @@ function printed(text, colour = '#dffcff', fill = INK.day, aspect = 2, lang = 'e
   const g = c.getContext('2d');
   g.clearRect(0, 0, w, h);
   g.fillStyle = colour;
-  const ar = lang === 'ar';
-  const fam = ar ? WHEEL_AR : WHEEL_EN;
-  /* The Latin is bold — white ink on a black wheel fattens every stroke,
-     and the photographed day names are a medium-to-bold condensed. The
-     Arabic is NOT: Amiri's bold thickens the strokes until the contrast
-     that makes it naskh is gone, and what is printed on the wheel is the
-     fine weight. The canvas is 128 tall precisely so that survives. */
-  const weight = ar ? 400 : 700;
+
+  const ar = face === 'ar';
+  const fam = ar ? WHEEL_AR : face === 'num' ? WHEEL_NUM : WHEEL_DAY;
+  /* Both Latin faces are cut at 500. Amiri is the fine weight, because
+     its bold thickens the strokes until the contrast that makes it naskh
+     is gone — and the 128-tall canvas is there so that survives. */
+  const weight = ar ? 400 : 500;
   g.textAlign = 'center';
   g.direction = ar ? 'rtl' : 'ltr';
   g.textBaseline = 'alphabetic';
 
-  /* Set to the INK, not to a point size. A point size means one thing in
-     a condensed grotesque and another in a naskh, and the thing that has
-     to be right is how much of the window the printing fills. So it is
-     measured at a probe size and scaled to the target, then pulled back
-     if it is too wide for the pane. */
-  const measure = (px) => {
+  const set = (gauge && gauge.length) ? gauge : [text];
+  const PROBE = 100;
+  const metrics = (px, t) => {
     g.font = `${weight} ${px}px ${fam}`;
-    const m = g.measureText(text);
+    const m = g.measureText(t);
     return {
       w: m.width,
       asc: m.actualBoundingBoxAscent || px * 0.72,
       desc: m.actualBoundingBoxDescent || 0,
     };
   };
-  const PROBE = 100;
-  let m = measure(PROBE);
-  let size = (PROBE * (h * fill)) / Math.max(1, m.asc + m.desc);
-  m = measure(size);
-  const room = w * 0.92;
-  if (m.w > room) { size *= room / m.w; m = measure(size); }
-  // Nothing may leave the window, whatever the fit asked for.
-  if (m.asc + m.desc > h * 0.96) { size *= (h * 0.96) / (m.asc + m.desc); m = measure(size); }
+  /* Set to the INK, not to a point size. A point size means one thing in
+     a condensed grotesque and another in a naskh, and what has to be right
+     is how much of the window the printing fills. */
+  let ink = 0; let wide = 0;
+  for (const t of set) {
+    const m = metrics(PROBE, t);
+    ink = Math.max(ink, m.asc + m.desc);
+    wide = Math.max(wide, m.w);
+  }
+  let size = (PROBE * (h * fill)) / Math.max(1, ink);
+  if ((wide * size) / PROBE > w * 0.92) size = (w * 0.92 * PROBE) / wide;
+  if ((ink * size) / PROBE > h * 0.96) size = (h * 0.96 * PROBE) / ink;
 
-  /* Centred on the INK, not on the baseline. "FRI" has no descender and
-     "الجمعة" has a deep one, so a fixed baseline hangs one of them off
-     the middle of the window — and the window is the frame you read them
-     against. */
-  g.fillText(text, w / 2, (h + m.asc - m.desc) / 2);
+  // The baseline the whole set shares, placed so the set's ink sits in the
+  // middle of the window — not each word's own ink, which would bob the
+  // Arabic up and down as the day changed.
+  let gAsc = 0; let gDesc = 0;
+  for (const t of set) {
+    const m = metrics(size, t);
+    gAsc = Math.max(gAsc, m.asc);
+    gDesc = Math.max(gDesc, m.desc);
+  }
+  g.font = `${weight} ${size}px ${fam}`;
+  g.fillText(text, w / 2, (h + gAsc - gDesc) / 2);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
 }
 
-function printedPlane(w, h, text, colour, lang = 'en', fill = INK.day) {
+function printedPlane(w, h, text, colour, face = 'day', fill = INK.day, gauge = null) {
   const aspect = w / h;
   let cur = text;
-  let curLang = lang;
+  let curFace = face;
+  let curGauge = gauge;
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({
-      map: printed(text, colour, fill, aspect, lang), transparent: true, depthWrite: false,
+      map: printed(text, colour, fill, aspect, face, gauge), transparent: true, depthWrite: false,
     }),
   );
   const draw = () => {
     m.material.map.dispose();
-    m.material.map = printed(cur, colour, fill, aspect, curLang);
+    m.material.map = printed(cur, colour, fill, aspect, curFace, curGauge);
     m.material.needsUpdate = true;
   };
-  m.userData.set = (next, nextLang = curLang) => {
-    if (next === cur && nextLang === curLang) return;
-    cur = next; curLang = nextLang;
+  m.userData.set = (next, nextFace = curFace, nextGauge = curGauge) => {
+    if (next === cur && nextFace === curFace && nextGauge === curGauge) return;
+    cur = next; curFace = nextFace; curGauge = nextGauge;
     draw();
   };
   // Redraw once the real face arrives, so the first paint is not the one
@@ -869,11 +884,12 @@ export function build(o = {}) {
      would shrink "الثلاثاء" until it was a smudge. */
   const lang0 = pref('dayLang');
   const dayText = printedPlane(winW * DAY_PANE * 0.94, winH * 0.86,
-    DAYS[lang0][new Date(now()).getDay()], '#dffcff', lang0, INK.day);
+    DAYS[lang0][new Date(now()).getDay()], '#dffcff',
+    lang0 === 'ar' ? 'ar' : 'day', INK.day, DAYS[lang0]);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
   const dateText = printedPlane(winW * (1 - DAY_PANE) * 0.94, winH * 0.86,
-    '25', '#dffcff', 'en', INK.date);
+    '25', '#dffcff', 'num', INK.date, DATES);
   dateText.position.set((divide + winW / 2) / 2, 0, 0.006);
   winG.add(dateText);
   face.add(winG);
@@ -1298,7 +1314,7 @@ export function build(o = {}) {
     if (day !== lastDay || lang !== lastLang) {
       lastDay = day; lastLang = lang;
       p.dateText.userData.set(String(day));
-      p.dayText.userData.set(DAYS[lang][d.getDay()], lang);
+      p.dayText.userData.set(DAYS[lang][d.getDay()], lang === 'ar' ? 'ar' : 'day', DAYS[lang]);
     }
     const mins = d.getMinutes() + d.getSeconds() / 60;
     const hours = (d.getHours() % 12) + mins / 60;
