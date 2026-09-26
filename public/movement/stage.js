@@ -31,6 +31,7 @@ const MODULES = {
   fleet: () => import('./models/fleet.js'),
   remote: () => import('./models/remote.js'),
   agent: () => import('./models/agent.js'),
+  peripherals: () => import('./models/peripherals.js'),
 };
 
 /** Whether there is an object for this id at all. A module the console was
