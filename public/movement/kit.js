@@ -286,6 +286,19 @@ export function mount(host, o = {}) {
 
   const objects = [];
   let raf = 0; let visible = true; let running = true;
+  /* Frames are not free, and this scene was drawing one on every refresh
+     of the display — 144 a second on a gaming panel — for hours at a time
+     on the idle screen, with a full-screen bloom on each. Nothing in it
+     needs that. The sway has a ten-second period, the watch turns a tenth
+     of a radian a second, the seconds hand steps six times a second. So it
+     is held to IDLE_FPS, and only goes to the display's full rate while a
+     hand is actually on it: a drag, the coast after a throw, the crown
+     bringing the watch home. That is where a dropped frame would be felt,
+     and it lasts seconds. */
+  const IDLE_FPS = o.idleFps ?? 30;
+  let boostUntil = 0;
+  let lastDraw = 0;
+  const boost = (s) => { boostUntil = Math.max(boostUntil, performance.now() / 1000 + s); };
   let locked = !!o.locked || REDUCED;
   let last = performance.now() / 1000;
   const clock = { t: 0 };
@@ -297,6 +310,15 @@ export function mount(host, o = {}) {
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
+    /* The bloom at HALF resolution. A glow is a blur by definition, so it
+       loses nothing a person could see, and its passes are most of what
+       the GPU does per frame: a bright-pass and five mip levels of two-way
+       blur, each a full-screen draw. Half the width and half the height is
+       a quarter of the pixels, in every one of them. The lines themselves
+       are drawn at full resolution as before — this does not touch how
+       crisp anything is. Must come after composer.setSize, which resizes
+       every pass back to full. */
+    bloom?.setSize(Math.max(1, Math.round((w * dpr) / 2)), Math.max(1, Math.round((h * dpr) / 2)));
     if (ortho) {
       // The frustum IS the viewport, measured in world units, so a model at
       // world (x, y) lands on the pixel the layout put its dial at.
@@ -395,6 +417,7 @@ export function mount(host, o = {}) {
        stopped answering the pointer too — and the lock is remembered between
        visits, so it stayed that way until you found the crown again. */
     if (locked && target.userData.lockable) return;
+    boost(2.5);
     drag.id = e.pointerId; drag.obj = target;
     drag.x = e.clientX; drag.y = e.clientY;
     drag.x0 = e.clientX; drag.y0 = e.clientY;
@@ -434,6 +457,8 @@ export function mount(host, o = {}) {
     u.ry += dx;
     u.rx += dy;
     u.av.x = dy; u.av.y = dx;
+    // Through the coast after the throw, which runs a couple of seconds.
+    boost(2.5);
   };
   const up = (e) => {
     // Not gated on `drag.on`: a touch that was still making up its mind has
@@ -465,9 +490,12 @@ export function mount(host, o = {}) {
   const tick = () => {
     raf = requestAnimationFrame(tick);
     const now = performance.now() / 1000;
-    const dt = Math.min(0.05, now - last);
-    last = now;
-    if (!visible || !running) return;
+    if (!visible || !running) { last = now; return; }
+    if (!drag.on && now > boostUntil && now - lastDraw < 1 / IDLE_FPS - 0.004) return;
+    // dt is the time since the last frame DRAWN, not the last refresh, so a
+    // capped scene moves at the same speed as an uncapped one.
+    const dt = Math.min(0.1, now - last);
+    last = now; lastDraw = now;
     clock.t += dt;
     // Whoever owns the layout gets a chance to re-measure before the frame is
     // drawn. A scene bound to DOM boxes is only ever as right as its last
@@ -583,6 +611,8 @@ export function mount(host, o = {}) {
     /** The crown: freeze every rotation so the thing can be read. */
     setLocked(v) {
       locked = !!v;
+      // The homing takes under three seconds; draw it at full rate.
+      boost(3.2);
       if (locked) {
         for (const g of objects) {
           g.userData.av.x = 0; g.userData.av.y = 0;
