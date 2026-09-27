@@ -680,6 +680,85 @@ function teardownHome() {
    against a measured box, and because the same routine serves the launcher
    and the idle display at two different scales. */
 
+/* ── the watch's companion ───────────────────────────────────────────────
+   A module that opens up in place (music) is not a register in the column:
+   it sits beside the watch, the way a player sits beside a watch on a desk,
+   and what it is playing is read under the time. One click on either opens
+   it. Everything else stays in the column, which is what gives the column
+   back its room. */
+const isCompanion = (m) => !!(m?.focus && movement.has(m.id));
+
+function splitCompanions(mods) {
+  const companions = mods.filter(isCompanion).slice(0, 1);
+  return { companions, ring: mods.filter((m) => !companions.includes(m)) };
+}
+
+function companionHTML(m) {
+  const ready = m.status === 'ready';
+  return `
+    <a class="ov-companion" href="#/${esc(m.id)}" ${ready ? `data-focus="${esc(m.id)}"` : ''}
+       aria-label="${esc(m.name)}${ready ? ' — open the player' : ' — unavailable'}" data-state="${ready ? 'ok' : 'down'}">
+      <span class="ov-companion-dial" data-dial="${esc(m.id)}"></span>
+    </a>`;
+}
+
+const npClock = (ms) => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/* The line under the time: title, artist, and how far through. Its bar and
+   time are moved on a one-second beat between the module's reports, which
+   arrive only when something changes. */
+let npTimer = 0;
+function npPos(sum) {
+  const md = sum?.model || {};
+  const d = Number(md.durationMs) || 0;
+  const base = (Number(md.progress) || 0) * d;
+  const run = md.playing && sum._at ? Date.now() - sum._at : 0;
+  return { d, p: Math.min(d, base + run) };
+}
+
+function paintNowPlaying() {
+  const slots = ['#ov-np', '#idle-np'].map((q) => $(q)).filter(Boolean);
+  if (!slots.length) return;
+  const m = splitCompanions(state.modules.filter((x) => x.enabled)).companions[0];
+  const sum = m && state.summaries.get(m.id);
+  const md = sum?.model || {};
+  let html = '';
+  if (m && m.status === 'ready' && sum) {
+    if (!md.connected) {
+      html = `<a class="np np--quiet" href="#/${esc(m.id)}">${icon('i-music')}<span class="np-title">${esc(sum.headline || 'Not connected')}</span></a>`;
+    } else if (md.title) {
+      const { d, p } = npPos(sum);
+      html = `
+        <a class="np${md.playing ? ' is-playing' : ''}" href="#/${esc(m.id)}" data-focus="${esc(m.id)}"
+           aria-label="${esc(`${md.playing ? 'Playing' : 'Paused'}: ${md.title} by ${md.artist || 'unknown'} — open the player`)}">
+          ${icon(md.playing ? 'i-music' : 'i-pause')}
+          <span class="np-title">${esc(md.title)}</span>
+          <span class="np-artist">${esc(md.artist || '')}</span>
+          <span class="np-bar" aria-hidden="true"><i style="--f:${d ? (p / d).toFixed(4) : 0}"></i></span>
+          <span class="np-time" aria-hidden="true">${npClock(p)}</span>
+        </a>`;
+    }
+  }
+  for (const el of slots) if (el.innerHTML !== html) el.innerHTML = html;
+  clearInterval(npTimer);
+  if (md.playing && md.title) {
+    npTimer = setInterval(() => {
+      const live = ['#ov-np', '#idle-np'].map((q) => $(q)).filter(Boolean);
+      const cur = m && state.summaries.get(m.id);
+      if (!live.length || !cur) { clearInterval(npTimer); return; }
+      const { d, p } = npPos(cur);
+      for (const el of live) {
+        el.querySelector('.np-bar i')?.style.setProperty('--f', d ? (p / d).toFixed(4) : '0');
+        const t = el.querySelector('.np-time');
+        if (t) t.textContent = npClock(p);
+      }
+    }, 1000);
+  }
+}
+
 /** One module, as a line on the plate: its object, its headline, and the
     two or three readings worth knowing before you open it. The name is
     printed on the object's dial the way a register's is printed on a watch,
@@ -816,9 +895,13 @@ function renderLauncher() {
         <div class="ov-stage" id="ov-stage">
           <div class="ov-side">
             <div class="ov-alert" id="ov-barrel"></div>
-            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+            <div class="ov-movement">
+              <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+              <div class="ov-companions" id="ov-companions"></div>
+            </div>
             <div class="ov-core">
               <div class="ov-clock" id="ov-clock"></div>
+              <div class="np-slot" id="ov-np"></div>
               <div class="ov-regulator"><div id="ov-rate"></div></div>
               <div class="ov-caseline" id="ov-caseline"></div>
               <div class="ov-case">
@@ -841,7 +924,10 @@ function renderLauncher() {
       </section>`;
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
   }
-  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 2)).join('');
+  const { ring, companions } = splitCompanions(mods);
+  $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 2)).join('');
+  $('#ov-companions').innerHTML = companions.map(companionHTML).join('');
+  paintNowPlaying();
   $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
   $('#ov-rate').innerHTML = rateHTML();
   $('#ov-caseline').innerHTML = caselineHTML();
@@ -1353,9 +1439,13 @@ function renderIdle() {
         <div class="ov-stage idle-stage" id="idle-stage">
           <div class="ov-side">
             <div class="ov-alert" id="idle-barrel"></div>
-            <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
+            <div class="ov-movement">
+              <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
+              <div class="ov-companions" id="idle-companions"></div>
+            </div>
             <div class="ov-core">
               <div class="idle-clock" id="idle-clock"></div>
+              <div class="np-slot" id="idle-np"></div>
             </div>
           </div>
           <div class="ov-ring" id="idle-ring"></div>
@@ -1371,7 +1461,10 @@ function renderIdle() {
     homeChrono = mountChrono($('#idle-clock'), { variant: 'idle' });
     idleRig = startIdleRig($('#view > .idle'));
   }
-  $('#idle-ring').innerHTML = mods.map((m, i) => complication(m, i, 3)).join('');
+  const { ring, companions } = splitCompanions(mods);
+  $('#idle-ring').innerHTML = ring.map((m, i) => complication(m, i, 3)).join('');
+  $('#idle-companions').innerHTML = companions.map(companionHTML).join('');
+  paintNowPlaying();
   $('#idle-barrel').innerHTML = barrelAlertHTML(alerts);
   fitView();
   bindModels('idle', mods.map((m) => m.id));
@@ -1502,7 +1595,11 @@ async function refreshSummaries(only) {
     try {
       const res = await fetch(`/${m.id}/api/summary`, { headers: { accept: 'application/json' } });
       if (!res.ok) throw new Error(String(res.status));
-      state.summaries.set(m.id, await res.json());
+      const sum = await res.json();
+      // When this was true, so a line that runs on its own clock (the music
+      // position) can carry on from it.
+      sum._at = Date.now();
+      state.summaries.set(m.id, sum);
     } catch {
       state.summaries.delete(m.id);
     }
@@ -1548,9 +1645,9 @@ function stopOverviewPoll() {
 window.addEventListener('resize', fitView);
 
 document.addEventListener('click', (e) => {
-  const comp = e.target.closest?.('a.comp');
-  if (comp && !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-    const id = comp.querySelector('[data-dial]')?.dataset.dial;
+  const opener = e.target.closest?.('[data-focus]');
+  if (opener && !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    const id = opener.dataset.focus;
     const m = state.modules.find((x) => x.id === id);
     if (focusable(m) && stage?.layoutOf(id)) { e.preventDefault(); openFocus(m); return; }
   }

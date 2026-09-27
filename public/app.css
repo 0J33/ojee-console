@@ -1281,3 +1281,72 @@ body.is-focus { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .mfocus-scrim, .mfocus-plate, .mfocus > .mfocus-ui > * { transition: none; }
 }
+
+/* ── the watch's companion and the line under the time ─────────────────── */
+/* The movement's row holds the watch and, in its lower right corner, the
+   player — beside the watch rather than in the register column. The watch is
+   fitted to the short side of its box, so a landscape box leaves both lower
+   corners empty; the player takes one of them. */
+.ov-movement {
+  position: relative;
+  align-self: stretch; justify-self: stretch;
+  width: 100%; min-height: 0;
+  display: grid;
+  /* One cell that IS the row's height: an auto row around an empty box is
+     zero tall, and the watch with it. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+.ov-movement > .ov-cal { grid-area: 1 / 1; height: 100%; }
+.ov-companions {
+  position: absolute; right: 0; bottom: 0;
+  width: clamp(92px, 24%, 180px); aspect-ratio: 1;
+  pointer-events: none;
+}
+.ov-companions:empty { display: none; }
+.ov-companion {
+  position: absolute; inset: 0;
+  pointer-events: auto; border-radius: 8px;
+}
+.ov-companion-dial { position: absolute; inset: 0; pointer-events: none; }
+.ov-companion:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.ov-companion[data-state="down"] { opacity: 0.6; }
+
+.np-slot { width: 100%; display: flex; justify-content: center; min-width: 0; }
+.np-slot:empty { display: none; }
+.np {
+  display: flex; align-items: center; gap: 10px;
+  max-width: min(100%, 560px); min-width: 0;
+  padding: 6px 12px;
+  color: var(--ink-2); text-decoration: none;
+  border: 1px solid transparent;
+  font-size: 0.88rem;
+  transition: border-color var(--dur-2), color var(--dur-2);
+}
+.np:hover { border-color: var(--line-strong); color: var(--ink); }
+.np:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.np .ic { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.np.is-playing .ic { color: var(--accent); }
+.np-title { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.np-artist { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 2 auto; }
+.np:not(.is-playing) .np-artist { color: var(--ink-2); }
+.np-bar { flex: 0 0 clamp(48px, 9vw, 120px); height: 2px; background: var(--line-strong); position: relative; }
+.np-bar i { position: absolute; inset: 0 auto 0 0; width: calc(var(--f, 0) * 100%); background: var(--accent); }
+.np:not(.is-playing) .np-bar i { background: var(--ink-2); }
+.np-time { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--ink-2); flex: none; }
+.np--quiet { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; }
+
+/* Idle: read from across the room. */
+.idle-stage .np { font-size: clamp(1rem, 1.35vw, 1.5rem); gap: 14px; max-width: min(100%, 820px); }
+.idle-stage .np .ic { width: 22px; height: 22px; }
+.idle-stage .np-time { font-size: clamp(0.85rem, 1vw, 1.1rem); }
+.idle-stage .ov-companions { width: clamp(100px, 20%, 200px); }
+
+/* A register short of room drops readings rather than clipping them: each
+   row measures itself, and below the height two readings need it keeps one. */
+.ov-ring .comp { container-type: size; container-name: reg; }
+@container reg (max-height: 118px) {
+  .comp-fact:nth-child(n + 2) { display: none; }
+}
+@container reg (max-height: 84px) {
+  .comp-facts { display: none; }
+}
