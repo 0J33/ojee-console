@@ -984,12 +984,25 @@ export function build(o = {}) {
   ];
   secHand.add(poly(tailPts, C.beat, 0.85, true));
   face.add(secHand);
+
+  /* The stopwatch's hand: a fine needle in brass — the colour this world
+     keeps for what carries the going train — over the seconds hand, with a
+     round counterweight so it cannot be mistaken for it. Only there while
+     the stopwatch has time on it, and it SWEEPS, as a chronograph does. */
+  const chronoHand = new THREE.Group();
+  chronoHand.add(poly([V(-secLen * 0.2, 0, 0.02), V(secLen * 0.99, 0, 0.02)], C.brass, 1));
+  const cw = ring(0.035, C.brass, 0.9, 'z', 20);
+  cw.position.set(-secLen * 0.16, 0, 0.02);
+  chronoHand.add(cw);
+  chronoHand.visible = false;
+  face.add(chronoHand);
   const cap = node(0.038, C.blued, 0.9);
   cap.position.z = 0.022;
   face.add(cap);
   parts.hourHand = hourHand;
   parts.minHand = minHand;
   parts.secHand = secHand;
+  parts.chronoHand = chronoHand;
   sp.add(face);
 
   /* ================= the movement, at the back =================
@@ -1359,6 +1372,9 @@ export function build(o = {}) {
       p.dateText.userData.set(String(day));
       p.dayText.userData.set(DAYS[lang][d.getDay()], lang === 'ar' ? 'ar' : 'day', DAYS[lang]);
     }
+    const chrono = o.chrono?.();
+    p.chronoHand.visible = chrono != null;
+    if (chrono != null) p.chronoHand.rotation.z = Math.PI / 2 - ((chrono % 60_000) / 60_000) * Math.PI * 2;
     const mins = d.getMinutes() + d.getSeconds() / 60;
     const hours = (d.getHours() % 12) + mins / 60;
     p.minHand.rotation.z = Math.PI / 2 - (mins / 60) * Math.PI * 2;

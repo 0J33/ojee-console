@@ -20,6 +20,10 @@ const DEFAULTS = {
   // 'en' or 'ar'. A 7S26 day wheel is bilingual; this is which half of it
   // is showing.
   dayLang: 'en',
+  // The idle display dims at night, between these hours (local, 0-23).
+  nightDim: true,
+  nightFrom: 23,
+  nightTo: 6,
 };
 
 const state = { ...DEFAULTS };
@@ -29,6 +33,10 @@ try {
   const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
   if (typeof raw.clock24 === 'boolean') state.clock24 = raw.clock24;
   if (raw.dayLang === 'en' || raw.dayLang === 'ar') state.dayLang = raw.dayLang;
+  if (typeof raw.nightDim === 'boolean') state.nightDim = raw.nightDim;
+  for (const k of ['nightFrom', 'nightTo']) {
+    if (Number.isInteger(raw[k]) && raw[k] >= 0 && raw[k] <= 23) state[k] = raw[k];
+  }
 } catch { /* a console with no storage still has defaults */ }
 
 export const prefs = () => ({ ...state });

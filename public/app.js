@@ -30,6 +30,8 @@ import * as timesync from '/timesync.js';
 // one code path rather than a web build and an app build.
 import * as nativeBridge from '/native.js';
 import * as movement from '/movement/stage.js';
+import * as watch from '/watch.js';
+import { mount as mountWatchView } from '/watchview.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -105,7 +107,7 @@ function renderBranding() {
 
 /** Every view of every ready module, flattened into one nav. */
 function navEntries() {
-  const out = [];
+  const out = [{ moduleId: 'watch', viewId: null, label: 'Watch', icon: 'i-watch', module: WATCH_ENTRY }];
   for (const m of state.modules) {
     if (!m.enabled) continue;
     if (m.status === 'ready' && m.views.length) {
@@ -207,7 +209,13 @@ function moduleRow(m) {
 function paintModuleSheet() {
   if (!moduleSheetEl) return;
   const mods = state.modules.filter((m) => m.enabled);
-  moduleSheetEl.querySelector('.msheet-list').innerHTML = mods.map(moduleRow).join('');
+  moduleSheetEl.querySelector('.msheet-list').innerHTML = `
+    <a class="msheet-row${state.watchOpen ? ' is-on' : ''}" href="#/watch">
+      ${icon('i-watch', 'ic msheet-ic')}
+      <span class="msheet-name">Watch</span>
+      <span class="dot dot--ok"></span>
+      <span class="msheet-line">Stopwatch, timers, time zones, accuracy</span>
+    </a>${mods.map(moduleRow).join('')}`;
 }
 
 function openModuleSheet() {
@@ -296,8 +304,11 @@ function renderSidenav() {
 
   const overviewActive = !state.active.module;
   el.innerHTML = `
-    <a class="sn-item sn-item--home${overviewActive ? ' is-on' : ''}" href="#/">
+    <a class="sn-item sn-item--home${overviewActive && !state.watchOpen ? ' is-on' : ''}" href="#/">
       ${icon('i-grid', 'ic')}<span>Overview</span>
+    </a>
+    <a class="sn-item${state.watchOpen ? ' is-on' : ''}" href="#/watch">
+      ${icon('i-watch', 'ic')}<span>Watch</span>
     </a>
     ${mods.map((m) => {
       const active = state.active.module === m.id;
@@ -455,7 +466,7 @@ function clearModuleHead() {
 let paletteOpen = false;
 
 function paletteItems() {
-  const out = [];
+  const out = [{ group: 'Watch', label: 'Watch', hint: 'stopwatch, timers, zones', href: '#/watch', icon: 'i-watch' }];
   for (const m of state.modules.filter((x) => x.enabled)) {
     const views = m.views || [];
     const down = m.status !== 'ready';
@@ -687,6 +698,8 @@ function teardownHome() {
    it. Everything else stays in the column, which is what gives the column
    back its room. */
 const isCompanion = (m) => !!(m?.focus && movement.has(m.id));
+/* The watch as a nav entry: it is the console's own, not a module. */
+const WATCH_ENTRY = { id: 'watch', name: 'Watch', status: 'ready', enabled: true, views: [], icon: 'i-watch' };
 
 function splitCompanions(mods) {
   const companions = mods.filter(isCompanion).slice(0, 1);
@@ -916,6 +929,7 @@ function renderLauncher() {
               <div class="ov-case">
                 ${crownHTML()}
                 ${displayHTML()}
+                <a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>
                 <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
               </div>
             </div>
@@ -1005,6 +1019,8 @@ async function ensureStage(screen) {
     locked: crownLocked,
     bloom: bloomFor(screen),
     onLock: (v) => { crownLocked = v; paintCrowns(); },
+    // The watch's stopwatch hand reads this every frame.
+    chrono: () => (watch.stopwatch.active ? watch.stopwatch.elapsed() : null),
     // The movement turns, so the callout on its barrel is redrawn with it.
     onFrame: () => drawLeader(),
   }).then((made) => {
@@ -1151,6 +1167,12 @@ function pushModelStates() {
 
 let focusOpen = null;         // { id, el, opener, ui, place }
 
+/* Where a click landed, as it was when it landed. A control that re-renders
+   on its own click (Start becomes Stop, play becomes pause) is detached by the
+   time the click reaches the overlay, and `closest` from a detached node finds
+   nothing — so a click on the panel read as a click outside it and closed it. */
+const clickedIn = (e, sel) => e.composedPath().some((n) => n instanceof Element && n.matches(sel));
+
 const focusable = (m) => !!(m && m.status === 'ready' && m.focus && movement.has(m.id));
 
 function focusArea() {
@@ -1166,6 +1188,7 @@ function focusArea() {
 
 function placeFocus() {
   if (!focusOpen || !stage) return;
+  if (focusOpen.kind === 'watch') { placeWatch(); return; }
   const { el, layout } = focusOpen;
   const a = focusArea();
   const barH = 64;
@@ -1240,7 +1263,7 @@ async function openFocus(m) {
     if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
     if (e.target.closest('.mfocus-lock')) { setFocusFree(!focusOpen?.free); return; }
     if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
-    if (e.target.closest('.mfocus-screen, .mfocus-deck, .mfocus-bar')) return;
+    if (clickedIn(e, '.mfocus-screen, .mfocus-deck, .mfocus-bar, .wv')) return;
     // A click on the object's own body is a miss, not a dismissal.
     const b = focusOpen?.bodyRect;
     if (b && e.clientX > b.l && e.clientX < b.r && e.clientY > b.t && e.clientY < b.b) return;
@@ -1266,6 +1289,104 @@ async function openFocus(m) {
   return true;
 }
 
+/* ── the watch, opened up ────────────────────────────────────────────────
+   The same move as the music player: the watch comes forward, square on,
+   the rest steps back. Beside it, the panel (watchview.js): the stopwatch
+   and timers, other zones as watches of their own, how right the clock
+   is, and how it is shown. #/watch is its address. */
+function placeWatch() {
+  const { el } = focusOpen;
+  const a = focusArea();
+  const wide = a.width >= 900;
+  const box = el.querySelector('.mfocus-box');
+  const panel = el.querySelector('.wv-host');
+  const bar = el.querySelector('.mfocus-bar');
+  let side; let cx; let cy;
+  if (wide) {
+    side = Math.min(a.height * 0.84, a.width * 0.42);
+    cx = a.left + a.width * 0.26;
+    cy = a.top + a.height / 2 - 26;
+    Object.assign(panel.style, { left: `${a.left + a.width * 0.5}px`, top: `${a.top + 16}px`, width: `${a.width * 0.47}px`, height: `${a.height - 32}px` });
+    Object.assign(bar.style, { left: `${cx}px`, top: `${cy + side / 2 + 4}px` });
+  } else {
+    side = Math.min(a.width * 0.72, a.height * 0.34);
+    cx = a.left + a.width / 2;
+    cy = a.top + side / 2 + 8;
+    Object.assign(bar.style, { left: `${cx}px`, top: `${cy + side / 2 + 2}px` });
+    const top = cy + side / 2 + 56;
+    Object.assign(panel.style, { left: `${a.left + 12}px`, top: `${top}px`, width: `${a.width - 24}px`, height: `${a.top + a.height - top - 8}px` });
+  }
+  Object.assign(box.style, { left: `${cx - side / 2}px`, top: `${cy - side / 2}px`, width: `${side}px`, height: `${side}px` });
+  const r = side * 0.46;
+  focusOpen.bodyRect = { l: cx - r, r: cx + r, t: cy - r, b: cy + r };
+  focusOpen.ui?.relayout?.();
+  stage.sync();
+}
+
+async function openWatch() {
+  if (focusOpen?.kind === 'watch') return true;
+  closeFocus({ keepHash: true });
+  const st = stage || await ensureStage(state.active.module === 'idle' ? 'idle' : 'launcher');
+  if (!st) return false;
+  const el = document.createElement('div');
+  el.className = 'mfocus mfocus--watch';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', 'Watch');
+  el.innerHTML = `
+    <div class="mfocus-scrim"></div>
+    <div class="mfocus-box" aria-hidden="true"></div>
+    <div class="mfocus-ui">
+      <div class="wv-host"></div>
+      <div class="mfocus-bar">
+        <button type="button" class="mfocus-lock" aria-pressed="true" title="Let it turn  (L)">${icon('i-unlock')}<span>Unlock</span></button>
+        <button type="button" class="mfocus-close" aria-label="Close">${icon('i-close')}<span>Close</span></button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  document.body.classList.add('is-focus');
+  focusOpen = { id: 'clock', kind: 'watch', el, opener: document.activeElement, ui: null };
+  placeWatch();
+  if (!st.focus('clock', el.querySelector('.mfocus-box'), { fill: 0.92 })) {
+    // Not in the scene yet (first paint still loading it): try once more.
+    await new Promise((r) => setTimeout(r, 400));
+    if (!focusOpen || focusOpen.el !== el || !st.focus('clock', el.querySelector('.mfocus-box'), { fill: 0.92 })) { closeFocus({ keepHash: true }); return false; }
+  }
+  requestAnimationFrame(() => el.classList.add('is-open'));
+  let downAt = null;
+  el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; }, true);
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
+    if (e.target.closest('.mfocus-lock')) { setFocusFree(!focusOpen?.free); return; }
+    if (clickedIn(e, '.wv, .mfocus-bar')) return;
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+    const b = focusOpen?.bodyRect;
+    if (b && e.clientX > b.l && e.clientX < b.r && e.clientY > b.t && e.clientY < b.b) return;
+    closeFocus();
+  });
+  focusOpen.ui = mountWatchView(el.querySelector('.wv-host'), {
+    stage: st, icon, toast,
+    crown: { locked: () => crownLocked, toggle: toggleCrown },
+  });
+  placeWatch();
+  el.querySelector('.wv-tab[aria-selected="true"]')?.focus({ preventScroll: true });
+  return true;
+}
+
+/* A click on the watch — not the end of a turn — opens it. */
+let calDown = null;
+document.addEventListener('pointerdown', (e) => {
+  calDown = e.target.closest?.('.ov-cal') ? [e.clientX, e.clientY] : null;
+}, true);
+document.addEventListener('click', (e) => {
+  if (e.target.closest?.('[data-openwatch]')) { openWatch(); return; }
+  const cal = e.target.closest?.('.ov-cal');
+  if (!cal || !calDown || focusOpen) return;
+  if (Math.hypot(e.clientX - calDown[0], e.clientY - calDown[1]) > 6) return;
+  if (state.active.module === 'idle') openWatch();
+  else location.hash = '#/watch';
+});
+
 /* Unlocked, the object is an object again: it sways, it can be spun, and it
    draws its own screen. Locked, it comes home square on and the live screen
    is laid back over it once it has arrived. */
@@ -1281,10 +1402,16 @@ function setFocusFree(free) {
   b.innerHTML = `${icon(focusOpen.free ? 'i-lock' : 'i-unlock')}<span>${focusOpen.free ? 'Lock' : 'Unlock'}</span>`;
 }
 
-function closeFocus() {
+function closeFocus({ keepHash = false } = {}) {
   if (!focusOpen) return;
-  const { id, el, opener, ui } = focusOpen;
+  const { id, el, opener, ui, kind } = focusOpen;
   focusOpen = null;
+  // The watch has an address of its own; closing it by hand leaves it.
+  if (kind === 'watch' && !keepHash && location.hash.startsWith('#/watch')) {
+    history.replaceState(null, '', '#/');
+    state.watchOpen = false;
+    renderSidenav();
+  }
   try { ui?.destroy?.(); } catch { /* the module's to clean up */ }
   stage?.unfocus(id);
   el.classList.remove('is-open');
@@ -1425,7 +1552,10 @@ function startIdleRig(root) {
   // Once a minute: drift a few pixels, and dim between 23:00 and 06:00.
   const minute = () => {
     const h = new Date(timesync.now()).getHours();
-    root.classList.toggle('is-night', h >= 23 || h < 6);
+    const from = pref('nightFrom'); const to = pref('nightTo');
+    // A window that wraps midnight (23 to 6) and one that does not (1 to 5).
+    const night = pref('nightDim') && (from > to ? (h >= from || h < to) : (h >= from && h < to));
+    root.classList.toggle('is-night', night);
     const d = () => Math.round((Math.random() * 2 - 1) * 6);
     stage.style.translate = `${d()}px ${d()}px`;
     minuteTimer = setTimeout(minute, 60_000 - (timesync.now() % 60_000) + 50);
@@ -1493,6 +1623,7 @@ function renderIdle() {
         <div class="idle-tools">
           ${crownHTML()}
           ${displayHTML()}
+          <button class="iconbtn" type="button" data-openwatch aria-label="Open the watch" title="Open the watch">${icon('i-watch')}</button>
           <button class="iconbtn idle-fs" type="button"></button>
           <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>
         </div>
@@ -1649,7 +1780,11 @@ async function refreshSummaries(only) {
 async function refreshModules({ force = false } = {}) {
   const res = await fetch(force ? '/api/modules/refresh' : '/api/modules', { method: force ? 'POST' : 'GET' });
   if (!res.ok) return;
-  state.modules = (await res.json()).modules || [];
+  // The watch and the music player come first, always: they are the two
+  // things on the plate beside the time. The watch is the console's own, so
+  // it is not in this list at all; companions (music) lead it.
+  const list = (await res.json()).modules || [];
+  state.modules = [...list.filter(isCompanion), ...list.filter((m) => !isCompanion(m))];
 }
 
 let routing = false;
@@ -1712,7 +1847,7 @@ document.addEventListener('keydown', (e) => {
 
 async function route() {
   closeModuleSheet();
-  closeFocus();
+  closeFocus({ keepHash: true });
   if (routing) return;
   routing = true;
   try {
@@ -1723,6 +1858,27 @@ async function route() {
     // Diving straight into whichever module happened to be ready gave the app
     // no front door: you arrived somewhere arbitrary with no sense of what
     // else existed.
+    if (module === 'watch') {
+      // The overview, with the watch opened up on it.
+      if (!$('#view > .ov') || state.active.module !== null) {
+        state.active = { module: null, view: null };
+        renderNav(); setTitle();
+        await host.unmount();
+        renderLauncher();
+        clearModuleHead();
+        refreshSummaries().then(() => { if (!state.active.module) { renderLauncher(); renderSidenav(); pushModelStates(); } });
+        startOverviewPoll();
+        syncLiveFeeds();
+      }
+      state.watchOpen = true;
+      renderSidenav();
+      await ensureStage('launcher');
+      // The watch has to be in the scene before it can be opened up.
+      for (let i = 0; i < 20 && !(await openWatch()); i += 1) await new Promise((r) => setTimeout(r, 150));
+      return;
+    }
+    state.watchOpen = false;
+
     if (!module || module === 'home-screen') {
       state.active = { module: null, view: null };
       renderNav();
@@ -1810,6 +1966,18 @@ async function route() {
 /* ── boot ─────────────────────────────────────────────────────────────── */
 
 async function boot() {
+  // A timer that ends says so on whatever page is open: a toast, three
+  // tones, and a system notification when this tab is not the one in front.
+  watch.onTimerEnd((t) => {
+    const label = t.label || `${watch.fmtTimer(t.durMs)} timer`;
+    toast('warn', 'Timer done', label);
+    watch.chime();
+    try {
+      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Timer done', { body: label, tag: `ojee-timer-${t.id}` });
+      }
+    } catch { /* not offered here */ }
+  });
   const [branding, session] = await Promise.all([
     fetch('/api/branding').then((r) => r.json()).catch(() => null),
     fetch('/api/session').then((r) => (r.ok ? r.json() : null)).catch(() => null),

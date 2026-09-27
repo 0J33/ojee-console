@@ -41,6 +41,10 @@ const MODULES = {
     hole where an import that was never going to resolve would have gone. */
 export const has = (id) => Object.hasOwn(MODULES, id);
 
+/* Other time zones are more watches: the same calibre, told a different
+   time. Their ids are `zone:<n>`. */
+const loaderFor = (id) => MODULES[id] || (id.startsWith('zone:') ? MODULES.clock : null);
+
 /** px per world unit. One number decides how big every object is on the
     page, so the models can be authored against a fixed world radius. */
 const PPU = 120;
@@ -95,7 +99,7 @@ export async function create(host, o = {}) {
 
   const slots = new Map();   // id -> { selector, el, group, api, fill }
   let raf = 0;
-  let solo = null;           // the one object shown while another is opened up
+  let solo = null;           // the objects shown while one is opened up (a Set)
   const FOCUS_MS = 420;
   const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
@@ -106,7 +110,7 @@ export async function create(host, o = {}) {
     const hb = host.getBoundingClientRect();
     for (const [id, slot] of slots) {
       if (slot.reserved) continue;
-      if (solo && id !== solo) { slot.group.visible = false; continue; }
+      if (solo && !solo.has(id)) { slot.group.visible = false; continue; }
       if (!slot.el?.isConnected) slot.el = document.querySelector(slot.selector);
       const box = slot.focus?.el || slot.el;
       if (!box) { slot.group.visible = false; continue; }
@@ -213,7 +217,7 @@ export async function create(host, o = {}) {
     async bind(id, selector, opts = {}) {
       const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
       if (!el || slots.has(id)) return null;
-      const load = MODULES[id];
+      const load = loaderFor(id);
       if (!load) return null;
       // The slot is claimed BEFORE the import is awaited. Two paints a frame
       // apart both reach here for the same model, and a guard that only runs
@@ -230,7 +234,15 @@ export async function create(host, o = {}) {
         el.dataset.fallback = 'true';
         return null;
       }
-      const built = mod.build({ now: o.now });
+      // Unbound while it was loading (a zone removed, a view closed): the
+      // model arrived for nobody.
+      if (slots.get(id)?.reserved !== true) return null;
+      // The main watch carries the stopwatch hand; a zone's watch is told
+      // its own zone's time and carries nothing.
+      const built = mod.build({
+        now: opts.now || o.now,
+        chrono: id === 'clock' ? o.chrono : null,
+      });
       const group = built.group || built;
       view.add(group);
       ro.observe(el);
@@ -292,13 +304,13 @@ export async function create(host, o = {}) {
      * else in the scene out of the way. Returns false when the object is not
      * in the scene (not bound, or still loading).
      */
-    focus(id, el, { fill = 0.92 } = {}) {
+    focus(id, el, { fill = 0.92, keep = [] } = {}) {
       const slot = slots.get(id);
       if (!slot || slot.reserved) return false;
       const from = slot.at;
       slot.focus = { el, fill };
       slot.tw = from ? { t0: performance.now(), ...from } : null;
-      solo = id;
+      solo = new Set([id, ...keep]);
       slot.group.userData.fixed = true;
       slot.api?.setFocus?.(true);
       view.boost?.(1.2);
@@ -318,6 +330,27 @@ export async function create(host, o = {}) {
       slot.group.userData.free = !on;
       slot.api?.setFocus?.(!!on);
       view.boost?.(1.2);
+    },
+
+    /** Show one more object alongside an opened one (a zone's watch). */
+    soloAdd(id) { solo?.add(id); queueSync(); },
+
+    /** Take one object out of the scene: a zone's watch when its view closes. */
+    unbind(id) {
+      const slot = slots.get(id);
+      if (!slot) return;
+      slots.delete(id);
+      solo?.delete(id);
+      if (slot.reserved) return;
+      view.remove?.(slot.group);
+      if (slot.el) ro.unobserve(slot.el);
+    },
+
+    /** Hold an object square on, as an opened one is — for the watches
+        beside it, which are there to be read. */
+    hold(id, on = true) {
+      const slot = slots.get(id);
+      if (slot && !slot.reserved) { slot.group.userData.fixed = !!on; view.boost?.(1.2); }
     },
 
     /** What a model says about its own layout (where its screen is, …). */

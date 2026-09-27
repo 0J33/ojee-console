@@ -1243,7 +1243,9 @@ body.is-idle {
    would land on the same side of the canvas. */
 .mfocus-scrim {
   position: fixed; inset: 0; z-index: 2;
-  background: rgba(3, 6, 8, 0.93);
+  /* Dark enough that the page behind is gone, not merely dim: a panel of
+     text over a readable overview reads as two layers of text. */
+  background: rgba(3, 6, 8, 0.975);
   opacity: 0; transition: opacity 0.32s ease;
 }
 .mfocus.is-open .mfocus-scrim { opacity: 1; }
@@ -1371,4 +1373,145 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   .ov-movement:has(.ov-companion) { width: min(94vw, 640px); justify-self: center; }
   .ov-movement:has(.ov-companion) > .ov-cal { width: 100%; }
   .ov-movement:has(.ov-companion) > .ov-companions { aspect-ratio: 1; }
+}
+
+/* ── the watch, opened up: its panel ─────────────────────────────────────
+   The panel has no background of its own: the scrim is the ground, and the
+   zone watches are drawn by the scene UNDER it, through the empty boxes the
+   panel leaves for them. */
+.mfocus > .mfocus-ui > .wv-host {
+  position: fixed; z-index: 85;
+  opacity: 0; transition: opacity 0.22s ease;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.mfocus.is-open > .mfocus-ui > .wv-host { opacity: 1; transition-delay: 0.25s; }
+.wv { color: var(--ink-2); }
+.wv-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-strong); flex: none; overflow-x: auto; scrollbar-width: none; }
+.wv-tab {
+  background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: 10px 14px; cursor: pointer; white-space: nowrap;
+  font-family: var(--hud); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.wv-tab:hover { color: var(--ink); }
+.wv-tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.wv-tab:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.wv-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 4px 24px; display: grid; gap: 26px; align-content: start; overscroll-behavior: contain; }
+.wv-sec { display: grid; gap: 12px; }
+.wv-h {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-family: var(--hud); font-size: 0.72rem; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent);
+}
+.wv-hint { color: var(--dim); letter-spacing: 0.08em; text-transform: none; font-family: var(--mono); font-size: 0.72rem; }
+.wv-empty, .wv-sub { margin: 0; font-size: 0.86rem; color: var(--dim); }
+.wv-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wv-btn {
+  font-family: var(--hud); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 10px 18px; min-height: 40px; cursor: pointer; text-decoration: none;
+  color: var(--ink); background: rgba(8, 12, 14, 0.6); border: 1px solid var(--line-strong);
+  display: inline-flex; align-items: center;
+}
+.wv-btn:hover:not(:disabled) { border-color: var(--line-hover); }
+.wv-btn--primary { color: #041014; background: var(--accent); border-color: var(--accent); min-width: 120px; justify-content: center; }
+.wv-btn--primary:hover:not(:disabled) { filter: brightness(1.1); }
+.wv-btn:disabled { opacity: 0.4; cursor: default; }
+.wv-btn:focus-visible, .wv-chip:focus-visible, .wv-link:focus-visible, .wv-segb:focus-visible, .wv-x:focus-visible, .wv-in:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.wv-link { background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; font-size: 0.8rem; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.wv-link:hover { color: var(--ink); }
+.wv-link--quiet { color: var(--dim); }
+.wv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wv-chip {
+  font-family: var(--mono); font-size: 0.8rem; padding: 6px 12px; cursor: pointer;
+  color: var(--ink-2); background: rgba(8, 12, 14, 0.6); border: 1px solid var(--line-strong);
+}
+.wv-chip:hover { color: var(--accent); border-color: var(--accent); }
+.wv-in {
+  font-family: var(--mono); font-size: 0.85rem; color: var(--ink);
+  background: rgba(8, 12, 14, 0.75); border: 1px solid var(--line-strong); padding: 9px 10px; min-height: 40px;
+  flex: 1 1 160px; min-width: 0;
+}
+.wv-in--time { flex: 0 0 96px; }
+.wv-sel { flex: 0 0 auto; }
+
+/* stopwatch */
+.wv-sw { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(2.4rem, 5vw, 3.6rem); color: var(--ink-hi, #fff); line-height: 1; }
+.wv-laps { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow-y: auto; border-top: 1px solid var(--line); }
+.wv-laps li { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; padding: 7px 2px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.wv-laps li span { color: var(--dim); }
+.wv-laps li b { font-weight: 400; color: var(--ink); }
+.wv-laps li i { font-style: normal; color: var(--ink-2); }
+.wv-laps li.is-best b { color: var(--accent); }
+
+/* timers */
+.wv-timers { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wv-timer { border: 1px solid var(--line-strong); padding: 10px 12px; display: grid; gap: 8px; background: rgba(8, 12, 14, 0.5); }
+.wv-timer-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
+.wv-timer-label { color: var(--ink-2); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wv-timer-left { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 400; font-size: 1.5rem; color: var(--ink); }
+.wv-timer.is-paused .wv-timer-left { color: var(--ink-2); }
+.wv-timer.is-done { border-color: var(--warn); }
+.wv-timer.is-done .wv-timer-left { color: var(--warn); animation: wv-blink 1.2s steps(2) infinite; }
+@keyframes wv-blink { 50% { opacity: 0.35; } }
+.wv-bar { height: 2px; background: var(--line-strong); position: relative; }
+.wv-bar i { position: absolute; inset: 0 auto 0 0; width: calc(var(--f, 0) * 100%); background: var(--accent); }
+.wv-timer.is-done .wv-bar i { background: var(--warn); }
+.wv-timer-acts { display: flex; gap: 16px; }
+
+/* zones: each a watch of its own, drawn by the scene into the empty dial */
+.wv-zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.wv-zone { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--line); }
+.wv-zone-dial { width: 96px; height: 96px; display: block; }
+.wv-zone-read { display: grid; gap: 3px; min-width: 0; }
+.wv-zone-city { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wv-zone-time { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 400; font-size: 1.35rem; color: var(--ink); }
+.wv-zone-sub { font-size: 0.78rem; color: var(--dim); }
+.wv-zone-diff { font-weight: 400; font-family: var(--mono); color: var(--ink-2); white-space: nowrap; margin-left: 6px; }
+.wv-x { align-self: start; background: none; border: 0; padding: 4px; cursor: pointer; color: var(--dim); }
+.wv-x:hover { color: var(--ink); }
+.wv-x .ic { width: 16px; height: 16px; }
+
+/* accuracy */
+.wv-big { font-family: var(--mono); font-size: clamp(2rem, 4vw, 3rem); color: var(--ink-hi, #fff); line-height: 1; }
+.wv-big small { font-size: 0.45em; color: var(--ink-2); }
+.wv-facts { margin: 0; display: grid; gap: 6px; }
+.wv-facts > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.wv-facts dt { font-family: var(--hud); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); flex: none; }
+.wv-facts .lead { flex: 1 1 auto; border-bottom: 1px dotted var(--line); min-width: 8px; }
+.wv-facts dd { margin: 0; font-family: var(--mono); font-size: 0.85rem; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.wv-chart { position: relative; }
+.wv-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.wv-grid line { stroke: var(--line); stroke-width: 1; }
+.wv-grid .wv-zero { stroke: var(--line-strong); stroke-dasharray: 3 4; }
+.wv-ax text { fill: var(--dim); font-family: var(--mono); font-size: 10px; }
+.wv-band { fill: var(--accent); opacity: 0.12; }
+.wv-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.wv-cross { stroke: var(--line-hover); stroke-width: 1; }
+.wv-hover circle { fill: var(--accent); stroke: #05090b; stroke-width: 2; }
+.wv-hit { fill: transparent; cursor: crosshair; }
+.wv-tip {
+  position: absolute; top: -6px; transform: translate(-50%, -100%); pointer-events: none;
+  display: grid; gap: 2px; padding: 6px 10px; white-space: nowrap;
+  background: var(--chrome-3); border: 1px solid var(--line-strong);
+  font-family: var(--mono); font-size: 0.78rem; color: var(--ink);
+}
+.wv-tip i { font-style: normal; color: var(--ink-2); }
+.wv-tip-dim { color: var(--dim); }
+.wv-tablewrap { max-height: 260px; overflow: auto; border: 1px solid var(--line); }
+.wv-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.wv-table th { text-align: left; font-family: var(--hud); font-weight: 400; font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); padding: 8px; position: sticky; top: 0; background: var(--chrome-3); }
+.wv-table td { padding: 6px 8px; border-top: 1px solid var(--line); color: var(--ink); }
+
+/* display */
+.wv-set { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.wv-set.is-off { opacity: 0.45; }
+.wv-set-k { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); min-width: 96px; }
+.wv-seg { display: inline-flex; border: 1px solid var(--line-strong); }
+.wv-segb { background: none; border: 0; padding: 8px 14px; min-height: 38px; cursor: pointer; font: inherit; font-size: 0.85rem; color: var(--ink-2); }
+.wv-segb + .wv-segb { border-left: 1px solid var(--line-strong); }
+.wv-segb[aria-pressed="true"] { color: #041014; background: var(--accent); }
+
+.mfocus--watch .mfocus-bar { transform: translateX(-50%); }
+@media (prefers-reduced-motion: reduce) {
+  .mfocus > .mfocus-ui > .wv-host { transition: none; }
+  .wv-timer.is-done .wv-timer-left { animation: none; }
 }

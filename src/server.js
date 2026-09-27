@@ -55,7 +55,7 @@ const devices = new DeviceStore({
 const registry = new ModuleRegistry({ configured: cfg.modules });
 // Measures this host's offset from UTC over NTP, so the home page's clock can
 // state its own accuracy instead of assuming it. Off in tests (no network).
-const timeRef = new TimeReference();
+const timeRef = new TimeReference({ historyFile: join(cfg.dataDir, 'time-history.json') });
 if (process.env.NTP_PROBE !== 'off') timeRef.start();
 
 const app = express();
@@ -323,6 +323,12 @@ app.get('/api/session', requireAuth, (req, res) => {
 app.get('/api/time', requireAuth, (req, res) => {
   res.set('cache-control', 'no-store');
   res.json({ t: timeRef.now(), ntp: timeRef.status() });
+});
+
+/** The last day of NTP measurements, for the watch's accuracy page. */
+app.get('/api/time/history', requireAuth, (req, res) => {
+  res.set('cache-control', 'no-store');
+  res.json({ history: timeRef.history, everyMs: timeRef.everyMs, ntp: timeRef.status() });
 });
 
 app.get('/api/modules', requireAuth, (req, res) => {

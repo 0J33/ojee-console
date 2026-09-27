@@ -18,6 +18,9 @@
  */
 
 import dgram from 'node:dgram';
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
+
+const HISTORY_MS = 24 * 60 * 60_000;
 
 const NTP_EPOCH_OFFSET_S = 2_208_988_800;   // 1900-01-01 → 1970-01-01
 const TWO_32 = 2 ** 32;
@@ -103,8 +106,18 @@ export class TimeReference {
    * @param {number}   opts.burst     samples per measurement; the lowest-delay one wins
    */
   constructor({ servers = ['time.cloudflare.com', 'pool.ntp.org'], everyMs = 15 * 60_000,
-                burst = 4, timeoutMs = 1500, query = queryOnce } = {}) {
-    Object.assign(this, { servers, everyMs, burst, timeoutMs, query });
+                burst = 4, timeoutMs = 1500, query = queryOnce, historyFile = null } = {}) {
+    Object.assign(this, { servers, everyMs, burst, timeoutMs, query, historyFile });
+    // Every measurement for the last day, for the watch's accuracy page: one
+    // reading says how far off the host is now, a day of them says whether
+    // it drifts. Kept on disk, or every deploy would start the day again.
+    this.history = [];
+    if (historyFile) {
+      try {
+        const raw = JSON.parse(readFileSync(historyFile, 'utf8'));
+        if (Array.isArray(raw)) this.history = raw.filter((h) => Date.now() - h.at < HISTORY_MS);
+      } catch { /* no history yet */ }
+    }
     this.last = null;      // { server, stratum, offset, delay, at }
     this.error = null;
     this.correction = 0;   // ms added to the host clock; 0 unless the host is measurably off
@@ -136,10 +149,27 @@ export class TimeReference {
       // resolve. Inside it, the host's own NTP discipline is the better clock.
       const noise = best.delay / 2 + 5;
       this.correction = Math.abs(best.offset) > noise ? best.offset : 0;
+      this.#remember(this.last);
       return this.last;
     }
     this.error = 'no NTP server answered';
     return null;
+  }
+
+  #remember({ server, stratum, offset, delay, at }) {
+    this.history.push({
+      at, server, stratum,
+      offsetMs: Math.round(offset * 10) / 10,
+      delayMs: Math.round(delay * 10) / 10,
+      corrected: this.correction !== 0,
+    });
+    this.history = this.history.filter((h) => Date.now() - h.at < HISTORY_MS);
+    if (!this.historyFile) return;
+    try {
+      const tmp = `${this.historyFile}.tmp`;
+      writeFileSync(tmp, JSON.stringify(this.history));
+      renameSync(tmp, this.historyFile);
+    } catch { /* a history that cannot be kept is still shown until restart */ }
   }
 
   /** Reference time, ms since the Unix epoch. */
