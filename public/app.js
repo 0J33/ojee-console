@@ -186,6 +186,8 @@ function renderNav() {
 const MODULE_ICONS = {
   fleet: 'i-server',
   home: 'i-house',
+  router: 'i-router',
+  peripherals: 'i-mouse',
   remote: 'i-monitor',
   agent: 'i-cpu',
   loq: 'i-gauge',

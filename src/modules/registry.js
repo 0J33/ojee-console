@@ -93,6 +93,10 @@ export class ModuleRegistry {
       status: m.status,
       reason: m.status === 'ready' ? null : m.reason,
       enabled: m.enabled,
+      // The manifest's own icon, when it names a sprite symbol. This was
+      // documented and never passed on, so every module the shell had no
+      // hard-coded entry for fell back to the same box.
+      icon: /^i-[a-z0-9-]+$/.test(m.manifest?.icon || '') ? m.manifest.icon : null,
       views: m.manifest?.views || [],
       ui: m.manifest?.ui || null,
       capabilities: m.manifest?.capabilities || [],
