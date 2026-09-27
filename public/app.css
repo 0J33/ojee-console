@@ -1233,3 +1233,51 @@ body.is-idle {
   /* four tabs have the room the old six did not: labels a person can read */
   .tabbar .tabitem { font-size: 0.62rem; letter-spacing: 0.1em; }
 }
+
+/* ── an object opened up ─────────────────────────────────────────────────
+   Three layers, and their order is the whole trick: the scrim goes UNDER the
+   canvas (z 3) so the page steps back while the object stays lit, and the
+   module's screen and keys go OVER it so they sit on the object. The wrapper
+   is deliberately unpositioned and never faded — a fixed, transformed or
+   translucent wrapper would be one stacking context, and all three layers
+   would land on the same side of the canvas. */
+.mfocus-scrim {
+  position: fixed; inset: 0; z-index: 2;
+  background: rgba(3, 6, 8, 0.93);
+  opacity: 0; transition: opacity 0.32s ease;
+}
+.mfocus.is-open .mfocus-scrim { opacity: 1; }
+.mfocus-box { position: fixed; pointer-events: none; }
+.mfocus-plate {
+  position: fixed; z-index: 2; pointer-events: none;
+  background: #0b0f12;
+  opacity: 0; transition: opacity 0.2s ease 0.22s;
+}
+.mfocus.is-open .mfocus-plate { opacity: 1; }
+.mfocus > .mfocus-ui > .mfocus-screen,
+.mfocus > .mfocus-ui > .mfocus-deck,
+.mfocus > .mfocus-ui > .mfocus-bar {
+  position: fixed; z-index: 85;
+  opacity: 0; transition: opacity 0.22s ease;
+}
+/* In after the object has arrived, out at once when it leaves. */
+.mfocus.is-open > .mfocus-ui > * { opacity: 1; transition-delay: 0.3s; }
+.mfocus > .mfocus-ui > .mfocus-bar {
+  transform: translateX(-50%);
+  display: flex; gap: 10px;
+}
+.mfocus-bar a, .mfocus-bar button {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-2); background: rgba(8, 12, 14, 0.7);
+  border: 1px solid var(--line-strong); padding: 9px 14px; min-height: 40px;
+  cursor: pointer; text-decoration: none;
+}
+.mfocus-bar a:hover, .mfocus-bar button:hover { color: var(--ink); border-color: var(--line-hover); }
+.mfocus-bar a:focus-visible, .mfocus-bar button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.mfocus-bar .ic { width: 16px; height: 16px; }
+.mfocus-err { margin: 0; padding: 12px; color: var(--warn); font-size: 0.85rem; background: #05090b; height: 100%; }
+body.is-focus { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .mfocus-scrim, .mfocus-plate, .mfocus > .mfocus-ui > * { transition: none; }
+}

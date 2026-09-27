@@ -32,6 +32,7 @@ const MODULES = {
   remote: () => import('./models/remote.js'),
   agent: () => import('./models/agent.js'),
   peripherals: () => import('./models/peripherals.js'),
+  music: () => import('./models/music.js'),
 };
 
 /** Whether there is an object for this id at all. A module the console was
@@ -94,28 +95,43 @@ export async function create(host, o = {}) {
 
   const slots = new Map();   // id -> { selector, el, group, api, fill }
   let raf = 0;
+  let solo = null;           // the one object shown while another is opened up
+  const FOCUS_MS = 420;
+  const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
   /** Place every bound object on the box its layout gave it. */
   const sync = () => {
     raf = 0;
 
     const hb = host.getBoundingClientRect();
-    for (const slot of slots.values()) {
+    for (const [id, slot] of slots) {
       if (slot.reserved) continue;
+      if (solo && id !== solo) { slot.group.visible = false; continue; }
       if (!slot.el?.isConnected) slot.el = document.querySelector(slot.selector);
-      if (!slot.el) { slot.group.visible = false; continue; }
-      const r = slot.el.getBoundingClientRect();
+      const box = slot.focus?.el || slot.el;
+      if (!box) { slot.group.visible = false; continue; }
+      const r = box.getBoundingClientRect();
       if (!r.width || !r.height) { slot.group.visible = false; continue; }
       // Off-screen by more than a screen: hidden, and its tick skipped.
       const off = r.bottom < -hb.height || r.top > hb.height * 2;
       slot.group.visible = !off;
       if (off) continue;
-      const cx = r.left + r.width / 2 - (hb.left + hb.width / 2);
-      const cy = r.top + r.height / 2 - (hb.top + hb.height / 2);
-      slot.group.position.set(cx / PPU, -cy / PPU, 0);
+      let cx = r.left + r.width / 2 - (hb.left + hb.width / 2);
+      let cy = r.top + r.height / 2 - (hb.top + hb.height / 2);
       // fit is the diameter the box can hold; the models are authored to a
       // RADIUS, so the scale divides by twice it.
-      const fit = Math.min(r.width, r.height) * (slot.fill ?? 0.46);
+      let fit = Math.min(r.width, r.height) * ((slot.focus ? slot.focus.fill : slot.fill) ?? 0.46);
+      // Opening up and closing again travel between the two boxes rather
+      // than jumping: from wherever the object was when the move began.
+      if (slot.tw) {
+        const e = ease((performance.now() - slot.tw.t0) / FOCUS_MS);
+        cx = slot.tw.cx + (cx - slot.tw.cx) * e;
+        cy = slot.tw.cy + (cy - slot.tw.cy) * e;
+        fit = slot.tw.fit + (fit - slot.tw.fit) * e;
+        if (e >= 1) slot.tw = null;
+      }
+      slot.at = { cx, cy, fit };
+      slot.group.position.set(cx / PPU, -cy / PPU, 0);
 
       /* Applied as a RATIO against whatever was applied last, so a model that
          sets an opacity of its own at runtime — a host that has gone down,
@@ -167,6 +183,7 @@ export async function create(host, o = {}) {
   let beat = 0;
   const onFrame = () => {
     if (performance.now() - moved < 400) { sync(); return; }
+    for (const slot of slots.values()) if (slot.tw) { sync(); return; }
     beat = (beat + 1) % 6;
     if (!beat) sync();
   };
@@ -271,6 +288,53 @@ export async function create(host, o = {}) {
     setBloom(v) { view.setBloom?.(v); },
 
     /**
+     * Open an object up: move it into `el`, square on, big, with everything
+     * else in the scene out of the way. Returns false when the object is not
+     * in the scene (not bound, or still loading).
+     */
+    focus(id, el, { fill = 0.92 } = {}) {
+      const slot = slots.get(id);
+      if (!slot || slot.reserved) return false;
+      const from = slot.at;
+      slot.focus = { el, fill };
+      slot.tw = from ? { t0: performance.now(), ...from } : null;
+      solo = id;
+      slot.group.userData.fixed = true;
+      slot.api?.setFocus?.(true);
+      view.boost?.(1.2);
+      sync();
+      return true;
+    },
+
+    /** What a model says about its own layout (where its screen is, …). */
+    layoutOf(id) {
+      const slot = slots.get(id);
+      return slot && !slot.reserved ? slot.api?.layout || null : null;
+    },
+
+    /** Put an opened object back in its own box. */
+    unfocus(id) {
+      const slot = slots.get(id);
+      solo = null;
+      if (!slot || slot.reserved || !slot.focus) { queueSync(); return; }
+      slot.focus = null;
+      slot.tw = slot.at ? { t0: performance.now(), ...slot.at } : null;
+      slot.group.userData.fixed = false;
+      slot.api?.setFocus?.(false);
+      view.boost?.(1.2);
+      sync();
+    },
+
+    /**
+     * CSS pixels per model unit for an object in a box of this size at this
+     * fill — what a page needs to lay DOM exactly over part of an object.
+     * The camera is orthographic, so this is exact.
+     */
+    unitPx(width, height, fill = 0.92) {
+      return (Math.min(width, height) * fill) / (2 * MODEL_R);
+    },
+
+    /**
      * Give the scene back without destroying it.
      *
      * Every screen used to build its own: a new WebGL context, a new
@@ -289,6 +353,7 @@ export async function create(host, o = {}) {
         if (slot.el) ro.unobserve(slot.el);
       }
       slots.clear();
+      solo = null;
     },
 
     /**

@@ -99,6 +99,13 @@ export class ModuleRegistry {
       icon: /^i-[a-z0-9-]+$/.test(m.manifest?.icon || '') ? m.manifest.icon : null,
       views: m.manifest?.views || [],
       ui: m.manifest?.ui || null,
+      // A module may open its object up in place on the overview and mount
+      // a small UI over it. Paths only, relative to the module.
+      focus: (() => {
+        const f = m.manifest?.focus;
+        const ok = (x) => typeof x === 'string' && /^\/[A-Za-z0-9_\-/.]+$/.test(x) && !x.includes('..');
+        return f && ok(f.ui) ? { ui: f.ui, css: ok(f.css) ? f.css : null } : null;
+      })(),
       capabilities: m.manifest?.capabilities || [],
       latencyMs: m.latencyMs,
     }));

@@ -278,6 +278,7 @@ const MODULE_ICONS = {
   home: 'i-house',
   router: 'i-router',
   peripherals: 'i-mouse',
+  music: 'i-music',
   remote: 'i-monitor',
   agent: 'i-cpu',
   loq: 'i-gauge',
@@ -1035,6 +1036,191 @@ function pushModelStates() {
   stage.setAlert(worst);
 }
 
+/* ── opening an object up ─────────────────────────────────────────────────
+   A module may declare a `focus` UI. Clicking its object on the plate then
+   opens the object where it is rather than navigating away: it travels to
+   the middle of the screen, turns square on, grows, and everything else
+   steps back. The module's UI is laid over exactly the parts of the object
+   the model says are for it — its screen, its keys — so the thing you
+   clicked is the thing you use.
+
+   The camera is orthographic, so "exactly" is exact: a model unit is a
+   known number of pixels at a known box size, and the DOM is placed by
+   the same arithmetic the stage uses to place the object. */
+
+let focusOpen = null;         // { id, el, opener, ui, place }
+
+const focusable = (m) => !!(m && m.status === 'ready' && m.focus && movement.has(m.id));
+
+function focusArea() {
+  // The room the page has: right of the side nav, between the bars.
+  const v = $('#view')?.getBoundingClientRect();
+  const tab = $('#tabbar');
+  const tabH = tab && getComputedStyle(tab).display !== 'none' ? tab.getBoundingClientRect().height : 0;
+  const top = Math.max(0, Math.min(v?.top ?? 0, 120));
+  const left = v ? Math.max(0, v.left) : 0;
+  const right = v ? Math.min(window.innerWidth, v.right) : window.innerWidth;
+  return { left, top, width: right - left, height: window.innerHeight - tabH - top };
+}
+
+function placeFocus() {
+  if (!focusOpen || !stage) return;
+  const { el, layout } = focusOpen;
+  const a = focusArea();
+  const barH = 64;
+  const bodyW = layout.body.w;
+  const bodyH = layout.body.h + 0.2;                // the keys stand proud of the top
+  // Pixels per model unit: as big as fits, capped where the player stops
+  // gaining anything from more size.
+  const k = Math.max(40, Math.min((a.width * (a.width < 600 ? 0.98 : 0.94)) / bodyW, ((a.height - barH) * 0.9) / bodyH, 960 / bodyW));
+  const cx = a.left + a.width / 2;
+  const cy = a.top + (a.height - barH) / 2 + 0.1 * k;
+  const side = 4 * k;                                // fill 1: the box's side is the model's diameter
+  const box = el.querySelector('.mfocus-box');
+  Object.assign(box.style, { left: `${cx - side / 2}px`, top: `${cy - side / 2}px`, width: `${side}px`, height: `${side}px` });
+  const put = (node, r) => {
+    if (!node || !r) return;
+    Object.assign(node.style, {
+      left: `${cx + (r.x - r.w / 2) * k}px`, top: `${cy - (r.y + r.h / 2) * k}px`,
+      width: `${r.w * k}px`, height: `${r.h * k}px`,
+    });
+  };
+  put(el.querySelector('.mfocus-screen'), layout.screen);
+  put(el.querySelector('.mfocus-deck'), layout.deck);
+  const bar = el.querySelector('.mfocus-bar');
+  bar.style.top = `${cy + (layout.body.h / 2) * k + 18}px`;
+  bar.style.left = `${cx}px`;
+  // The canvas is blended onto the page, so an object's dark body is
+  // really a hole: the page behind shows through it. Opened up, the object
+  // gets a solid plate of its own shape underneath.
+  const plate = el.querySelector('.mfocus-plate');
+  Object.assign(plate.style, {
+    left: `${cx - (bodyW / 2) * k}px`, top: `${cy - (layout.body.h / 2) * k}px`,
+    width: `${bodyW * k}px`, height: `${layout.body.h * k}px`,
+    borderRadius: `${(layout.body.r ?? 0.13) * k}px`,
+  });
+  focusOpen.bodyRect = { l: cx - (bodyW / 2) * k, r: cx + (bodyW / 2) * k, t: cy - (bodyH / 2) * k, b: cy + (layout.body.h / 2) * k };
+  stage.sync();
+}
+
+async function openFocus(m) {
+  if (focusOpen || !stage || !focusable(m)) return false;
+  const layout = stage.layoutOf(m.id);
+  if (!layout?.screen || !layout?.body) return false;
+  const el = document.createElement('div');
+  el.className = 'mfocus';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', m.name);
+  el.innerHTML = `
+    <div class="mfocus-scrim"></div>
+    <div class="mfocus-plate" aria-hidden="true"></div>
+    <div class="mfocus-box" aria-hidden="true"></div>
+    <div class="mfocus-ui">
+      <div class="mfocus-screen"></div>
+      <div class="mfocus-deck"></div>
+      <div class="mfocus-bar">
+        <a class="mfocus-more" href="#/${esc(m.id)}">${icon(moduleIcon(m))}<span>More</span></a>
+        <button type="button" class="mfocus-close" aria-label="Close">${icon('i-close')}<span>Close</span></button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  document.body.classList.add('is-focus');
+  focusOpen = { id: m.id, el, layout, opener: document.activeElement, ui: null };
+  placeFocus();
+  if (!stage.focus(m.id, el.querySelector('.mfocus-box'), { fill: 1 })) { closeFocus(); return false; }
+  requestAnimationFrame(() => el.classList.add('is-open'));
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
+    if (e.target.closest('.mfocus-screen, .mfocus-deck, .mfocus-bar')) return;
+    // A click on the object's own body is a miss, not a dismissal.
+    const b = focusOpen?.bodyRect;
+    if (b && e.clientX > b.l && e.clientX < b.r && e.clientY > b.t && e.clientY < b.b) return;
+    closeFocus();
+  });
+
+  const v = m.version ? `?v=${encodeURIComponent(m.version)}` : '';
+  if (m.focus.css && !document.getElementById(`focus-css-${m.id}`)) {
+    const l = document.createElement('link');
+    l.id = `focus-css-${m.id}`; l.rel = 'stylesheet'; l.href = `/${m.id}${m.focus.css}${v}`;
+    document.head.appendChild(l);
+  }
+  const screen = el.querySelector('.mfocus-screen');
+  try {
+    const mod = await import(`/${m.id}${m.focus.ui}${v}`);
+    if (focusOpen?.el !== el) return true;
+    focusOpen.ui = mod.mount({ screen, deck: el.querySelector('.mfocus-deck') }, { base: `/${m.id}` });
+  } catch (err) {
+    console.error(`[${m.id}] focus UI failed`, err);
+    screen.innerHTML = `<p class="mfocus-err">${esc(m.name)} could not load its player.</p>`;
+  }
+  (el.querySelector('.mfocus-deck button:not(:disabled)') || el.querySelector('.mfocus-close'))?.focus({ preventScroll: true });
+  return true;
+}
+
+function closeFocus() {
+  if (!focusOpen) return;
+  const { id, el, opener, ui } = focusOpen;
+  focusOpen = null;
+  try { ui?.destroy?.(); } catch { /* the module's to clean up */ }
+  stage?.unfocus(id);
+  el.classList.remove('is-open');
+  document.body.classList.remove('is-focus');
+  let gone = false;
+  const done = () => { if (!gone) { gone = true; el.remove(); } };
+  el.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 450);
+  if (opener?.isConnected) opener.focus?.({ preventScroll: true });
+}
+
+// Escape closes before anything else hears it: the idle display spends
+// Escape on leaving, and a player that closes AND takes you off the idle
+// screen is two things for one key.
+document.addEventListener('keydown', (e) => {
+  if (!focusOpen) return;
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeFocus(); return; }
+  if (e.key === 'Tab') {
+    const f = [...focusOpen.el.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled)')];
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+    return;
+  }
+  // The crown's L and the palette's / belong to the page behind.
+  if ((e.key === 'l' || e.key === 'L' || e.key === '/') && !e.target.closest?.('input')) e.stopImmediatePropagation();
+}, true);
+window.addEventListener('resize', () => placeFocus());
+
+/* The plate's line for a module with a player follows it live — a new
+   track shows up in seconds, not on the next twenty-second poll. The
+   stream is the module's slow one: it only has to notice a change. */
+const liveFeeds = new Map();  // id -> EventSource
+
+function syncLiveFeeds() {
+  const onPlate = state.active.module === null || state.active.module === 'idle';
+  const want = new Set(onPlate
+    ? state.modules.filter((m) => focusable(m) && (m.capabilities || []).includes('sse')).map((m) => m.id)
+    : []);
+  for (const [id, es] of liveFeeds) if (!want.has(id)) { es.close(); liveFeeds.delete(id); }
+  for (const id of want) {
+    if (liveFeeds.has(id)) continue;
+    let t = 0;
+    const es = new EventSource(`/${id}/api/events?pace=ambient`);
+    es.addEventListener('state', () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        await refreshSummaries(id);
+        pushModelStates();
+        if (state.active.module === null) renderLauncher();
+        else if (state.active.module === 'idle') renderIdle();
+      }, 250);
+    });
+    liveFeeds.set(id, es);
+  }
+}
+
 /** The NTP rate, drawn the way a watch is regulated: zero in the middle,
     the pointer where this clock actually sits against true time. */
 let rateSub = null;
@@ -1362,6 +1548,12 @@ function stopOverviewPoll() {
 window.addEventListener('resize', fitView);
 
 document.addEventListener('click', (e) => {
+  const comp = e.target.closest?.('a.comp');
+  if (comp && !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    const id = comp.querySelector('[data-dial]')?.dataset.dial;
+    const m = state.modules.find((x) => x.id === id);
+    if (focusable(m) && stage?.layoutOf(id)) { e.preventDefault(); openFocus(m); return; }
+  }
   const crown = e.target.closest?.('[data-crown]');
   if (crown) { e.preventDefault(); toggleCrown(); return; }
   const dtog = e.target.closest?.('[data-dtog]');
@@ -1383,6 +1575,7 @@ document.addEventListener('keydown', (e) => {
 
 async function route() {
   closeModuleSheet();
+  closeFocus();
   if (routing) return;
   routing = true;
   try {
@@ -1406,6 +1599,7 @@ async function route() {
         if (!state.active.module) { renderLauncher(); renderSidenav(); pushModelStates(); }
       });
       startOverviewPoll();
+      syncLiveFeeds();
       return;
     }
 
@@ -1420,10 +1614,12 @@ async function route() {
         if (state.active.module === 'idle') { renderIdle(); pushModelStates(); }
       });
       startOverviewPoll();
+      syncLiveFeeds();
       return;
     }
 
     stopOverviewPoll();
+    syncLiveFeeds();
     teardownHome();
 
     if (module === 'settings') {

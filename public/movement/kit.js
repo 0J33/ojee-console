@@ -206,6 +206,10 @@ export function mk(tiltZ = 0, tiltX = 0) {
   g.userData = {
     sp, tilt: t, spin: [0, 0.12, 0], sway: null, swayPeriod: 9, swayPhase: 0,
     rx: 0, ry: 0, av: { x: 0, y: 0 }, hitR: 1.8, parts: {},
+    // `fixed`: held facing the viewer, square on, with no tilt and no sway —
+    // an object opened up to be USED rather than looked at. Eased in and out
+    // through `pose` (1 = drawn pose, 0 = square on) so neither way snaps.
+    tiltRest: [tiltX, tiltZ], fixed: false, pose: 1,
   };
   return [g, sp];
 }
@@ -387,7 +391,7 @@ export function mount(host, o = {}) {
     const px = e.clientX - r.left; const py = e.clientY - r.top;
     let best = null; let bestD = Infinity;
     for (const g of objects) {
-      if (g.userData.hitR === 0 || !g.visible) continue;
+      if (g.userData.hitR === 0 || g.userData.fixed || !g.visible) continue;
       const v = g.position.clone().project(camera);
       const sx = (v.x * 0.5 + 0.5) * r.width;
       const sy = (-v.y * 0.5 + 0.5) * r.height;
@@ -509,23 +513,45 @@ export function mount(host, o = {}) {
       // and the one that does eases back to facing you rather than freezing
       // at whatever angle it happened to be at.
       const held = locked && u.lockable;
-      if (!held) {
+      // Square-on and back again. The pose scales the tilt and the sway
+      // rather than replacing them, so the way back is the same curve.
+      const kp = 1 - Math.exp(-dt * 7);
+      const poseTo = u.fixed ? 0 : 1;
+      if (u.pose !== poseTo) {
+        u.pose += (poseTo - u.pose) * kp;
+        if (Math.abs(u.pose - poseTo) < 0.002) u.pose = poseTo;
+        u.tilt.rotation.x = u.tiltRest[0] * u.pose;
+        u.tilt.rotation.z = u.tiltRest[1] * u.pose;
+        boost(0.3);
+      }
+      if (u.fixed) {
+        u.av.x = 0; u.av.y = 0;
+        u.ry -= wrap(u.ry) * kp;
+        u.rx -= u.rx * kp;
+        if (!u.sway) {
+          u.sp.rotation.y = wrap(u.sp.rotation.y);
+          u.sp.rotation.x -= u.sp.rotation.x * kp;
+          u.sp.rotation.y -= u.sp.rotation.y * kp;
+          u.sp.rotation.z -= u.sp.rotation.z * kp;
+        }
+      }
+      if (!held && !(u.fixed && !u.sway)) {
         if (u.sway) {
           /* Three sines on periods that do not divide into each other, so
              the lean never repeats exactly and never reads as a mechanism
              counting. Set, not integrated: a sway has a pose to be at at
              any moment, and integrating it would drift. */
           const w = (Math.PI * 2) / (u.swayPeriod || 9);
-          u.sp.rotation.x = u.sway[0] * Math.sin(clock.t * w * 0.73 + u.swayPhase + 1.1);
-          u.sp.rotation.y = u.sway[1] * Math.sin(clock.t * w + u.swayPhase);
-          u.sp.rotation.z = u.sway[2] * Math.sin(clock.t * w * 0.41 + u.swayPhase + 2.3);
+          u.sp.rotation.x = u.pose * u.sway[0] * Math.sin(clock.t * w * 0.73 + u.swayPhase + 1.1);
+          u.sp.rotation.y = u.pose * u.sway[1] * Math.sin(clock.t * w + u.swayPhase);
+          u.sp.rotation.z = u.pose * u.sway[2] * Math.sin(clock.t * w * 0.41 + u.swayPhase + 2.3);
         } else {
           u.sp.rotation.x += u.spin[0] * dt;
           u.sp.rotation.y += u.spin[1] * dt;
           u.sp.rotation.z += u.spin[2] * dt;
         }
       }
-      if (!drag.on) {
+      if (!drag.on && !u.fixed) {
         // A throw runs out and the object STAYS where it was left. Easing
         // every object back to the pose it was drawn at meant you could look
         // at the back of something for about a second and a half, and it
@@ -633,6 +659,8 @@ export function mount(host, o = {}) {
       o.onLock?.(locked);
     },
     get locked() { return locked; },
+    /** Draw at full rate for a while: something is about to move. */
+    boost,
     resize: size,
     /* A scene now outlives the screen that asked for it, and different
        screens want different amounts of light. */
