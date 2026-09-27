@@ -406,6 +406,8 @@ export function mount(host, o = {}) {
     return best;
   };
 
+  const onDragStart = (e) => { if (drag.obj) e.preventDefault(); };
+
   const begin = () => {
     drag.on = true;
     drag.pending = false;
@@ -457,14 +459,23 @@ export function mount(host, o = {}) {
     if (e.buttons === 0) { up(e); return; }
     // Once it IS a turn, the page may not also scroll underneath it.
     if (drag.touch && e.cancelable) e.preventDefault();
-    const k = perPixel() * 1.35;
+    /* Turns per pixel, eased for anything drawn bigger than the watch: the
+       same rate that feels right on a 130px object spun an opened one — twice
+       the watch's size and more — round several times in one sweep of the
+       mouse. Past the watch's scale, a drag turns it as far relative to its
+       own size as it would the watch. */
+    const scale = drag.obj.scale?.x || 1;
+    const big = Math.min(1, (0.9 / scale) ** 1.3);
+    const k = perPixel() * 1.35 * big;
     const u = drag.obj.userData;
     const dx = (e.clientX - drag.x) * k; const dy = (e.clientY - drag.y) * k;
     drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
     u.ry += dx;
     u.rx += dy;
-    u.av.x = dy; u.av.y = dx;
+    // The throw is eased again for a big object: its coast, not the drag, is
+    // what carried an opened one round and round.
+    u.av.x = dy * big; u.av.y = dx * big;
     // Through the coast after the throw, which runs a couple of seconds.
     boost(2.5);
   };
@@ -493,6 +504,12 @@ export function mount(host, o = {}) {
     window.addEventListener('pointermove', move, { passive: false, capture: true });
     window.addEventListener('pointerup', up, { capture: true });
     window.addEventListener('pointercancel', up, { capture: true });
+    /* An object that sits in a link (a register, the music player) is a
+       link as far as the browser is concerned, and a mouse drag across a
+       link starts the browser's own drag-and-drop of it — which cancels the
+       pointer and strands the turn after a few pixels. Once a drag has taken
+       hold of an object, the browser's drag is refused. */
+    window.addEventListener('dragstart', onDragStart, { capture: true });
   }
 
   const tick = () => {
@@ -685,6 +702,7 @@ export function mount(host, o = {}) {
         window.removeEventListener('pointermove', move, { capture: true });
         window.removeEventListener('pointerup', up, { capture: true });
         window.removeEventListener('pointercancel', up, { capture: true });
+        window.removeEventListener('dragstart', onDragStart, { capture: true });
       }
       document.body.classList.remove('mv-turning');
       scene.traverse((n) => {
