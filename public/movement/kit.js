@@ -549,10 +549,21 @@ export function mount(host, o = {}) {
              which after a good spin was most of a revolution in about a
              third of a second: the watch whipped round before it settled.
 
-             So the sum is what comes home, by the shorter way, and the
-             idle rotation is simply left where it stopped. */
+             So the sum is what comes home, by the shorter way.
+
+             But the sum being zero is not the watch being straight. The
+             drag turns OUTSIDE the tilt and the idle spin turns INSIDE it,
+             so drag = −spin faces you with the tilt swung round to whatever
+             axis the spin left it on: the watch settled leaning sideways.
+             Both have to reach zero. The sum sets the journey you see;
+             the drag is drained into the spin along the way, which only
+             swings the small tilt back to where it was drawn. */
           const k = 1 - Math.exp(-dt * 3);
-          u.ry -= wrap(u.ry + u.sp.rotation.y) * k;
+          u.sp.rotation.y = wrap(u.sp.rotation.y);   // whole turns: invisible
+          const ds = -wrap(u.ry + u.sp.rotation.y) * k;
+          const dr = -u.ry * k;
+          u.ry += dr;
+          u.sp.rotation.y += ds - dr;
           u.rx += (0 - u.rx) * k;
         }
       }
