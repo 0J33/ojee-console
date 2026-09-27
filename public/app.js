@@ -853,13 +853,21 @@ function drawLeader() {
    the fold, ever. The chrome around it (two bars, the nav, the status strip)
    is measured rather than guessed, because it changes with the viewport and
    a hard-coded number is a scrollbar waiting for a narrower window. */
+let fitBase = 0;
+let fitOver = 0;
 function fitView() {
   const el = $('#view');
   if (!el) return;
   const top = el.getBoundingClientRect().top + window.scrollY;
   const bar = $('.statusbar')?.getBoundingClientRect().height || 0;
   const h = Math.max(360, window.innerHeight - top - bar);
-  document.documentElement.style.setProperty('--view-h', `${Math.round(h)}px`);
+  /* The correction below is remembered. This runs on every repaint, and it
+     used to start again from the uncorrected height each time: for one frame
+     the plate was 40px taller, the scene caught that frame, and every object
+     on it dropped and came back up every twenty seconds. The measurement
+     starts over only when the room itself changes. */
+  if (h !== fitBase) { fitBase = h; fitOver = 0; }
+  document.documentElement.style.setProperty('--view-h', `${Math.round(Math.max(360, h - fitOver))}px`);
   // Where the page's content actually starts, under whatever chrome is
   // sticky above it. A sticky column needs it, and it is not a constant:
   // the bars differ by viewport and the safe area differs by device.
@@ -870,7 +878,8 @@ function fitView() {
   requestAnimationFrame(() => {
     const over = document.documentElement.scrollHeight - window.innerHeight;
     if (over > 0) {
-      document.documentElement.style.setProperty('--view-h', `${Math.round(Math.max(360, h - over))}px`);
+      fitOver += over;
+      document.documentElement.style.setProperty('--view-h', `${Math.round(Math.max(360, h - fitOver))}px`);
     }
   });
 }
@@ -923,6 +932,7 @@ function renderLauncher() {
         </footer>
       </section>`;
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
+    fitBase = 0;  // a fresh plate is measured afresh
   }
   const { ring, companions } = splitCompanions(mods);
   $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 2)).join('');
@@ -1488,6 +1498,7 @@ function renderIdle() {
         </div>
       </section>`;
     homeChrono = mountChrono($('#idle-clock'), { variant: 'idle' });
+    fitBase = 0;
     idleRig = startIdleRig($('#view > .idle'));
   }
   const { ring, companions } = splitCompanions(mods);
