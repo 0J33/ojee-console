@@ -245,12 +245,19 @@ export function build(opts = {}) {
   mouse.add(lamp);
 
   // Battery: a ring on the desk round the mouse's foot, drawn as far as the charge.
-  const BAT_R = 0.62;
+  // An oval that follows the mouse's own outline — long nose to tail (z),
+  // narrow across (x) — with the same margin all round. It was drawn the other
+  // way about, wide across and short along, so it cut under the middle of the
+  // mouse instead of circling its foot.
+  const BAT_RX = M.W / 2 + 0.14;
+  const BAT_RZ = M.L / 2 + 0.14;
   const BAT_SEG = 64;
   const batPts = [];
   for (let i = 0; i <= BAT_SEG; i += 1) {
+    // From the tail, round past the left flank: the part of the ring nearest
+    // the viewer fills first.
     const a = -Math.PI / 2 + (i / BAT_SEG) * Math.PI * 2;
-    batPts.push(V(Math.cos(a) * BAT_R, 0.003, Math.sin(a) * BAT_R * 0.72));
+    batPts.push(V(Math.cos(a) * BAT_RX, 0.003, Math.sin(a) * BAT_RZ));
   }
   const batTrack = poly(batPts, C.rhodium, 0.25);
   const batFill = poly(batPts, C.ok, 0.85);
