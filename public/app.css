@@ -1186,3 +1186,50 @@ body.is-idle {
   .ov-stage .comp-mark { font-size: 0.62rem; letter-spacing: 0.18em; }
   .ov-stage .comp-head { font-size: 0.92rem; }
 }
+
+/* ── the modules sheet (phones) ──────────────────────────────────────────────
+   Slides up from BEHIND the tab bar, which stays on top and tappable: the
+   Modules tab that opened the sheet is the thing that closes it again. */
+.tabbar .tabitem span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.msheet-backdrop {
+  position: fixed; inset: 0; z-index: calc(var(--z-tabbar) - 1);
+  background: rgba(0, 0, 0, 0);
+  transition: background var(--dur-2) ease;
+}
+.msheet-backdrop.is-open { background: rgba(0, 0, 0, 0.55); }
+.msheet {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(57px + env(safe-area-inset-bottom));
+  max-height: min(72dvh, 600px); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--chrome-3); border-top: 1px solid var(--line-strong);
+  transform: translateY(calc(100% + 60px));
+  transition: transform var(--dur-2) cubic-bezier(.2, .8, .2, 1);
+}
+.msheet-backdrop.is-open .msheet { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .msheet, .msheet-backdrop { transition: none; }
+}
+.msheet-grip { width: 36px; height: 3px; background: var(--line-strong); margin: 8px auto 2px; }
+
+.msheet-row, .msheet-foot {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) 8px; column-gap: 14px; align-items: center;
+  padding: 13px 18px; min-height: 56px;
+  color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line);
+}
+.msheet-row .msheet-ic { grid-row: span 2; width: 22px; height: 22px; color: var(--ink-2); }
+.msheet-name { font-size: 0.95rem; }
+.msheet-line {
+  grid-column: 2 / -1; font-size: 0.78rem; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.msheet-row.is-on { background: var(--accent-08); }
+.msheet-row.is-on .msheet-name, .msheet-row.is-on .msheet-ic { color: var(--accent); }
+.msheet-row.is-down .msheet-name { color: var(--dim); text-decoration: line-through; }
+.msheet-row:focus-visible, .msheet-foot:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.msheet-foot { grid-template-columns: 22px 1fr; color: var(--ink-2); border-bottom: 0; font-family: var(--hud); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; }
+.msheet-foot .ic { width: 18px; height: 18px; }
+@media (max-width: 860px) {
+  /* four tabs have the room the old six did not: labels a person can read */
+  .tabbar .tabitem { font-size: 0.62rem; letter-spacing: 0.1em; }
+}

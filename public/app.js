@@ -142,19 +142,24 @@ function renderNav() {
        ${e.unavailable ? `title="${esc(e.module.reason || 'unavailable')}"` : ''}
        >${esc(e.label)}</a>`).join('');
 
-  // The tab bar is one entry per MODULE, not per view — five modules is a
-  // reasonable bottom bar; five modules times four views is not.
-  const perModule = [];
-  for (const e of entries) if (!perModule.some((x) => x.moduleId === e.moduleId)) perModule.push(e);
-  $('#tabbar').innerHTML = perModule.slice(0, 5).map((e) => `
-    <button class="tabitem${e.moduleId === state.active.module ? ' active' : ''}"
-            data-goto="#/${esc(e.moduleId)}${e.viewId ? `/${esc(e.viewId)}` : ''}"
-            ${e.unavailable ? 'data-down="1"' : ''}>
-      ${icon(moduleIcon(e.module), 'ic ic--lg')}<span>${esc(e.module.name)}</span>
-    </button>`).join('');
-  $('#tabbar').querySelectorAll('.tabitem').forEach((b) => {
-    b.addEventListener('click', () => { location.hash = b.dataset.goto; });
-  });
+  /* The bottom bar is four fixed places, however many modules there are.
+
+     It used to be one tab per module, cut off at five — so the sixth module
+     had no way in on a phone, and Overview never had a tab at all. A bar that
+     grows with the module list cannot fit a phone for long. Now: Overview; a
+     Modules tab that opens every module in a sheet (and wears the icon and name
+     of the one you are in, so it still says where you are); Jump; Settings. */
+  const where = state.active.module;
+  const cur = where && state.modules.find((m) => m.id === where);
+  $('#tabbar').innerHTML = `
+    <button class="tabitem${where === null ? ' active' : ''}" data-tab="overview">
+      ${icon('i-grid', 'ic ic--lg')}<span>Overview</span></button>
+    <button class="tabitem${cur ? ' active' : ''}" data-tab="modules" aria-haspopup="dialog" aria-expanded="${moduleSheetOpen}">
+      ${icon(cur ? moduleIcon(cur) : 'i-devices', 'ic ic--lg')}<span>${cur ? esc(cur.name) : 'Modules'}</span></button>
+    <button class="tabitem" data-tab="jump">${icon('i-search', 'ic ic--lg')}<span>Jump</span></button>
+    <button class="tabitem${where === 'settings' ? ' active' : ''}" data-tab="settings">
+      ${icon('i-cog', 'ic ic--lg')}<span>Settings</span></button>`;
+  if (moduleSheetOpen) paintModuleSheet();
 
   // The level the bottom bar cannot carry: the ACTIVE module's views. Hidden
   // above 860px, where nav-links already lists everything, and hidden for a
@@ -170,6 +175,91 @@ function renderNav() {
     strip.querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 }
+
+/* ── the modules sheet (phones) ──────────────────────────────────────────
+   Every module, one row each, with its status and the one-line headline its
+   summary gives the overview — so the sheet is also the quickest status board
+   on a phone, not only a list of links. A module that is down stays in the
+   list, struck through, carrying its reason: hiding it would make a bad deploy
+   look like a feature that was never built. */
+let moduleSheetOpen = false;
+let moduleSheetEl = null;
+
+function moduleRow(m) {
+  const ready = m.status === 'ready';
+  const views = ready ? (m.views || []) : [];
+  const href = ready ? `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}` : '#/settings';
+  const sum = state.summaries.get(m.id);
+  const dot = ready
+    ? (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok')
+    : m.status === 'degraded' ? 'dot--warn' : 'dot--err';
+  const line = ready ? (sum?.headline || '') : (m.reason || m.status);
+  const on = state.active.module === m.id;
+  return `
+    <a class="msheet-row${on ? ' is-on' : ''}${ready ? '' : ' is-down'}" href="${href}" ${on ? 'aria-current="page"' : ''}>
+      ${icon(moduleIcon(m), 'ic msheet-ic')}
+      <span class="msheet-name">${esc(m.name)}</span>
+      <span class="dot ${dot}"></span>
+      <span class="msheet-line">${esc(line)}</span>
+    </a>`;
+}
+
+function paintModuleSheet() {
+  if (!moduleSheetEl) return;
+  const mods = state.modules.filter((m) => m.enabled);
+  moduleSheetEl.querySelector('.msheet-list').innerHTML = mods.map(moduleRow).join('');
+}
+
+function openModuleSheet() {
+  if (moduleSheetOpen) return closeModuleSheet();
+  moduleSheetOpen = true;
+  const opener = document.activeElement;
+  const el = document.createElement('div');
+  el.className = 'msheet-backdrop';
+  el.innerHTML = `
+    <div class="msheet" role="dialog" aria-modal="true" aria-label="Modules">
+      <div class="msheet-grip" aria-hidden="true"></div>
+      <div class="msheet-list"></div>
+      <a class="msheet-foot" href="#/idle">${icon('i-full', 'ic')}<span>Idle display</span></a>
+    </div>`;
+  document.body.appendChild(el);
+  moduleSheetEl = el;
+  paintModuleSheet();
+  $('#tabbar [data-tab="modules"]')?.setAttribute('aria-expanded', 'true');
+  requestAnimationFrame(() => el.classList.add('is-open'));
+  // A tap on the dim area, not on the sheet, dismisses it.
+  el.addEventListener('click', (e) => { if (e.target === el) closeModuleSheet(); });
+  el.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeModuleSheet(); } });
+  (el.querySelector('.msheet-row.is-on') || el.querySelector('.msheet-row'))?.focus();
+  el._opener = opener;
+}
+
+function closeModuleSheet() {
+  if (!moduleSheetOpen) return;
+  moduleSheetOpen = false;
+  const el = moduleSheetEl;
+  moduleSheetEl = null;
+  $('#tabbar [data-tab="modules"]')?.setAttribute('aria-expanded', 'false');
+  if (!el) return;
+  el.classList.remove('is-open');
+  const done = () => el.remove();
+  el.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 400);                       // reduced motion has no transition to end
+  if (el._opener && document.contains(el._opener)) el._opener.focus?.();
+}
+
+/* The bar is redrawn on every navigation, so it listens once, at the top. */
+document.getElementById('tabbar')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  switch (b.dataset.tab) {
+    case 'overview': closeModuleSheet(); location.hash = '#/'; break;
+    case 'modules': openModuleSheet(); break;
+    case 'jump': closeModuleSheet(); openPalette(); break;
+    case 'settings': closeModuleSheet(); location.hash = '#/settings'; break;
+    default: break;
+  }
+});
 
 /* The sidebar is the console's map: every module, every view, always. A nav
    that only lists the active module's views answers "where am I" and never
@@ -1292,6 +1382,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function route() {
+  closeModuleSheet();
   if (routing) return;
   routing = true;
   try {
