@@ -198,7 +198,9 @@ export function build(opts = {}) {
   let st = { playing: false, progress: 0, durationMs: 0 };
   let progressAt = 0;
   let live = false;
-  let reelA = 0;
+  let reelL = 0;
+  let reelR = 0;
+  const REEL_K = 80;            // rad/s × wound radius (same units as the rings)
   let lastSecond = -1;
   let cover = null;             // { url, img, ready }
 
@@ -309,12 +311,17 @@ export function build(opts = {}) {
 
   group.userData.tick = (t, dt) => {
     if (st.playing && !REDUCED) {
-      reelA -= dt * 2.2;
-      // The take-up reel turns slower as it fills — a cassette detail, and
-      // it is what makes two turning circles read as tape rather than gears.
-      const f = st.progress;
-      L.g.rotation.z = reelA * (1.15 - 0.3 * f);
-      Rr.g.rotation.z = reelA * (0.85 + 0.3 * f);
+      /* Counter-clockwise, both, as a playing cassette's are: the tape runs
+         left to right along the bottom. And at a steady tape speed a reel
+         turns faster the less tape it holds — the full left reel starts
+         slow, the empty right one fast, and they trade as the track plays.
+         The opened player turns its reels by the same rule. */
+      const d = Number(st.durationMs) || 0;
+      const f = d ? Math.min(1, posMs() / d) : 0;
+      reelL += dt * REEL_K / (18 + 26 * (1 - f));
+      reelR += dt * REEL_K / (18 + 26 * f);
+      L.g.rotation.z = reelL;
+      Rr.g.rotation.z = reelR;
     }
     // The picture moves once a second: the time and the bar.
     if (st.playing && art.visible) {
