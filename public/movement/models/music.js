@@ -91,6 +91,8 @@ export function build(opts = {}) {
   group.userData.swayPeriod = 10;
   group.userData.swayPhase = 0.9;
   group.userData.hitR = 2.0;
+  // The crown holds it with the watch: the two sit together on the plate.
+  group.userData.lockable = true;
   const P = group.userData.parts;
 
   /* ---- the body ---- */
@@ -121,33 +123,27 @@ export function build(opts = {}) {
   const screenEdge = poly(rrect(S.x, S.y, S.w, S.h, 0.04, sZ, 3), C.steel, 0.55, true);
   sp.add(screenEdge);
 
-  // What the screen draws on the plate. Stepped aside when opened up.
+  /* What the screen shows when the page is not drawing it: the same cassette
+     the opened player shows — the cover as the label, title and artist under
+     it, the real position along the bottom — painted into a texture, with
+     the two reels drawn as lines over it so they glow and turn like the rest
+     of the object. Laid out in fractions of the screen, the same fractions
+     the page uses, so opening it up changes nothing but who draws it. */
   const art = new THREE.Group();
   art.position.set(S.x, S.y, sZ + 0.002);
   sp.add(art);
-  const reelR = 0.3;
-  const L = reel(reelR); L.g.position.set(-0.72, 0.1, 0);
-  const Rr = reel(reelR); Rr.g.position.set(0.72, 0.1, 0);
-  art.add(L.g, Rr.g);
-  // The tape between them, and the cassette's own outline.
-  const tape = segs([
-    V(-0.72, 0.1 - reelR, 0), V(0.72, 0.1 - reelR, 0),
-    V(-0.36, 0.3, 0), V(0.36, 0.3, 0), V(0.36, 0.3, 0), V(0.36, -0.1, 0),
-    V(0.36, -0.1, 0), V(-0.36, -0.1, 0), V(-0.36, -0.1, 0), V(-0.36, 0.3, 0),
-  ], C.rhodium, 0.6);
-  const cassette = poly(rrect(0, 0.08, 2.1, 0.86, 0.06, 0, 3), C.rhodium, 0.45, true);
-  art.add(tape, cassette);
-  // Progress: a track and the part of it already played.
-  const barY = -S.h / 2 + 0.16;
-  const barX0 = -S.w / 2 + 0.2;
-  const barW = S.w - 0.4;
-  art.add(segs([V(barX0, barY, 0), V(barX0 + barW, barY, 0)], C.rhodium, 0.5));
-  const played = poly([V(barX0, barY, 0.001), V(barX0 + barW, barY, 0.001)], C.beat, 0.95);
-  played.scale.x = 0.0001; played.position.x = barX0 - barX0 * 0.0001; // grown from the left, below
-  art.add(played);
-  const head = node(0.03, C.hot, 1);
-  head.position.set(barX0, barY, 0.002);
-  art.add(head);
+  const scr = paintSurface(1024, Math.round(1024 * S.h / S.w));
+  const scrMesh = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.h), scr.material);
+  art.add(scrMesh);
+  const RR = 0.21 * S.h;                                   // reel radius
+  const RY = S.h / 2 - 0.35 * S.h;                         // reels' hubs level with the label's middle
+  const RX = Math.max(0.25 * S.h + RR + 0.05 * S.w, 0.26 * S.w);
+  const L = reel(RR); L.g.position.set(-RX, RY, 0.004);
+  const Rr = reel(RR); Rr.g.position.set(RX, RY, 0.004);
+  // The tape wound on each reel: the left empties as the right fills.
+  const woundL = ring(RR, C.rhodium, 0.5, 'z', 40); woundL.position.copy(L.g.position);
+  const woundR = ring(RR, C.rhodium, 0.5, 'z', 40); woundR.position.copy(Rr.g.position);
+  art.add(L.g, Rr.g, woundL, woundR);
 
   /* ---- the ledge under the window ---- */
   const ledgeY = Wn.y - Wn.h / 2 - 0.07;
@@ -157,10 +153,16 @@ export function build(opts = {}) {
   ], C.rhodium, 0.7);
   sp.add(ledge);
 
-  /* ---- the panel below: blank, and where the page puts the keys ---- */
+  /* ---- the panel below: the five keys, drawn. They are a picture — a
+     click anywhere on the object opens it, and the opened one's keys are
+     the real ones, laid exactly over these. ---- */
   const Dk = LAYOUT.deck;
   const deckLine = poly(rrect(Dk.x, Dk.y, Dk.w, Dk.h, 0.05, ZF + 0.002, 3), C.rhodium, 0.28, true);
   sp.add(deckLine);
+  const dk = paintSurface(1024, Math.round(1024 * Dk.h / Dk.w));
+  const deckMesh = new THREE.Mesh(new THREE.PlaneGeometry(Dk.w, Dk.h), dk.material);
+  deckMesh.position.set(Dk.x, Dk.y, ZF + 0.003);
+  sp.add(deckMesh);
 
   /* ---- the keys along the top ----
      Left to right as on the real one: power (red), volume (long), play,
@@ -193,61 +195,248 @@ export function build(opts = {}) {
   }
 
   /* ---- state ---- */
-  let playing = false;
-  let progress = 0;             // 0..1 at `progressAt`
-  let duration = 0;
+  let st = { playing: false, progress: 0, durationMs: 0 };
   let progressAt = 0;
-  let status = 'off';
+  let live = false;
   let reelA = 0;
+  let lastSecond = -1;
+  let cover = null;             // { url, img, ready }
 
-  const paintProgress = (f) => {
-    const x = Math.max(0.0001, Math.min(1, f));
-    // A Line2 has no geometry to stretch cheaply, so the played length is a
-    // scale about the bar's left end.
-    played.scale.x = x;
-    played.position.x = barX0 * (1 - x);
-    head.position.x = barX0 + barW * x;
+  const posMs = () => {
+    const d = Number(st.durationMs) || 0;
+    const base = (Number(st.progress) || 0) * d;
+    return Math.min(d, base + (st.playing ? performance.now() - progressAt : 0));
   };
 
-  group.userData.tick = (t, dt, _p, env) => {
-    if (playing && !REDUCED) {
+  function drawScreen() {
+    const { ctx: c, w, h } = scr;
+    const d = Number(st.durationMs) || 0;
+    const p = posMs();
+    const f = d ? p / d : 0;
+    const F = fonts();
+    c.fillStyle = '#05090b'; c.fillRect(0, 0, w, h);
+    const g = c.createRadialGradient(w / 2, 0, 0, w / 2, 0, w * 0.6);
+    g.addColorStop(0, 'rgba(0,255,255,0.10)'); g.addColorStop(1, 'rgba(0,255,255,0)');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    // The shell.
+    c.strokeStyle = 'rgba(125,139,147,0.32)'; c.lineWidth = 2;
+    roundRect(c, 0.06 * w, 0.07 * h, 0.88 * w, 0.555 * h, 0.022 * h); c.stroke();
+    if (!live) {
+      c.fillStyle = 'rgba(159,176,182,0.8)'; c.font = `500 ${0.09 * h}px ${F.sans}`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(st.connected === false ? 'Not connected' : 'Nothing playing', w / 2, 0.8 * h);
+    }
+    // The label: the cover.
+    const cs = 0.5 * h; const cx = w / 2 - cs / 2; const cy = 0.1 * h;
+    c.fillStyle = '#0b0f12'; c.fillRect(cx - 6, cy - 6, cs + 12, cs + 12);
+    if (cover?.ready) c.drawImage(cover.img, cx, cy, cs, cs);
+    else {
+      c.strokeStyle = 'rgba(125,139,147,0.5)'; c.lineWidth = 2;
+      c.beginPath(); c.arc(w / 2, cy + cs / 2, cs * 0.26, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(w / 2, cy + cs / 2, cs * 0.09, 0, Math.PI * 2); c.stroke();
+    }
+    c.strokeStyle = 'rgba(125,139,147,0.45)'; c.lineWidth = 2; c.strokeRect(cx, cy, cs, cs);
+    if (!live || !st.title) { scr.texture.needsUpdate = true; return; }
+    // Device, top left.
+    c.textBaseline = 'top'; c.textAlign = 'left';
+    c.fillStyle = 'rgba(159,176,182,0.85)'; c.font = `${0.036 * h}px ${F.hud}`;
+    spaced(c, `ON ${String(st.device || (st.last ? 'last played' : '')).toUpperCase()}`, 0.09 * w, 0.014 * h, 0.16);
+    // Title, then artist · album.
+    c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.fillStyle = '#eef6f8'; c.font = `500 ${0.086 * h}px ${F.sans}`;
+    c.fillText(fit(c, st.title, 0.84 * w), w / 2, 0.73 * h);
+    c.font = `${0.056 * h}px ${F.sans}`;
+    const artist = st.artist || '';
+    const album = st.album ? ` · ${st.album}` : '';
+    const line = fit(c, artist + album, 0.84 * w);
+    const aw = c.measureText(line).width;
+    c.textAlign = 'left';
+    const x0 = w / 2 - aw / 2;
+    const cut = Math.min(line.length, artist.length);
+    c.fillStyle = '#00e5e5'; c.fillText(line.slice(0, cut), x0, 0.83 * h);
+    c.fillStyle = '#6f8188'; c.fillText(line.slice(cut), x0 + c.measureText(line.slice(0, cut)).width, 0.83 * h);
+    // The bar: where it really is.
+    const by = 0.93 * h; const bx0 = 0.14 * w; const bx1 = 0.86 * w;
+    c.font = `${0.044 * h}px ${F.mono}`; c.fillStyle = 'rgba(159,176,182,0.9)';
+    c.textBaseline = 'middle'; c.textAlign = 'right'; c.fillText(mmss(p), bx0 - 14, by);
+    c.textAlign = 'left'; c.fillText(mmss(d), bx1 + 14, by);
+    c.fillStyle = 'rgba(125,139,147,0.35)'; c.fillRect(bx0, by - 2, bx1 - bx0, 4);
+    c.fillStyle = st.playing ? '#00ffff' : '#9fb0b6'; c.fillRect(bx0, by - 2, (bx1 - bx0) * f, 4);
+    c.fillStyle = '#dffcff'; c.beginPath(); c.arc(bx0 + (bx1 - bx0) * f, by, 7, 0, Math.PI * 2); c.fill();
+    scr.texture.needsUpdate = true;
+  }
+
+  function drawDeck() {
+    const { ctx: c, w, h } = dk;
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#0b0f12'; c.fillRect(0, 0, w, h);
+    const keys = [
+      ['shuffle', 0.11, st.shuffle], ['prev', 0.15, false], [st.playing ? 'pause' : 'play', 0.22, 'main'],
+      ['next', 0.15, false], ['repeat', 0.11, st.repeat && st.repeat !== 'off'],
+    ];
+    const gap = 0.028 * w;
+    const total = keys.reduce((a, k) => a + k[1] * w, 0) + gap * 4;
+    let x = w / 2 - total / 2;
+    const kh = 0.62 * h; const ky = (h - kh) / 2;
+    for (const [name, frac, on] of keys) {
+      const kw = frac * w;
+      const lit = on === 'main' || on === true;
+      c.fillStyle = lit ? 'rgba(0,255,255,0.07)' : 'rgba(11,15,18,0.6)';
+      roundRect(c, x, ky, kw, kh, 5); c.fill();
+      c.strokeStyle = lit ? '#00ffff' : 'rgba(125,139,147,0.6)'; c.lineWidth = 2; c.stroke();
+      glyph(c, name, x + kw / 2, ky + kh / 2, kh * 0.46, lit ? '#00ffff' : '#9fb0b6');
+      if (name === 'repeat' && st.repeat === 'track') {
+        c.fillStyle = '#00ffff'; c.font = `${kh * 0.26}px ${fonts().mono}`; c.textAlign = 'center';
+        c.fillText('1', x + kw * 0.82, ky + kh * 0.3);
+      }
+      x += kw + gap;
+    }
+    dk.texture.needsUpdate = true;
+  }
+
+  function loadCover(url) {
+    if (!url) { cover = null; return; }
+    if (cover?.url === url) return;
+    const img = new Image();
+    cover = { url, img, ready: false };
+    img.decoding = 'async';
+    img.onload = () => { if (cover?.img === img) { cover.ready = true; drawScreen(); } };
+    img.src = url;
+  }
+
+  // The painted text uses the page's faces; draw again once they have loaded.
+  document.fonts?.ready.then(() => { drawScreen(); drawDeck(); });
+
+  group.userData.tick = (t, dt) => {
+    if (st.playing && !REDUCED) {
       reelA -= dt * 2.2;
       // The take-up reel turns slower as it fills — a cassette detail, and
       // it is what makes two turning circles read as tape rather than gears.
-      L.g.rotation.z = reelA * (1.15 - 0.3 * progress);
-      Rr.g.rotation.z = reelA * (0.85 + 0.3 * progress);
+      const f = st.progress;
+      L.g.rotation.z = reelA * (1.15 - 0.3 * f);
+      Rr.g.rotation.z = reelA * (0.85 + 0.3 * f);
     }
-    let f = progress;
-    if (playing && duration) f = progress + (performance.now() - progressAt) / duration;
-    paintProgress(f);
+    // The picture moves once a second: the time and the bar.
+    if (st.playing && art.visible) {
+      const sec = Math.floor(posMs() / 1000);
+      if (sec !== lastSecond) {
+        lastSecond = sec;
+        drawScreen();
+        const d = Number(st.durationMs) || 0;
+        const f = d ? posMs() / d : 0;
+        woundL.scale.setScalar((18 + 26 * (1 - f)) / 47);
+        woundR.scale.setScalar((18 + 26 * f) / 47);
+      }
+    }
   };
 
   function setState(s = {}) {
-    status = s.status || 'ok';
-    const live = s.connected !== false && status !== 'err';
-    playing = !!s.playing && live;
-    duration = Number(s.durationMs) || 0;
-    progress = Math.max(0, Math.min(1, Number(s.progress) || 0));
+    const status = s.status || 'ok';
+    live = s.connected !== false && status !== 'err' && !!s.title;
+    st = { ...s, playing: !!s.playing && live };
     progressAt = performance.now();
+    lastSecond = -1;
+    loadCover(s.cover && s.base ? `${s.base}${s.cover}` : null);
     const hex = STATUS_HEX[status] ?? C.steel;
     outline.material.color.setHex(status === 'ok' ? C.steel : hex);
-    outline.material.opacity = live ? 0.85 : 0.45;
-    keyMats.play.material.color.setHex(playing ? C.beat : C.steel);
-    keyMats.play.material.opacity = playing ? 1 : 0.7;
+    outline.material.opacity = s.connected !== false ? 0.85 : 0.45;
+    keyMats.play.material.color.setHex(st.playing ? C.beat : C.steel);
+    keyMats.play.material.opacity = st.playing ? 1 : 0.7;
     for (const l of [...L.lines, ...Rr.lines]) {
-      l.material.color.setHex(playing ? C.beat : C.steel);
-      l.material.opacity = live ? (playing ? 0.9 : 0.6) : 0.3;
+      l.material.color.setHex(st.playing ? C.beat : C.steel);
+      l.material.opacity = live ? (st.playing ? 0.9 : 0.6) : 0.3;
     }
-    played.visible = live && progress > 0;
-    head.visible = live;
+    const d = Number(st.durationMs) || 0;
+    const f = d ? posMs() / d : 0;
+    woundL.scale.setScalar((18 + 26 * (1 - f)) / 47);
+    woundR.scale.setScalar((18 + 26 * f) / 47);
+    woundL.visible = woundR.visible = live;
+    drawScreen();
+    drawDeck();
   }
 
-  /** Opened up: the page draws the screen, so the drawing steps aside. */
+  /** Opened up: the page draws the screen and the keys, so these step aside. */
   function setFocus(on) {
     art.visible = !on;
     glint.visible = !on;
+    deckMesh.visible = !on;
+    if (!on) { lastSecond = -1; drawScreen(); }
   }
 
   setState(opts.state || { status: 'off', connected: false });
   return { group, setState, setFocus, layout: LAYOUT };
+}
+
+/* ── painting ─────────────────────────────────────────────────────────── */
+
+/** A canvas and the texture and material that show it. */
+function paintSurface(w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  // A touch under white: the page is dark and bloomed, and a bright cover at
+  // full value would flare rather than read.
+  const material = new THREE.MeshBasicMaterial({ map: texture, color: 0xd6d6d6, toneMapped: false });
+  return { canvas, ctx, texture, material, w, h };
+}
+
+let FONTS = null;
+function fonts() {
+  if (FONTS) return FONTS;
+  const cs = getComputedStyle(document.documentElement);
+  const v = (n, f) => (cs.getPropertyValue(n) || '').trim() || f;
+  FONTS = {
+    sans: getComputedStyle(document.body).fontFamily || 'sans-serif',
+    mono: v('--mono', 'ui-monospace, monospace'),
+    hud: v('--hud', 'ui-monospace, monospace'),
+  };
+  return FONTS;
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+
+/** Letter-spaced text, the way the page sets its small capitals. */
+function spaced(c, text, x, y, em) {
+  const size = parseFloat(c.font.match(/([\d.]+)px/)?.[1] || 12);
+  let cx = x;
+  for (const ch of text) { c.fillText(ch, cx, y); cx += c.measureText(ch).width + size * em; }
+}
+
+function fit(c, text, max) {
+  if (c.measureText(text).width <= max) return text;
+  let t = text;
+  while (t.length > 1 && c.measureText(`${t}…`).width > max) t = t.slice(0, -1);
+  return `${t.trimEnd()}…`;
+}
+
+const mmss = (ms) => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/* The keys' glyphs: the same drawings the opened player uses. */
+const GLYPHS = {
+  play: ['fill', 'M8 5.5v13l10.5-6.5z'],
+  pause: ['fill', 'M7 5h3.6v14H7zM13.4 5H17v14h-3.6z'],
+  prev: ['fill', 'M6 5h2.4v14H6zM9.6 12 19 5.5v13z'],
+  next: ['fill', 'M15.6 5H18v14h-2.4zM5 5.5 14.4 12 5 18.5z'],
+  shuffle: ['stroke', 'M4 7h3.5c4.5 0 5.5 10 10 10H20M4 17h3.5c1.6 0 2.7-1.2 3.6-2.8M13 9.8C13.9 8.2 15 7 16.5 7H20M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5'],
+  repeat: ['stroke', 'M5 11V9a2 2 0 0 1 2-2h11.5M16 4.5 18.5 7 16 9.5M19 13v2a2 2 0 0 1-2 2H5.5M8 19.5 5.5 17 8 14.5'],
+};
+function glyph(c, name, x, y, size, color) {
+  const [mode, d] = GLYPHS[name];
+  c.save();
+  c.translate(x - size / 2, y - size / 2);
+  c.scale(size / 24, size / 24);
+  const path = new Path2D(d);
+  if (mode === 'fill') { c.fillStyle = color; c.fill(path); }
+  else { c.strokeStyle = color; c.lineWidth = 1.8; c.lineCap = 'square'; c.stroke(path); }
+  c.restore();
 }

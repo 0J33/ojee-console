@@ -306,6 +306,20 @@ export async function create(host, o = {}) {
       return true;
     },
 
+    /**
+     * Hold an opened object square on (true), or let it go (false): it
+     * sways again, answers the pointer, and draws its own screen, because
+     * nothing laid over it could follow it round.
+     */
+    setFixed(id, on) {
+      const slot = slots.get(id);
+      if (!slot || slot.reserved) return;
+      slot.group.userData.fixed = !!on;
+      slot.group.userData.free = !on;
+      slot.api?.setFocus?.(!!on);
+      view.boost?.(1.2);
+    },
+
     /** What a model says about its own layout (where its screen is, …). */
     layoutOf(id) {
       const slot = slots.get(id);
@@ -320,6 +334,7 @@ export async function create(host, o = {}) {
       slot.focus = null;
       slot.tw = slot.at ? { t0: performance.now(), ...slot.at } : null;
       slot.group.userData.fixed = false;
+      slot.group.userData.free = false;
       slot.api?.setFocus?.(false);
       view.boost?.(1.2);
       sync();

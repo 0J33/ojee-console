@@ -1087,7 +1087,9 @@ function modelState(m) {
   const status = m.status !== 'ready'
     ? (m.status === 'degraded' ? 'warn' : 'err')
     : (sum?.status || 'ok');
-  return { status, ...(sum?.model || {}) };
+  // `base` lets a model turn a module-relative path (a cover image) into
+  // one the page can load.
+  return { status, ...(sum?.model || {}), base: `/${m.id}` };
 }
 
 function bindModels(screen, ids) {
@@ -1100,7 +1102,10 @@ function bindModels(screen, ids) {
     // the module is about. On the plate it is one of five in a column, so it
     // keeps the register's fill.
     const fill = screen.startsWith('mod:') ? 0.85 : 0.78;
-    const binds = ids.map((id) => st.bind(id, `[data-dial="${id}"]`, { fill }));
+    // The watch's companion shares the watch's row at the watch's size, so
+    // it fills its box the way the watch fills its own.
+    const fillFor = (id) => (!screen.startsWith('mod:') && isCompanion(state.modules.find((x) => x.id === id)) ? 0.96 : fill);
+    const binds = ids.map((id) => st.bind(id, `[data-dial="${id}"]`, { fill: fillFor(id) }));
     // Once now, for anything already in the scene, and once more when the
     // models that were still loading have landed. The stage holds state for
     // a model that has not arrived, so neither of these can be too early —
@@ -1206,6 +1211,7 @@ async function openFocus(m) {
       <div class="mfocus-screen"></div>
       <div class="mfocus-deck"></div>
       <div class="mfocus-bar">
+        <button type="button" class="mfocus-lock" aria-pressed="true" title="Let it turn  (L)">${icon('i-unlock')}<span>Unlock</span></button>
         <a class="mfocus-more" href="#/${esc(m.id)}">${icon(moduleIcon(m))}<span>More</span></a>
         <button type="button" class="mfocus-close" aria-label="Close">${icon('i-close')}<span>Close</span></button>
       </div>
@@ -1217,8 +1223,13 @@ async function openFocus(m) {
   if (!stage.focus(m.id, el.querySelector('.mfocus-box'), { fill: 1 })) { closeFocus(); return false; }
   requestAnimationFrame(() => el.classList.add('is-open'));
 
+  // A drag that ends off the object is a spin, not a click outside it.
+  let downAt = null;
+  el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; }, true);
   el.addEventListener('click', (e) => {
     if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
+    if (e.target.closest('.mfocus-lock')) { setFocusFree(!focusOpen?.free); return; }
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
     if (e.target.closest('.mfocus-screen, .mfocus-deck, .mfocus-bar')) return;
     // A click on the object's own body is a miss, not a dismissal.
     const b = focusOpen?.bodyRect;
@@ -1243,6 +1254,21 @@ async function openFocus(m) {
   }
   (el.querySelector('.mfocus-deck button:not(:disabled)') || el.querySelector('.mfocus-close'))?.focus({ preventScroll: true });
   return true;
+}
+
+/* Unlocked, the object is an object again: it sways, it can be spun, and it
+   draws its own screen. Locked, it comes home square on and the live screen
+   is laid back over it once it has arrived. */
+function setFocusFree(free) {
+  if (!focusOpen) return;
+  focusOpen.free = !!free;
+  const { el, id } = focusOpen;
+  el.classList.toggle('is-free', focusOpen.free);
+  stage?.setFixed(id, !focusOpen.free);
+  const b = el.querySelector('.mfocus-lock');
+  b.setAttribute('aria-pressed', String(!focusOpen.free));
+  b.title = focusOpen.free ? 'Hold it square on  (L)' : 'Let it turn  (L)';
+  b.innerHTML = `${icon(focusOpen.free ? 'i-lock' : 'i-unlock')}<span>${focusOpen.free ? 'Lock' : 'Unlock'}</span>`;
 }
 
 function closeFocus() {
@@ -1274,8 +1300,11 @@ document.addEventListener('keydown', (e) => {
     else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
     return;
   }
-  // The crown's L and the palette's / belong to the page behind.
-  if ((e.key === 'l' || e.key === 'L' || e.key === '/') && !e.target.closest?.('input')) e.stopImmediatePropagation();
+  if (e.target.closest?.('input:not([type=range])')) return;
+  // L is this view's lock, not the crown's on the page behind; / is the
+  // palette's, and the palette is behind.
+  if (e.key === 'l' || e.key === 'L') { e.preventDefault(); e.stopImmediatePropagation(); setFocusFree(!focusOpen.free); return; }
+  if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 window.addEventListener('resize', () => placeFocus());
 

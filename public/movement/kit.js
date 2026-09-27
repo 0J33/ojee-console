@@ -210,6 +210,10 @@ export function mk(tiltZ = 0, tiltX = 0) {
     // an object opened up to be USED rather than looked at. Eased in and out
     // through `pose` (1 = drawn pose, 0 = square on) so neither way snaps.
     tiltRest: [tiltX, tiltZ], fixed: false, pose: 1,
+    // `free`: let go by its own page (an opened object's Unlock), which the
+    // crown does not override. `sg`: how much of its sway it is showing —
+    // eased to nothing while the crown holds it, so it settles, not stops.
+    free: false, sg: 1,
   };
   return [g, sp];
 }
@@ -420,7 +424,7 @@ export function mount(host, o = {}) {
        watch to stop so you can read it and every other object on the page
        stopped answering the pointer too — and the lock is remembered between
        visits, so it stayed that way until you found the crown again. */
-    if (locked && target.userData.lockable) return;
+    if (locked && target.userData.lockable && !target.userData.free) return;
     boost(2.5);
     drag.id = e.pointerId; drag.obj = target;
     drag.x = e.clientX; drag.y = e.clientY;
@@ -512,7 +516,7 @@ export function mount(host, o = {}) {
       // whole scene. An object that does not answer to it keeps turning,
       // and the one that does eases back to facing you rather than freezing
       // at whatever angle it happened to be at.
-      const held = locked && u.lockable;
+      const held = locked && u.lockable && !u.free;
       // Square-on and back again. The pose scales the tilt and the sway
       // rather than replacing them, so the way back is the same curve.
       const kp = 1 - Math.exp(-dt * 7);
@@ -535,16 +539,23 @@ export function mount(host, o = {}) {
           u.sp.rotation.z -= u.sp.rotation.z * kp;
         }
       }
-      if (!held && !(u.fixed && !u.sway)) {
+      if ((u.sway || !held) && !(u.fixed && !u.sway)) {
         if (u.sway) {
+          // Held by the crown, a swaying object eases to its drawn pose.
+          const sgTo = held ? 0 : 1;
+          if (u.sg !== sgTo) {
+            u.sg += (sgTo - u.sg) * kp;
+            if (Math.abs(u.sg - sgTo) < 0.002) u.sg = sgTo;
+          }
+          const amp = u.pose * u.sg;
           /* Three sines on periods that do not divide into each other, so
              the lean never repeats exactly and never reads as a mechanism
              counting. Set, not integrated: a sway has a pose to be at at
              any moment, and integrating it would drift. */
           const w = (Math.PI * 2) / (u.swayPeriod || 9);
-          u.sp.rotation.x = u.pose * u.sway[0] * Math.sin(clock.t * w * 0.73 + u.swayPhase + 1.1);
-          u.sp.rotation.y = u.pose * u.sway[1] * Math.sin(clock.t * w + u.swayPhase);
-          u.sp.rotation.z = u.pose * u.sway[2] * Math.sin(clock.t * w * 0.41 + u.swayPhase + 2.3);
+          u.sp.rotation.x = amp * u.sway[0] * Math.sin(clock.t * w * 0.73 + u.swayPhase + 1.1);
+          u.sp.rotation.y = amp * u.sway[1] * Math.sin(clock.t * w + u.swayPhase);
+          u.sp.rotation.z = amp * u.sway[2] * Math.sin(clock.t * w * 0.41 + u.swayPhase + 2.3);
         } else {
           u.sp.rotation.x += u.spin[0] * dt;
           u.sp.rotation.y += u.spin[1] * dt;

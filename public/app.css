@@ -1262,6 +1262,16 @@ body.is-idle {
 }
 /* In after the object has arrived, out at once when it leaves. */
 .mfocus.is-open > .mfocus-ui > * { opacity: 1; transition-delay: 0.3s; }
+/* Unlocked: the live screen and keys step off the object, which is free to
+   turn and draws its own screen; the plate goes too, since it cannot turn
+   with it. Locked again, they come back once it has faced you. */
+.mfocus.is-open.is-free > .mfocus-ui > .mfocus-screen,
+.mfocus.is-open.is-free > .mfocus-ui > .mfocus-deck { opacity: 0; pointer-events: none; transition-delay: 0s; }
+.mfocus.is-open:not(.is-free) > .mfocus-ui > .mfocus-screen,
+.mfocus.is-open:not(.is-free) > .mfocus-ui > .mfocus-deck { transition-delay: 0.45s; }
+.mfocus.is-open.is-free .mfocus-plate { opacity: 0; transition-delay: 0s; }
+.mfocus.is-free .mfocus-scrim { touch-action: none; cursor: grab; }
+.mfocus-lock[aria-pressed="false"] { color: var(--accent); border-color: var(--accent); }
 .mfocus > .mfocus-ui > .mfocus-bar {
   transform: translateX(-50%);
   display: flex; gap: 10px;
@@ -1277,7 +1287,9 @@ body.is-idle {
 .mfocus-bar a:focus-visible, .mfocus-bar button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .mfocus-bar .ic { width: 16px; height: 16px; }
 .mfocus-err { margin: 0; padding: 12px; color: var(--warn); font-size: 0.85rem; background: #05090b; height: 100%; }
-body.is-focus { overflow: hidden; }
+/* No text selection while something is open: spinning an unlocked object
+   is a drag across the page, and it selected everything it crossed. */
+body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; }
 @media (prefers-reduced-motion: reduce) {
   .mfocus-scrim, .mfocus-plate, .mfocus > .mfocus-ui > * { transition: none; }
 }
@@ -1297,11 +1309,10 @@ body.is-focus { overflow: hidden; }
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 .ov-movement > .ov-cal { grid-area: 1 / 1; height: 100%; }
-.ov-companions {
-  position: absolute; right: 0; bottom: 0;
-  width: clamp(92px, 24%, 180px); aspect-ratio: 1;
-  pointer-events: none;
-}
+/* Beside the watch, at the watch's size: the row splits in two when there is
+   a companion, and the scene fits each object to its own half. */
+.ov-movement:has(.ov-companion) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: clamp(8px, 2vw, 32px); }
+.ov-companions { position: relative; grid-area: 1 / 2; min-width: 0; min-height: 0; }
 .ov-companions:empty { display: none; }
 .ov-companion {
   position: absolute; inset: 0;
@@ -1339,14 +1350,25 @@ body.is-focus { overflow: hidden; }
 .idle-stage .np { font-size: clamp(1rem, 1.35vw, 1.5rem); gap: 14px; max-width: min(100%, 820px); }
 .idle-stage .np .ic { width: 22px; height: 22px; }
 .idle-stage .np-time { font-size: clamp(0.85rem, 1vw, 1.1rem); }
-.idle-stage .ov-companions { width: clamp(100px, 20%, 200px); }
 
 /* A register short of room drops readings rather than clipping them: each
    row measures itself, and below the height two readings need it keeps one. */
-.ov-ring .comp { container-type: size; container-name: reg; }
+/* Only where the rows share out a fixed height (the plate, side by side).
+   Stacked, a row is as tall as its content, and size containment would make
+   that nothing: every register collapsed onto the first. */
+@media (min-width: 901px) {
+  .ov-ring .comp { container-type: size; container-name: reg; }
+}
 @container reg (max-height: 118px) {
   .comp-fact:nth-child(n + 2) { display: none; }
 }
 @container reg (max-height: 84px) {
   .comp-facts { display: none; }
+}
+/* Stacked, the watch has its own phone size — which, halved by the player
+   beside it, ran off the screen. Beside a companion both share the row. */
+@media (max-width: 900px) {
+  .ov-movement:has(.ov-companion) { width: min(94vw, 640px); justify-self: center; }
+  .ov-movement:has(.ov-companion) > .ov-cal { width: 100%; }
+  .ov-movement:has(.ov-companion) > .ov-companions { aspect-ratio: 1; }
 }
