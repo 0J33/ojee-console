@@ -1361,10 +1361,28 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 @media (min-width: 901px) {
   .ov-ring .comp { container-type: size; container-name: reg; }
 }
-@container reg (max-height: 118px) {
+/* The object is sized to the ROW, not only to the screen: --dial is a width
+   budget, and a row shorter than it (six modules at 900px tall is 103px) had
+   each object and its name spill into the row below. Inside a measured row the
+   dial is the smaller of the two. And the readings are dropped only when they
+   genuinely do not fit: a headline and two readings need about 80px — the old
+   threshold of 118px hid the second reading on every laptop screen. */
+@media (min-width: 901px) {
+  /* The column keeps its width (the name under the object needs it); only
+     the height follows the row, and the scene fits the object to the
+     shorter side. */
+  .ov-ring .comp-dial { height: min(var(--dial), 100cqh); }
+}
+/* One line per reading, however long the value: a wrapped value pushed the
+   row past its share and into the next one. */
+.comp-fact dd { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-fact dt { flex: none; }
+/* Measured against the row's CONTENT box: a headline and two readings are
+   ~65px of it, one reading ~45px. */
+@container reg (max-height: 66px) {
   .comp-fact:nth-child(n + 2) { display: none; }
 }
-@container reg (max-height: 84px) {
+@container reg (max-height: 46px) {
   .comp-facts { display: none; }
 }
 /* Stacked, the watch has its own phone size — which, halved by the player
