@@ -1480,7 +1480,14 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .wv-zone { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--line); }
 .wv-zone-dial { width: 96px; height: 96px; display: block; }
 .wv-zone-read { display: grid; gap: 3px; min-width: 0; }
-.wv-zone-city { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wv-zone-name { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent);
+  background: none; border: 0; border-bottom: 1px dashed transparent; padding: 1px 0; margin: 0; width: 100%; min-width: 0; text-overflow: ellipsis; }
+.wv-zone-name::placeholder { color: var(--accent); opacity: 1; }
+.wv-zone-name:hover { border-bottom-color: var(--line); }
+.wv-zone-name:focus { outline: none; border-bottom-color: var(--accent); }
+.wv-zone-name:focus::placeholder { opacity: 0.45; }
+.wv-zone-where { font-size: 0.72rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wv-in--short { flex: 0 1 11rem; min-width: 0; }
 .wv-zone-time { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 400; font-size: 1.35rem; color: var(--ink); }
 .wv-zone-sub { font-size: 0.78rem; color: var(--dim); }
 .wv-zone-diff { font-weight: 400; font-family: var(--mono); color: var(--ink-2); white-space: nowrap; margin-left: 6px; }

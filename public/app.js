@@ -1018,7 +1018,7 @@ async function ensureStage(screen) {
     now: () => timesync.now(),
     locked: crownLocked,
     bloom: bloomFor(screen),
-    onLock: (v) => { crownLocked = v; paintCrowns(); },
+    onLock: (v) => { crownLocked = v; paintCrowns(); setFocusFree(!v); },
     // The watch's stopwatch hand reads this every frame.
     chrono: () => (watch.stopwatch.active ? watch.stopwatch.elapsed() : null),
     // The movement turns, so the callout on its barrel is redrawn with it.
@@ -1050,14 +1050,24 @@ function paintCrowns() {
     b.querySelector('.crown-label').textContent = crownLocked ? 'locked' : 'turning';
     b.title = crownLocked ? 'Let the movement turn  (L)' : 'Hold the movement still  (L)';
   });
+  // The watch's Display tab says the same thing in its own words.
+  document.querySelectorAll('[data-crownset]').forEach((b) => {
+    b.setAttribute('aria-pressed', String((b.dataset.crownset === 'lock') === crownLocked));
+  });
 }
 
-function toggleCrown() {
-  crownLocked = !crownLocked;
+/* One lock, wherever it is pressed: the crown on the page, the Lock/Unlock
+   on an opened watch or player, the watch's Display tab and the L key all
+   set this, and every one of them shows it. */
+function setCrown(locked) {
+  crownLocked = !!locked;
   movement.rememberLock(crownLocked);
   stage?.setLocked(crownLocked);
   paintCrowns();
+  setFocusFree(!crownLocked);
 }
+
+function toggleCrown() { setCrown(!crownLocked); }
 
 const crownHTML = () => `
   <button class="crown" type="button" data-crown aria-pressed="${crownLocked ? 'true' : 'false'}">
@@ -1254,6 +1264,7 @@ async function openFocus(m) {
   focusOpen = { id: m.id, el, layout, opener: document.activeElement, ui: null };
   placeFocus();
   if (!stage.focus(m.id, el.querySelector('.mfocus-box'), { fill: 1 })) { closeFocus(); return false; }
+  setFocusFree(!crownLocked);
   requestAnimationFrame(() => el.classList.add('is-open'));
 
   // A drag that ends off the object is a spin, not a click outside it.
@@ -1261,7 +1272,7 @@ async function openFocus(m) {
   el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; }, true);
   el.addEventListener('click', (e) => {
     if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
-    if (e.target.closest('.mfocus-lock')) { setFocusFree(!focusOpen?.free); return; }
+    if (e.target.closest('.mfocus-lock')) { toggleCrown(); return; }
     if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
     if (clickedIn(e, '.mfocus-screen, .mfocus-deck, .mfocus-bar, .wv')) return;
     // A click on the object's own body is a miss, not a dismissal.
@@ -1352,12 +1363,13 @@ async function openWatch() {
     await new Promise((r) => setTimeout(r, 400));
     if (!focusOpen || focusOpen.el !== el || !st.focus('clock', el.querySelector('.mfocus-box'), { fill: 0.92 })) { closeFocus({ keepHash: true }); return false; }
   }
+  setFocusFree(!crownLocked);
   requestAnimationFrame(() => el.classList.add('is-open'));
   let downAt = null;
   el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; }, true);
   el.addEventListener('click', (e) => {
     if (e.target.closest('.mfocus-close')) { closeFocus(); return; }
-    if (e.target.closest('.mfocus-lock')) { setFocusFree(!focusOpen?.free); return; }
+    if (e.target.closest('.mfocus-lock')) { toggleCrown(); return; }
     if (clickedIn(e, '.wv, .mfocus-bar')) return;
     if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
     const b = focusOpen?.bodyRect;
@@ -1391,7 +1403,7 @@ document.addEventListener('click', (e) => {
    draws its own screen. Locked, it comes home square on and the live screen
    is laid back over it once it has arrived. */
 function setFocusFree(free) {
-  if (!focusOpen) return;
+  if (!focusOpen || focusOpen.free === !!free) return;
   focusOpen.free = !!free;
   const { el, id } = focusOpen;
   el.classList.toggle('is-free', focusOpen.free);
@@ -1440,7 +1452,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target.closest?.('input:not([type=range])')) return;
   // L is this view's lock, not the crown's on the page behind; / is the
   // palette's, and the palette is behind.
-  if (e.key === 'l' || e.key === 'L') { e.preventDefault(); e.stopImmediatePropagation(); setFocusFree(!focusOpen.free); return; }
+  if (e.key === 'l' || e.key === 'L') { e.preventDefault(); e.stopImmediatePropagation(); toggleCrown(); return; }
   if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 window.addEventListener('resize', () => placeFocus());

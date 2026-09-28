@@ -103,6 +103,15 @@ export async function create(host, o = {}) {
   const FOCUS_MS = 420;
   const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
+  /* The nearest ancestor that actually scrolls — a panel on a desktop, the
+     whole sheet on a phone — which is what clips a box the canvas does not. */
+  const scrollerOf = (node) => {
+    for (let n = node.parentElement; n && n !== document.body; n = n.parentElement) {
+      if (n.scrollHeight > n.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowY)) return n;
+    }
+    return null;
+  };
+
   /** Place every bound object on the box its layout gave it. */
   const sync = () => {
     raf = 0;
@@ -120,6 +129,14 @@ export async function create(host, o = {}) {
       const off = r.bottom < -hb.height || r.top > hb.height * 2;
       slot.group.visible = !off;
       if (off) continue;
+      /* A box inside a scrolling panel is clipped by the panel, but the one
+         canvas is not: an object scrolled out of it would draw over whatever
+         sits above or below. It goes once a quarter of it has left. */
+      if (slot.clip && !slot.focus) {
+        const c = scrollerOf(box)?.getBoundingClientRect();
+        const q = r.height / 4;
+        if (c && (r.top < c.top - q || r.bottom > c.bottom + q)) { slot.group.visible = false; continue; }
+      }
       let cx = r.left + r.width / 2 - (hb.left + hb.width / 2);
       let cy = r.top + r.height / 2 - (hb.top + hb.height / 2);
       // fit is the diameter the box can hold; the models are authored to a
@@ -257,6 +274,7 @@ export async function create(host, o = {}) {
         group,
         api: built,
         fill: opts.fill,
+        clip: opts.clip || null,
         state: pending?.state,
         alert: pending?.alert,
       });

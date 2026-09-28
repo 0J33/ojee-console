@@ -19,13 +19,13 @@
 import * as timesync from '/timesync.js';
 
 const KEY = 'ojee.console.watch';
-const MAX_ZONES = 4;
+const MAX_ZONES = 12;
 const MAX_TIMERS = 6;
 
 const state = {
   sw: { runningSince: null, acc: 0, laps: [] },     // laps: cumulative ms at each lap
   timers: [],                                       // { id, label, durMs, endAt|null, leftMs, done }
-  zones: [],                                        // IANA zone names
+  zones: [],                                        // { id, zone: IANA name, name: the owner's label or '' }
 };
 const listeners = new Set();
 let alertFn = () => {};
@@ -37,7 +37,7 @@ try {
                  acc: raw.sw.acc, laps: Array.isArray(raw.sw.laps) ? raw.sw.laps.filter(Number.isFinite).slice(-99) : [] };
   }
   if (Array.isArray(raw.timers)) state.timers = raw.timers.filter((t) => t && Number.isFinite(t.durMs)).slice(0, MAX_TIMERS);
-  if (Array.isArray(raw.zones)) state.zones = raw.zones.filter(validZone).slice(0, MAX_ZONES);
+  if (Array.isArray(raw.zones)) state.zones = readZones(raw.zones);
 } catch { /* no storage: everything still works for this visit */ }
 
 function save() {
@@ -53,7 +53,7 @@ addEventListener('storage', (e) => {
   if (e.key !== KEY) return;
   try {
     const raw = JSON.parse(e.newValue || '{}');
-    Object.assign(state, { sw: raw.sw || state.sw, timers: raw.timers || [], zones: (raw.zones || []).filter(validZone) });
+    Object.assign(state, { sw: raw.sw || state.sw, timers: raw.timers || [], zones: readZones(raw.zones || []) });
     for (const fn of listeners) fn();
     schedule();
   } catch { /* ignore */ }
@@ -176,14 +176,31 @@ export function validZone(z) {
   try { new Intl.DateTimeFormat('en', { timeZone: z }); return true; } catch { return false; }
 }
 
+/* Zones were once bare IANA names; they are now entries with a name of their
+   own, so the same zone can be kept twice ("Mum", "Office") and told apart. */
+function readZones(raw) {
+  return raw.map((z, i) => (typeof z === 'string' ? { id: `z${Date.now().toString(36)}${i}`, zone: z, name: '' } : z))
+    .filter((z) => z && typeof z.id === 'string' && validZone(z.zone))
+    .map((z) => ({ id: z.id, zone: z.zone, name: String(z.name || '').slice(0, 40) }))
+    .slice(0, MAX_ZONES);
+}
+
 export const zones = {
-  list() { return state.zones.slice(); },
+  list() { return state.zones.map((z) => ({ ...z })); },
   get max() { return MAX_ZONES; },
-  add(z) {
-    if (!validZone(z) || state.zones.includes(z) || state.zones.length >= MAX_ZONES) return false;
-    state.zones.push(z); save(); return true;
+  add(z, name = '') {
+    if (!validZone(z) || state.zones.length >= MAX_ZONES) return false;
+    state.zones.push({ id: `z${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, zone: z, name: String(name).trim().slice(0, 40) });
+    save(); return true;
   },
-  remove(z) { state.zones = state.zones.filter((x) => x !== z); save(); },
+  has(z) { return state.zones.some((x) => x.zone === z); },
+  rename(id, name) {
+    const z = state.zones.find((x) => x.id === id);
+    const n = String(name || '').trim().slice(0, 40);
+    if (!z || z.name === n) return;
+    z.name = n; save();
+  },
+  remove(id) { state.zones = state.zones.filter((x) => x.id !== id); save(); },
   all() {
     try { return Intl.supportedValuesOf('timeZone'); } catch { return []; }
   },

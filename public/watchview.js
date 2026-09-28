@@ -185,33 +185,36 @@ export function mount(el, ctx) {
         <h3 class="wv-h">Time zones <span class="wv-hint">${list.length}/${watch.zones.max}</span></h3>
         ${list.length ? `
         <div class="wv-zones">
-          ${list.map((z, i) => `
+          ${list.map(({ id, zone: z, name }, i) => `
             <div class="wv-zone">
               <span class="wv-zone-dial" data-zdial="${i}" aria-hidden="true"></span>
               <div class="wv-zone-read">
-                <span class="wv-zone-city">${esc(watch.zoneCity(z))}</span>
+                <input class="wv-zone-name" data-zname="${esc(id)}" value="${esc(name)}" placeholder="${esc(watch.zoneCity(z))}"
+                       maxlength="40" autocomplete="off" spellcheck="false" title="Name this watch" aria-label="Name for ${esc(watch.zoneCity(z))}">
                 <b class="wv-zone-time" data-ztime="${i}">${esc(fmtClock(now, z))}</b>
                 <span class="wv-zone-sub"><span data-zsub="${i}">${esc(fmtDay(now, z))}</span> <b class="wv-zone-diff" data-zdiff="${i}">${esc(watch.zoneDiff(z))}</b></span>
+                ${name ? `<span class="wv-zone-where">${esc(watch.zoneCity(z))}</span>` : ''}
               </div>
-              <button type="button" class="wv-x" data-zremove="${esc(z)}" aria-label="Remove ${esc(watch.zoneCity(z))}">${icon('i-close')}</button>
+              <button type="button" class="wv-x" data-zremove="${esc(id)}" aria-label="Remove ${esc(name || watch.zoneCity(z))}">${icon('i-close')}</button>
             </div>`).join('')}
         </div>` : '<p class="wv-empty">No other zones yet. Each one you add gets a watch of its own.</p>'}
         ${room ? `
         <form class="wv-row wv-zadd" data-zadd>
           <input class="wv-in" name="zone" list="wv-zlist" placeholder="Add a city or zone — Tokyo, Europe/London…" aria-label="Time zone" autocomplete="off">
+          <input class="wv-in wv-in--short" name="zname" maxlength="40" placeholder="Name (optional)" aria-label="Name for this watch" autocomplete="off">
           <datalist id="wv-zlist">${all.map((z) => `<option value="${esc(z)}">`).join('')}</datalist>
           <button type="submit" class="wv-btn">Add</button>
         </form>
         <div class="wv-chips">
-          ${SUGGEST.filter((z) => !list.includes(z) && watch.validZone(z)).slice(0, 5).map((z) => `<button type="button" class="wv-chip" data-zquick="${esc(z)}">${esc(watch.zoneCity(z))}</button>`).join('')}
+          ${SUGGEST.filter((z) => !watch.zones.has(z) && watch.validZone(z)).slice(0, 5).map((z) => `<button type="button" class="wv-chip" data-zquick="${esc(z)}">${esc(watch.zoneCity(z))}</button>`).join('')}
         </div>` : ''}
       </section>`;
     // Each zone is a watch: the same calibre, told that zone's time, held
     // square on so it reads.
-    list.forEach((z, i) => {
+    list.forEach(({ zone: z }, i) => {
       const id = `zone:${i}`;
       zoneIds.push(id);
-      stage?.bind(id, `[data-zdial="${i}"]`, { fill: 0.94, now: watch.zoneClock(z) }).then(() => {
+      stage?.bind(id, `[data-zdial="${i}"]`, { fill: 0.94, now: watch.zoneClock(z), clip: true }).then(() => {
         if (!zoneIds.includes(id)) return;
         stage.soloAdd(id);
         stage.hold(id, true);
@@ -219,7 +222,7 @@ export function mount(el, ctx) {
     });
     secT = setInterval(() => {
       const t = timesync.now();
-      list.forEach((z, i) => {
+      list.forEach(({ zone: z }, i) => {
         const a = pane.querySelector(`[data-ztime="${i}"]`);
         const b = pane.querySelector(`[data-zsub="${i}"]`);
         const c = pane.querySelector(`[data-zdiff="${i}"]`);
@@ -415,14 +418,23 @@ export function mount(el, ctx) {
       e.preventDefault();
       const z = resolveZone(f.elements.zone.value);
       if (!z) { toast?.('warn', 'Time zone', 'No zone by that name. Try a city (Tokyo) or a zone (Asia/Tokyo).'); return; }
-      if (!watch.zones.add(z)) toast?.('info', 'Time zone', `${watch.zoneCity(z)} is already there.`);
+      if (!watch.zones.add(z, f.elements.zname?.value)) toast?.('info', 'Time zone', `That is ${watch.zones.max} already — remove one first.`);
     }
   }
   function onChangeEv(e) {
+    const zn = e.target.closest('[data-zname]');
+    if (zn) {
+      watch.zones.rename(zn.dataset.zname, zn.value);
+      // The store's own repaint is held off while an input has focus, and
+      // this one still does as it commits; repaint once it has let go.
+      setTimeout(() => { if (tab === 'zones' && !typing()) { unbindZones(); clearInterval(secT); paint(); } }, 0);
+      return;
+    }
     const s = e.target.closest('[data-hour]');
     if (s) setPref(s.dataset.hour, Number(s.value));
   }
   function onKey(e) {
+    if (e.key === 'Enter' && e.target.matches('[data-zname]')) { e.preventDefault(); e.target.blur(); return; }
     const tb = e.target.closest('.wv-tab');
     if (!tb || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
