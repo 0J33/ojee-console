@@ -1,5 +1,10 @@
 # ojee-console — native wrapper
 
+> **Superseded (2026-09-29):** the phone app now lives in its own private repo,
+> `0J33/ojee-console-app` (Capacitor 8, iOS + Android, built on Codemagic). This folder is the
+> original Capacitor 6 wrapper, kept for reference.
+
+
 A Capacitor shell that points a native WebView at your console over the
 tailnet. **There is no second frontend**: the app loads the same shell the
 browser does, so a change to the console reaches the app without rebuilding
