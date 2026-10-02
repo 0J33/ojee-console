@@ -20,7 +20,7 @@
    second copy of the shell's utilities.
    ============================================================ */
 import {
-  esc, icon, toast, modal, relTime, ModuleHost, parseHash,
+  esc, icon, toast, modal, relTime, ModuleHost, parseHash, makeApi,
 } from '/chrome.js';
 import { mountChrono } from '/chrono.js';
 import { pref, setPref, onPrefs } from '/prefs.js';
@@ -929,6 +929,7 @@ function renderLauncher() {
               <div class="ov-case">
                 ${crownHTML()}
                 ${displayHTML()}
+                <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
                 <a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>
                 <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
               </div>
@@ -1385,12 +1386,57 @@ async function openWatch() {
   return true;
 }
 
+/* ── the Assistant ─────────────────────────────────────────────────────
+   The agent module advertises an `assistant` entry point, and this opens it
+   in a dialog WITHOUT mounting the module first. That matters: the button
+   lives on the overview and the idle display, neither of which is a module
+   page, and making the user navigate to Agent → Assistant to ask one
+   question is the whole problem this button exists to avoid. */
+async function openAssistant() {
+  const m = state.modules.find((x) => x.enabled && x.status === 'ready' && x.assistant);
+  if (!m) {
+    toast('warn', 'No Assistant',
+      'The agent module is not available, so there is nothing to talk to.');
+    return;
+  }
+  const v = m.version ? `?v=${encodeURIComponent(m.version)}` : '';
+  let mod;
+  try {
+    mod = await import(`/${m.id}${m.assistant}${v}`);
+  } catch (e) {
+    console.error('[assistant] load failed', e);
+    toast('err', 'That did not work', 'The Assistant could not be loaded.');
+    return;
+  }
+  const body = document.createElement('div');
+  let stop = null;
+  try {
+    // Mounted before the dialog is shown, so it is already drawn when it
+    // appears — a modal that opens onto a spinner is a modal nobody trusts.
+    stop = await mod.mountAssistantModal(body, {
+      base: `/${m.id}`,
+      api: makeApi(`/${m.id}`, { onUnauthorized: () => location.reload() }),
+      icon, esc, toast, modal, relTime,
+    });
+  } catch (e) {
+    console.error('[assistant] mount failed', e);
+    toast('err', 'That did not work', 'The Assistant could not be opened.');
+    return;
+  }
+  try {
+    await modal({ title: 'Assistant', body, actions: [{ label: 'Close', value: true }] });
+  } finally {
+    stop?.();
+  }
+}
+
 /* A click on the watch — not the end of a turn — opens it. */
 let calDown = null;
 document.addEventListener('pointerdown', (e) => {
   calDown = e.target.closest?.('.ov-cal') ? [e.clientX, e.clientY] : null;
 }, true);
 document.addEventListener('click', (e) => {
+  if (e.target.closest?.('[data-openassistant]')) { openAssistant(); return; }
   if (e.target.closest?.('[data-openwatch]')) { openWatch(); return; }
   const cal = e.target.closest?.('.ov-cal');
   if (!cal || !calDown || focusOpen) return;
@@ -1592,6 +1638,9 @@ function startIdleRig(root) {
   on(document, 'fullscreenchange', paintFs);
   on(document, 'keydown', (e) => {
     if (e.target.closest?.('input, textarea, [contenteditable]')) return;
+    // A dialog over this display owns the keyboard: Escape closes it, and
+    // F is for whatever is in front, not for the screen behind it.
+    if (document.querySelector('#modal-root .modal-backdrop')) return;
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFs(); }
     // In full screen the browser spends Escape on leaving it; windowed, Escape
     // leaves the display.
@@ -1635,6 +1684,7 @@ function renderIdle() {
         <div class="idle-tools">
           ${crownHTML()}
           ${displayHTML()}
+          <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
           <button class="iconbtn" type="button" data-openwatch aria-label="Open the watch" title="Open the watch">${icon('i-watch')}</button>
           <button class="iconbtn idle-fs" type="button"></button>
           <a class="iconbtn" href="#/" aria-label="Leave the idle display" title="Leave  Esc">${icon('i-close')}</a>

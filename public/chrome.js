@@ -166,7 +166,15 @@ export function modal({ title, body, actions = [], root = '#modal-root' } = {}) 
     )].filter((el) => !el.disabled && el.offsetParent !== null);
 
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(null); return; }
+      if (e.key === 'Escape') {
+        // Stop here. The page behind a dialog has its own idea of what
+        // Escape does — the idle display leaves it, a player closes — and
+        // one key must not do two things at once.
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        close(null);
+        return;
+      }
       if (e.key !== 'Tab') return;
       const f = focusables();
       if (!f.length) return;

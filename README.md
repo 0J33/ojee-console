@@ -70,6 +70,7 @@ GET /module.json
   "version": "1.0.0",
   "views": [ { "id": "overview", "label": "Overview", "icon": "i-grid" } ],
   "ui": "/ui/index.js",
+  "assistant": "/ui/assistant.js",
   "health": "/api/health",
   "capabilities": ["sse"]
 }
@@ -81,6 +82,12 @@ GET /module.json
 | `GET /ui/index.js` | ES module, default-exports `{ mount(el, ctx), setView?, unmount() }` |
 | `GET /api/health` | `{ ok: true }`, or `{ ok: false, reason }` to report itself degraded |
 | `/api/*` | everything else; the caller is already authenticated |
+
+`assistant` is optional and behaves like `ui`: a root-relative path to an ES module the shell can
+import **without** mounting the module first. The console's overview and idle screen use it to open
+a module's dialog straight from an icon. Anything else the manifest declares stays inside the
+module — the shell passes through a fixed list of fields (`id`, `name`, `version`, `status`,
+`views`, `ui`, `assistant`, `focus`, `capabilities`, `icon`).
 
 **`examples/demo-module/`** is the reference implementation — ~150 lines, no dependencies, and it
 exercises every part of the contract including SSE. It is also what the test suite mounts, so the

@@ -99,6 +99,14 @@ export class ModuleRegistry {
       icon: /^i-[a-z0-9-]+$/.test(m.manifest?.icon || '') ? m.manifest.icon : null,
       views: m.manifest?.views || [],
       ui: m.manifest?.ui || null,
+      // A second entry point, for a screen the console can open on its own —
+      // the overview's assistant icon imports this without mounting the module
+      // first, the same way `ui` is handled: a root-relative path, nothing
+      // that could walk out of the module's own root.
+      assistant: (() => {
+        const a = m.manifest?.assistant;
+        return typeof a === 'string' && /^\/[A-Za-z0-9_\-/.]+$/.test(a) && !a.includes('..') ? a : null;
+      })(),
       // A module may open its object up in place on the overview and mount
       // a small UI over it. Paths only, relative to the module.
       focus: (() => {
@@ -229,6 +237,9 @@ function validateManifest(m, expectedId) {
     if (!v?.id || !v?.label) return `a view is missing id or label: ${JSON.stringify(v)}`;
   }
   if (m.ui && !String(m.ui).startsWith('/')) return `ui path must be root-relative, got "${m.ui}"`;
+  if (m.assistant && !String(m.assistant).startsWith('/')) {
+    return `assistant path must be root-relative, got "${m.assistant}"`;
+  }
   return null;
 }
 

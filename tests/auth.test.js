@@ -704,5 +704,33 @@ describe('module registry', () => {
     assert.match(validateManifest(manifest({ views: [] }), 'home'), /no views/);
     assert.match(validateManifest(manifest({ views: [{ id: 'a' }] }), 'home'), /missing id or label/);
     assert.match(validateManifest(manifest({ ui: 'ui/index.js' }), 'home'), /root-relative/);
+    assert.match(validateManifest(manifest({ assistant: 'ui/x.js' }), 'home'), /assistant path must be root-relative/);
+  });
+
+  // The overview's assistant icon opens a dialog by importing this path
+  // directly, so a manifest that does not declare it silently disables the
+  // button — the icon renders, the click does nothing, and nothing is logged.
+  test('a second entry point passes through to the browser', async () => {
+    const reg = new ModuleRegistry({
+      configured: [{ id: 'agent', origin: 'http://agent:8080' }],
+      fetchImpl: fakeFetch({
+        '/module.json': manifest({ id: 'agent', assistant: '/ui/assistant.js' }),
+        '/api/health': { ok: true },
+      }),
+    });
+    await reg.refreshAll();
+    assert.equal(reg.publicList()[0].assistant, '/ui/assistant.js');
+  });
+
+  test('an entry point that could walk out of the module is dropped', async () => {
+    const reg = new ModuleRegistry({
+      configured: [{ id: 'agent', origin: 'http://agent:8080' }],
+      fetchImpl: fakeFetch({
+        '/module.json': manifest({ id: 'agent', assistant: 'http://evil.test/x.js' }),
+        '/api/health': { ok: true },
+      }),
+    });
+    await reg.refreshAll();
+    assert.equal(reg.publicList()[0].assistant, null);
   });
 });
