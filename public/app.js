@@ -484,6 +484,9 @@ function paletteItems() {
                  href: `#/${m.id}/${v.id}`, icon: v.icon || 'i-grid', down });
     }
   }
+  if (assistantModule()) {
+    out.push({ group: 'Console', label: 'Ask the Assistant', hint: 'quick chat · A', action: openAssistant, icon: 'i-assistant' });
+  }
   out.push({ group: 'Console', label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
   out.push({ group: 'Console', label: 'Idle display', hint: 'full-screen clock',
              href: '#/idle', icon: 'i-monitor' });
@@ -600,7 +603,8 @@ function openPalette() {
     const item = shown[sel];
     if (!item) return;
     close();
-    location.hash = item.href;
+    if (item.action) item.action();
+    else location.hash = item.href;
   };
 
   const onKey = (e) => {
@@ -1388,47 +1392,143 @@ async function openWatch() {
 
 /* ── the Assistant ─────────────────────────────────────────────────────
    The agent module advertises an `assistant` entry point, and this opens it
-   in a dialog WITHOUT mounting the module first. That matters: the button
+   as a quick chat WITHOUT mounting the module first. That matters: the button
    lives on the overview and the idle display, neither of which is a module
    page, and making the user navigate to Agent → Assistant to ask one
-   question is the whole problem this button exists to avoid. */
+   question is the whole problem this button exists to avoid.
+
+   It is not a generic modal. The frame is created once and then hidden and
+   shown, never torn down: a reply keeps streaming while it is closed, and
+   opening it again is instant and lands on the same conversation. The
+   module draws everything inside it, including its own close button; the
+   shell owns the backdrop, Escape, focus, and the phone keyboard. */
+let qc = null;          // { wrap, panel, handle, opener, open }
+let qcLoading = false;
+
+function assistantModule() {
+  return state.modules.find((x) => x.enabled && x.status === 'ready' && x.assistant) || null;
+}
+
 async function openAssistant() {
-  const m = state.modules.find((x) => x.enabled && x.status === 'ready' && x.assistant);
+  if (qc?.open) { qc.handle?.focus?.(); return; }
+  if (qc) { showAssistant(); return; }
+  if (qcLoading) return;
+  const m = assistantModule();
   if (!m) {
     toast('warn', 'No Assistant',
       'The agent module is not available, so there is nothing to talk to.');
     return;
   }
+  qcLoading = true;
   const v = m.version ? `?v=${encodeURIComponent(m.version)}` : '';
   let mod;
   try {
     mod = await import(`/${m.id}${m.assistant}${v}`);
   } catch (e) {
+    qcLoading = false;
     console.error('[assistant] load failed', e);
     toast('err', 'That did not work', 'The Assistant could not be loaded.');
     return;
   }
-  const body = document.createElement('div');
-  let stop = null;
+  const wrap = document.createElement('div');
+  wrap.className = 'qc-backdrop';
+  wrap.hidden = true;
+  wrap.innerHTML = '<div class="qc" role="dialog" aria-modal="true" aria-label="Assistant"></div>';
+  document.body.append(wrap);
+  const panel = wrap.querySelector('.qc');
+  qc = { wrap, panel, handle: null, opener: null, open: false };
   try {
-    // Mounted before the dialog is shown, so it is already drawn when it
-    // appears — a modal that opens onto a spinner is a modal nobody trusts.
-    stop = await mod.mountAssistantModal(body, {
+    qc.handle = await mod.mountAssistantModal(panel, {
       base: `/${m.id}`,
       api: makeApi(`/${m.id}`, { onUnauthorized: () => location.reload() }),
       icon, esc, toast, modal, relTime,
+      close: () => hideAssistant(),
     });
   } catch (e) {
     console.error('[assistant] mount failed', e);
+    wrap.remove();
+    qc = null;
+    qcLoading = false;
     toast('err', 'That did not work', 'The Assistant could not be opened.');
     return;
   }
-  try {
-    await modal({ title: 'Assistant', body, actions: [{ label: 'Close', value: true }] });
-  } finally {
-    stop?.();
-  }
+  qcLoading = false;
+  // A press on the backdrop closes; a drag that started inside does not.
+  let downIn = false;
+  wrap.addEventListener('pointerdown', (e) => { downIn = e.target !== wrap; });
+  wrap.addEventListener('click', (e) => { if (e.target === wrap && !downIn) hideAssistant(); });
+  showAssistant();
 }
+
+function showAssistant() {
+  if (!qc) return;
+  qc.opener = document.activeElement;
+  qc.open = true;
+  qc.wrap.hidden = false;
+  document.documentElement.classList.add('qc-open');
+  fitAssistant();
+  requestAnimationFrame(() => qc?.wrap.classList.add('is-in'));
+  qc.handle?.show?.();
+}
+
+function hideAssistant() {
+  if (!qc?.open) return;
+  qc.open = false;
+  qc.wrap.classList.remove('is-in');
+  qc.wrap.hidden = true;
+  document.documentElement.classList.remove('qc-open');
+  qc.handle?.hide?.();
+  if (qc.opener?.isConnected) qc.opener.focus?.({ preventScroll: true });
+}
+
+/* A phone keyboard covers the page instead of shrinking it: the sheet is
+   sized to the visual viewport so the box stays above the keys. */
+function fitAssistant() {
+  if (!qc?.open) return;
+  const vv = window.visualViewport;
+  const h = vv ? vv.height : innerHeight;
+  qc.wrap.style.setProperty('--qc-vvh', `${Math.round(h)}px`);
+  qc.wrap.style.setProperty('--qc-vvtop', `${Math.round(vv ? vv.offsetTop : 0)}px`);
+}
+window.visualViewport?.addEventListener('resize', fitAssistant);
+window.visualViewport?.addEventListener('scroll', fitAssistant);
+window.addEventListener('resize', fitAssistant);
+
+// Escape closes before anything else hears it — the idle display spends
+// Escape on leaving, and closing the chat must not also leave the display.
+// The model menu inside it listens on the window, earlier still, so its
+// Escape closes only the menu.
+document.addEventListener('keydown', (e) => {
+  if (!qc?.open) return;
+  if (e.key === 'Escape') {
+    if (document.querySelector('#modal-root .modal-backdrop')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    hideAssistant();
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const f = [...qc.panel.querySelectorAll('button:not(:disabled), [href], input:not([type=hidden]), textarea, select, [tabindex]:not([tabindex="-1"])')]
+    .filter((x) => x.offsetParent !== null);
+  if (!f.length) return;
+  const i = f.indexOf(document.activeElement);
+  if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+  else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+}, true);
+
+// `a` opens it from the overview and the idle display — the two screens that
+// carry its button — when nothing is being typed into and nothing is open.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'a' && e.key !== 'A') return;
+  if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat) return;
+  const t = document.activeElement;
+  if (t?.closest?.('input, textarea, select, [contenteditable]') || paletteOpen || qc?.open || focusOpen) return;
+  if (document.querySelector('#modal-root .modal-backdrop')) return;
+  if (state.active.module !== null && state.active.module !== 'idle') return;
+  if (!assistantModule()) return;
+  e.preventDefault();
+  openAssistant();
+});
 
 /* A click on the watch — not the end of a turn — opens it. */
 let calDown = null;
@@ -1640,7 +1740,7 @@ function startIdleRig(root) {
     if (e.target.closest?.('input, textarea, [contenteditable]')) return;
     // A dialog over this display owns the keyboard: Escape closes it, and
     // F is for whatever is in front, not for the screen behind it.
-    if (document.querySelector('#modal-root .modal-backdrop')) return;
+    if (document.querySelector('#modal-root .modal-backdrop') || qc?.open) return;
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFs(); }
     // In full screen the browser spends Escape on leaving it; windowed, Escape
     // leaves the display.
@@ -1902,7 +2002,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'l' && e.key !== 'L') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = document.activeElement;
-  if (t?.closest?.('input, textarea, [contenteditable]') || paletteOpen) return;
+  if (t?.closest?.('input, textarea, [contenteditable]') || paletteOpen || qc?.open) return;
   e.preventDefault();
   toggleCrown();
 });

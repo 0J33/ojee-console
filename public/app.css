@@ -1540,3 +1540,43 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   .mfocus > .mfocus-ui > .wv-host { transition: none; }
   .wv-timer.is-done .wv-timer-left { animation: none; }
 }
+
+/* ── the Assistant's quick chat ────────────────────────────────────────
+   The shell's frame for the agent module's quick chat (assistant-quick.js
+   draws everything inside .qc). It opens near the top like a command bar —
+   the box is what you came for — and grows into a conversation once there
+   is one. On a phone it is a sheet sized to what the keyboard leaves. */
+.qc-backdrop {
+  position: fixed; left: 0; right: 0;
+  top: var(--qc-vvtop, 0); height: var(--qc-vvh, 100dvh);
+  z-index: calc(var(--z-modal) - 5);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: max(24px, 9vh) 16px 24px;
+  background: rgba(0, 0, 0, 0.0);
+  backdrop-filter: blur(0);
+  transition: background 0.22s ease-out, backdrop-filter 0.22s ease-out;
+}
+.qc-backdrop[hidden] { display: none; }
+.qc-backdrop.is-in { background: var(--scrim); backdrop-filter: blur(4px); }
+.qc {
+  width: min(780px, 100%);
+  max-height: 100%;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--accent-03);
+  opacity: 0; transform: translateY(-8px) scale(0.985);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), height 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qc-backdrop.is-in .qc { opacity: 1; transform: none; }
+.qc:has(.ag-qc.is-convo) { height: min(820px, 100%); }
+html.qc-open { overflow: hidden; }
+
+@media (max-width: 560px) {
+  .qc-backdrop { align-items: flex-end; padding: 0; }
+  .qc { width: 100%; max-height: calc(100% - 28px); border-width: 1px 0 0; transform: translateY(24px); }
+  .qc:has(.ag-qc.is-convo) { height: calc(100% - 28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qc, .qc-backdrop { transition: none; }
+}
