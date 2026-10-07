@@ -18,7 +18,13 @@
    the console — see-through line art over an occluder, steel and rhodium —
    and only the lamps carry colour. No marks on it.
 
-   Mapped from what the router module reports in `summary.model`:
+   Preferred: the module's `lights` (summary.model.lights) — three
+   self-describing lamps, top to bottom, each {id, label, state, detail}
+   with state ok|warn|err|off. The owner repurposed them: Internet, Signal
+   (the radio carrying traffic), Data (this month against the plan). They
+   take the real LEDs' own colours — blue ok, yellow warn, red err, dark off.
+
+   Fallback, for a module that predates `lights`, from `summary.model`:
    `bars` (0..5, the lead radio), `connected`, and `carriers` with their
    generation. The module reports one signal strength, not one per radio,
    so both signal lamps read the same bars; a lamp is lit only when a
@@ -181,6 +187,12 @@ export function build(opts = {}) {
     const reachable = st.status !== 'off' && o.connected !== undefined;
     outline.material.color.setHex(st.status === 'ok' || st.status === 'off' ? BODY_LINE : STATUS_HEX[st.status]);
 
+    const lights = Array.isArray(o.lights) ? o.lights.slice(0, 3) : null;
+    if (lights && lights.length === 3) {
+      const colour = { ok: LED.blue, warn: LED.yellow, err: LED.red };
+      lights.forEach((l, i) => setLamp(lamps[i], reachable ? (colour[l && l.state] ?? null) : null));
+      return;
+    }
     const strength = st.bars >= 4 ? LED.blue : st.bars === 3 ? LED.yellow : LED.red;
     setLamp(lamps[0], reachable && st.connected && st.nr ? strength : null);
     setLamp(lamps[1], reachable && st.connected && st.lte ? strength : null);
