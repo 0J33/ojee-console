@@ -179,11 +179,8 @@ export function build(opts = {}) {
     const top = segs(rectPts(0, CAP_H + 0.001, 0, m.w, CAP), KEY_LIGHT, 0.35);
     g.add(top);
     // The magnet under the switch: a ring on the plate that brightens as the key goes down.
-    const field = ring(CAP * 0.36, KEY_LIGHT, 0, 'y', 32);
-    field.position.y = 0.004;
-    g.add(field);
     kb.add(g);
-    return { g, top, field, phase: [0, 0.18, 0.36, 0.54][k] };
+    return { g, top, phase: [0, 0.18, 0.36, 0.54][k] };
   });
 
   /* ---- the mouse ---- */
@@ -256,7 +253,7 @@ export function build(opts = {}) {
   /* The DPI lamp, behind the wheel: the colour of the stage the mouse is on,
      exactly as the module reads it off the mouse. It was a 0.022 pip and in
      the overview's row it was a single pixel; it is a lit bead with a halo
-     now, and the wheel's slot carries the same light. */
+     now. One lamp: the wheel's slot is structure, not a second light. */
   const lampAt = shellPoint(0.25, 0);
   const lamp = node(0.036, C.beat, 0.95);
   lamp.position.set(lampAt.x, lampAt.y + 0.014, lampAt.z);
@@ -304,12 +301,10 @@ export function build(opts = {}) {
     const slow = env && env.reduced ? 0 : 1;
     // WASD: down and back up, each a beat after the last.
     for (const k of p.wasd) {
-      if (!p.kbOnline) { k.g.position.y = KB_H; k.field.material.opacity = 0; continue; }
+      if (!p.kbOnline) { k.g.position.y = KB_H; continue; }
       const s = (Math.sin((t * 1.6 + k.phase * 6) * slow) + 1) / 2;
       const press = Math.max(0, s - 0.35) / 0.65;          // rests up most of the time
       k.g.position.y = KB_H - press * CAP_H * 0.55;
-      k.field.material.opacity = 0.15 + press * 0.7;
-      k.top.material.opacity = 0.75 + press * 0.25;
     }
     // The charge ring breathes while it charges.
     if (p.battery != null) {
@@ -336,7 +331,12 @@ export function build(opts = {}) {
     P.caps.material.color.setHex(lit ? KEY_LIGHT : C.steel);
     P.caps.material.opacity = lit ? 0.8 : P.kbOnline ? 0.55 : 0.22;
     P.wash.material.opacity = lit ? 0.07 : 0;
-    for (const w of P.wasd) w.top.material.color.setHex(lit ? KEY_LIGHT : C.steel);
+    // WASD lights exactly like every other key — the board's one backlight,
+    // no light of its own; only its movement sets it apart.
+    for (const w of P.wasd) {
+      w.top.material.color.setHex(lit ? KEY_LIGHT : C.steel);
+      w.top.material.opacity = P.caps.material.opacity;
+    }
 
     P.mouseOnline = !!m.online;
     P.wired = m.link === 'wired';
@@ -349,9 +349,6 @@ export function build(opts = {}) {
     if (dpiOk) {
       P.lamp.material.color.set(m.dpiColor);
       P.lampHalo.material.color.set(m.dpiColor);
-      P.slot.material.color.set(m.dpiColor);
-    } else {
-      P.slot.material.color.setHex(C.steel);
     }
     P.cable.material.opacity = P.mouseOnline && P.wired ? 0.6 : 0;
 
