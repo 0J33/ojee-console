@@ -55,10 +55,10 @@ import { pref } from '/prefs.js';
    by, which the console shows as they are (DESIGN.md, real-object colour):
    the lume, and the day wheel's weekend.
 
-   Lume: Seiko LumiBrite on the hands and in every baton, which glows GREEN
-   (its daytime fill is off-white; in the dark, where this console's black
-   lives, it is the green you see). */
-const LUME = 0x7cff6b;
+   Lume: the hands and every baton, in the blue-cyan the owner's SNXS79
+   actually glows — not LumiBrite's catalogue green. Set by the owner; do not
+   "correct" it to green from spec sheets. */
+const LUME = 0x5fe6ec;
 
 /* The day-date wheels. On the SNXS79 they are WHITE discs printed black,
    with Saturday in blue and Sunday in red — in both languages of the

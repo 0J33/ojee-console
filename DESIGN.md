@@ -258,7 +258,7 @@ is not subject to the rule above.
 
 **The Real Object Rule.** A 3D object that depicts a real thing the user owns wears
 that thing's real colours, shown as they are: they are content, not decoration. The
-watch (Seiko SNXS79) has green LumiBrite lume and a white day-date wheel printed
+watch (Seiko SNXS79) has blue-cyan lume (#5fe6ec, as the owner's glows) and a white day-date wheel printed
 black with SAT in blue and SUN in red; the music player is the black Snowsky Echo
 Mini with its red power key; the router is the white Huawei 5G CPE 5s whose three
 lamps (5G, 4G, STATUS) light blue/yellow/red exactly as the real ones do; the R86 HE
