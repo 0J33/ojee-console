@@ -41,10 +41,10 @@ const KB_X = -0.62;             // where the board sits on the desk
 const U = (KB_W - 0.14) / 16;   // one key unit
 const CAP = U * 0.84;           // a cap is a little less than its unit
 const CAP_H = 0.07;
-/* The backlight. A real-object colour, not a decoration: the user's R86 HE
-   has every key lit #00ffff. (The module reports a `lightColor` too, but on
-   this board it reads a stored preset — #3296ff — rather than what is lit,
-   so the board's actual colour is fixed here.) */
+/* The backlight. A real-object colour, not a decoration: the R86 HE's keys
+   LOOK cyan, so the model is cyan. The board itself is set to #3296ff (its
+   `lightColor`) on purpose — true cyan on its LEDs reads green — so do not
+   wire the model to the reported colour: what is drawn is what the eye sees. */
 const KEY_LIGHT = 0x00ffff;
 // WASD: row, index-in-row — the four that move.
 const WASD = [[2, 2], [3, 1], [3, 2], [3, 3]];
