@@ -33,6 +33,7 @@ const MODULES = {
   agent: () => import('./models/agent.js'),
   peripherals: () => import('./models/peripherals.js'),
   music: () => import('./models/music.js'),
+  health: () => import('./models/health.js'),
 };
 
 /** Whether there is an object for this id at all. A module the console was

@@ -299,6 +299,7 @@ const MODULE_ICONS = {
   router: 'i-router',
   peripherals: 'i-mouse',
   music: 'i-music',
+  health: 'i-heart',
   remote: 'i-monitor',
   agent: 'i-cpu',
   loq: 'i-gauge',
