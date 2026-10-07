@@ -110,7 +110,7 @@ function navEntries() {
   const out = [{ moduleId: 'watch', viewId: null, label: 'Watch', icon: 'i-watch', module: WATCH_ENTRY }];
   for (const m of state.modules) {
     if (!m.enabled) continue;
-    if (m.status === 'ready' && m.views.length) {
+    if (usable(m) && m.views.length) {
       for (const v of m.views) {
         out.push({ moduleId: m.id, viewId: v.id, label: v.label, icon: v.icon || 'i-grid', module: m });
       }
@@ -187,10 +187,22 @@ function renderNav() {
 let moduleSheetOpen = false;
 let moduleSheetEl = null;
 
+/* Where a module's link goes: ALWAYS its own page. A module that is down
+   used to link to #/settings, so a click on a row that had just turned
+   degraded between two polls landed on Settings — "sometimes", because it
+   depended on the status at the moment the row was drawn. A degraded module
+   still serves its UI (only its health check failed) and mounts as usual,
+   showing its own state; one that cannot be reached gets its own page with
+   the reason and a retry. */
+const usable = (m) => m.status === 'ready' || (m.status === 'degraded' && !!m.ui);
+function moduleHref(m) {
+  const views = usable(m) ? (m.views || []) : [];
+  return `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}`;
+}
+
 function moduleRow(m) {
   const ready = m.status === 'ready';
-  const views = ready ? (m.views || []) : [];
-  const href = ready ? `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}` : '#/settings';
+  const href = moduleHref(m);
   const sum = state.summaries.get(m.id);
   const dot = ready
     ? (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok')
@@ -312,9 +324,8 @@ function renderSidenav() {
     </a>
     ${mods.map((m) => {
       const active = state.active.module === m.id;
-      const views = m.status === 'ready' ? (m.views || []) : [];
-      const first = views[0]?.id;
-      const href = `#/${esc(m.id)}${first ? `/${esc(first)}` : ''}`;
+      const views = usable(m) ? (m.views || []) : [];
+      const href = moduleHref(m);
       const sum = state.summaries.get(m.id);
       const dot = m.status === 'ready'
         ? (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok')
@@ -322,7 +333,7 @@ function renderSidenav() {
       return `
       <div class="sn-group${active ? ' is-open' : ''}">
         <a class="sn-item${active ? ' is-on' : ''}${m.status === 'ready' ? '' : ' is-down'}"
-           href="${m.status === 'ready' ? href : '#/settings'}"
+           href="${href}"
            ${m.status === 'ready' ? '' : `title="${esc(m.reason || 'unavailable')}"`}>
           ${icon(moduleIcon(m), 'ic')}
           <span>${esc(m.name)}</span>
@@ -366,7 +377,7 @@ function renderUnavailable(m) {
 }
 
 async function mountModule(m, viewId) {
-  if (m.status !== 'ready') {
+  if (!usable(m)) {
     await host.unmount();
     return renderUnavailable(m);
   }
@@ -701,13 +712,44 @@ function teardownHome() {
    and what it is playing is read under the time. One click on either opens
    it. Everything else stays in the column, which is what gives the column
    back its room. */
-const isCompanion = (m) => !!(m?.focus && movement.has(m.id));
+/* By id as well as by `focus`: a player that is down has no manifest to
+   say it opens in place, and it still belongs beside the watch — dark, with
+   its alert above the clock — not back in the list. */
+const COMPANION_IDS = new Set(['music']);
+const isCompanion = (m) => !!((m?.focus || COMPANION_IDS.has(m?.id)) && movement.has(m.id));
 /* The watch as a nav entry: it is the console's own, not a module. */
 const WATCH_ENTRY = { id: 'watch', name: 'Watch', status: 'ready', enabled: true, views: [], icon: 'i-watch' };
 
 function splitCompanions(mods) {
   const companions = mods.filter(isCompanion).slice(0, 1);
   return { companions, ring: mods.filter((m) => !companions.includes(m)) };
+}
+
+/* The companion's own box beside the watch: the object, nothing printed
+   round it. A click opens it in place, exactly as the row's object did. */
+function companionHTML(m) {
+  if (!m) return '';
+  const sum = state.summaries.get(m.id);
+  const st = m.status !== 'ready' ? 'down' : (sum?.status || 'ok');
+  const label = m.status === 'ready' ? `Open the ${m.name.toLowerCase()} player` : `${m.name} is unavailable`;
+  return `<a class="ov-player" href="#/${esc(m.id)}" data-dial="${esc(m.id)}" data-focus="${esc(m.id)}"
+            data-state="${esc(st)}" aria-label="${esc(label)}" title="${esc(label)}"></a>`;
+}
+
+/* Put the companion in its box, once: rewriting the box on every repaint
+   would rebind the object to a fresh element each poll. */
+function paintCompanion(slot, m) {
+  const el = $(slot);
+  if (!el) return;
+  const html = companionHTML(m);
+  const cur = el.firstElementChild;
+  if (m && cur && cur.dataset.dial === m.id) {
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const next = tmp.firstElementChild;
+    for (const a of ['data-state', 'aria-label', 'title']) cur.setAttribute(a, next.getAttribute(a));
+    return;
+  }
+  el.innerHTML = html;
 }
 
 const npClock = (ms) => {
@@ -774,8 +816,7 @@ function paintNowPlaying() {
 function complication(m, i, factCount = 2) {
   const sum = state.summaries.get(m.id);
   const ready = m.status === 'ready';
-  const views = m.views || [];
-  const href = ready ? `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}` : '#/settings';
+  const href = moduleHref(m);
   const facts = (sum?.facts || []).slice(0, factCount).map((f) => `
     <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
   const st = !ready ? 'down' : (sum?.status || 'ok');
@@ -926,7 +967,10 @@ function renderLauncher() {
             </div>
           </div>
           <div class="ov-ring" id="ov-ring"></div>
-          <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+          <div class="ov-objs">
+            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+            <div class="ov-pslot" id="ov-pslot"></div>
+          </div>
         </div>
         <footer class="ov-foot">
           <span class="meta ov-keys">
@@ -939,10 +983,12 @@ function renderLauncher() {
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
     fitBase = 0;
   }
-  // One list: every module is a row. The player (music) used to sit beside
-  // the watch as a "companion"; it is a row like the rest now, and its
-  // in-place player still opens from its object.
-  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 2)).join('');
+  // The player (music) sits with the watch in the top section, the way a
+  // player sits beside a watch on a desk; every other module is a row. Like
+  // the watch, it is not in the list.
+  const { companions, ring } = splitCompanions(mods);
+  $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 2)).join('');
+  paintCompanion('#ov-pslot', companions[0]);
   paintNowPlaying();
   $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
   $('#ov-rate').innerHTML = rateHTML();
@@ -1126,9 +1172,11 @@ function bindModels(screen, ids) {
     // the module is about. On the plate it is one of five in a column, so it
     // keeps the register's fill.
     const fill = screen.startsWith('mod:') ? 0.85 : 0.78;
-    // The watch's companion shares the watch's row at the watch's size, so
-    // it fills its box the way the watch fills its own.
-    const fillFor = (id) => (!screen.startsWith('mod:') && isCompanion(state.modules.find((x) => x.id === id)) ? 0.96 : fill);
+    // The watch's companion has a landscape box of its own beside the watch
+    // (CSS keeps it at 10:7). The stage fits a model to the box's SHORT side,
+    // and the player is wider than it is tall, so it is scaled past 1 to fill
+    // the box's width rather than its height.
+    const fillFor = (id) => (!screen.startsWith('mod:') && isCompanion(state.modules.find((x) => x.id === id)) ? 1.55 : fill);
     const binds = ids.map((id) => st.bind(id, `[data-dial="${id}"]`, { fill: fillFor(id) }));
     // Once now, for anything already in the scene, and once more when the
     // models that were still loading have landed. The stage holds state for
@@ -1754,7 +1802,10 @@ function renderIdle() {
           <div class="idle-clock" id="idle-clock"></div>
           <div class="np-slot" id="idle-np"></div>
           <div class="ov-ring" id="idle-ring"></div>
-          <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
+          <div class="ov-objs idle-objs">
+            <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
+            <div class="ov-pslot" id="idle-pslot"></div>
+          </div>
         </div>
         <div class="idle-tools">
           ${crownHTML()}
@@ -1769,7 +1820,9 @@ function renderIdle() {
     fitBase = 0;
     idleRig = startIdleRig($('#view > .idle'));
   }
-  $('#idle-ring').innerHTML = mods.map((m, i) => complication(m, i, 1)).join('');
+  const { companions, ring } = splitCompanions(mods);
+  $('#idle-ring').innerHTML = ring.map((m, i) => complication(m, i, 1)).join('');
+  paintCompanion('#idle-pslot', companions[0]);
   paintNowPlaying();
   $('#idle-barrel').innerHTML = barrelAlertHTML(alerts);
   fitView();

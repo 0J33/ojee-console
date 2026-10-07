@@ -1,359 +1,199 @@
 /* ============================================================
-   movement/models/router — the thing with the antennas.
+   movement/models/router — the Huawei 5G CPE 5s (H153-381).
 
-   A gaming router: a low angular chassis on a desk with six blade
-   antennas splayed off its shoulders, a light bar across the nose, and
-   signal washing out across the desk in rings.
+   The router on the desk is not a gaming router with antennas: it is a
+   white square-section tower, 90 x 90 x 183 mm, rounded on its four
+   vertical edges, flat on top, standing on a vented base. Its antennas are
+   inside it. What it says about itself it says with three lamps in a
+   column on its front face, low down, labelled 5G, 4G and STATUS — and
+   that is exactly what this object says too, in the lamps' own colours
+   (Huawei quick start guide):
 
-   Everything the module reports is on the object. The bar across the
-   nose carries the signal bars. Each aggregated carrier pushes its own
-   train of rings out across the desk — cyan for NR, steel for LTE — so
-   three carriers is visibly three. The antennas light from the outside
-   in as the signal comes up, and the clients stand around the desk on a
-   line each; the line only exists while there is something to carry it.
+     5G       steady blue strong · yellow moderate · red weak signal
+     4G       the same, for the LTE side
+     STATUS   steady blue connected · red not connected
 
-   Dropped, the rings stop where they are and everything but the chassis
-   goes out. A router with no signal is a box with sticks on it.
+   A lamp whose radio carries nothing (no NR carrier aggregated, say) is
+   dark, as on the real one. The body is white because the real one is:
+   real-object colour, shown as it is (DESIGN.md). No marks on it.
+
+   Mapped from what the router module reports in `summary.model`:
+   `bars` (0..5, the lead radio), `connected`, and `carriers` with their
+   generation. The module reports one signal strength, not one per radio,
+   so both signal lamps read the same bars; a lamp is lit only when a
+   carrier of its generation is aggregated.
    ============================================================ */
 
 import {
-  THREE, C, STATUS_HEX, V, poly, segs, node, occluder, ring, mk,
+  THREE, C, STATUS_HEX, V, poly, segs, node, ring, edges, mk,
 } from '../kit.js';
 
-const SX = 1.10;          // chassis scale — wider than it is deep, like the real ones
-const SZ = 0.92;
-const Y0 = -0.92;         // the desk
-const DECK = 0.24;        // lower deck height
-const RIDGE = 0.42;       // the raised spine on top of it
-const BARS = 5;
-const ANT = 6;            // antennas
-const AL = 1.25;          // antenna length
-const AW = 0.10;          // blade half-width
-const MAX_CLIENTS = 6;
-const MAX_CARRIERS = 3;
-const RINGS = 3;          // rings in flight per carrier
-const TINT = { '5G': C.beat, '4G': C.steel };
-const SPEED = { '5G': 0.42, '4G': 0.28 };
-const SPREAD = { '5G': 3.6, '4G': 2.7 };
+const W = 1.5;                  // 90 mm across, both ways
+const H = W * (183 / 90);       // 183 mm tall
+const R = 0.2;                  // the vertical edges' radius
+const Y0 = -H / 2;              // its foot
+const ZF = W / 2;               // the front face
 
-/* The chassis outline, nose at +z. Angular on purpose: the whole point
-   of one of these is that it does not look like a box. */
-const PLAN = [
-  [0.00, 1.12], [0.62, 0.66], [0.92, -0.10], [0.66, -0.92],
-  [-0.66, -0.92], [-0.92, -0.10], [-0.62, 0.66],
-];
-/* Which outline corners carry an antenna, and how far each one leans out.
-   The pair on the flanks lean least: they are the two that cost the most
-   width on screen, and the object is wide enough already. */
-const MOUNTS = [[1, 0.48], [2, 0.34], [3, 0.56], [4, 0.56], [5, 0.34], [6, 0.48]];
+const BODY = 0xdedcd6;          // white plastic, a shade under paper-white on black
+const BODY_LINE = 0x8c8c88;     // its edges
+const LED = { blue: 0x1e7bff, yellow: 0xffc21a, red: 0xff2a2a };
 
-const keep = (o) => { o.userData.o0 = o.material.opacity; return o; };
+function rrShape(w, d, r) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2 + r, -d / 2);
+  s.lineTo(w / 2 - r, -d / 2);
+  s.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
+  s.lineTo(w / 2, d / 2 - r);
+  s.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2);
+  s.lineTo(-w / 2 + r, d / 2);
+  s.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r);
+  s.lineTo(-w / 2, -d / 2 + r);
+  s.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+  return s;
+}
 
-const loop = (k, y) => PLAN.map(([x, z]) => V(x * SX * k, y, z * SZ * k));
-
-/* A solid between two outlines — sides and both caps. The occluder wants
-   faces, not a wireframe, or the antennas behind the chassis show through
-   it and the object stops reading as one thing. */
-function loft(a, b) {
-  const pos = [];
-  const tri = (p, q, r) => pos.push(p.x, p.y, p.z, q.x, q.y, q.z, r.x, r.y, r.z);
-  for (let i = 0; i < a.length; i += 1) {
-    const j = (i + 1) % a.length;
-    tri(a[i], a[j], b[j]); tri(a[i], b[j], b[i]);
-  }
-  for (let i = 1; i < a.length - 1; i += 1) {
-    tri(b[0], b[i], b[i + 1]); tri(a[0], a[i + 1], a[i]);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.computeVertexNormals();
-  return g;
+/** The plan outline at height y, as points (the same rounded square). */
+function plan(y, inset = 0) {
+  const pts = rrShape(W - inset * 2, W - inset * 2, Math.max(0.02, R - inset)).getPoints(6);
+  return pts.map((p) => V(p.x, y, -p.y));
 }
 
 export function build(opts = {}) {
-  const [group, sp] = mk(0, -0.22);
-  /* A lean, not a revolution: the front of this is the side worth
-     looking at, and turning it all the way round spent half the time
-     showing its back. */
-  group.userData.sway = [0.055, 0.34, 0.022];
-  group.userData.swayPeriod = 9.5;
+  // Seen a little from above, a little from its left: front face and one
+  // flank, the way it stands on a shelf.
+  const [group, sp] = mk(0, 0.16);
+  group.userData.sway = [0.05, 0.42, 0.02];
+  group.userData.swayPeriod = 10;
   group.userData.swayPhase = 1.7;
   group.userData.hitR = 2.0;
   const parts = group.userData.parts;
 
-  const yDeck = Y0 + DECK;
-  const yTop = yDeck + RIDGE;
-
-  /* ---- the desk it stands on ---- */
-  const desk = keep(ring(1.78, C.rhodium, 0.22, 'y'));
-  desk.position.y = Y0;
+  /* ---- the desk ---- */
+  const desk = ring(1.25, C.rhodium, 0.18, 'y');
+  desk.position.y = Y0 - 0.06;
   sp.add(desk);
-  const desk2 = keep(ring(1.3, C.rhodium, 0.1, 'y'));
-  desk2.position.y = Y0;
-  sp.add(desk2);
 
-  /* ---- the chassis ----
-     Two tiers: a wide deck the antennas bolt to, and a narrower spine on
-     top of it with the vents in it. */
-  const base = loop(1.0, Y0);
-  const mid = loop(0.98, yDeck);
-  const crown = loop(0.5, yTop);
+  /* ---- the body: a rounded square extruded up ---- */
+  const bodyH = H - 0.12;                       // the base below is darker
+  const geo = new THREE.ExtrudeGeometry(rrShape(W, W, R), { depth: bodyH, bevelEnabled: false, curveSegments: 6 });
+  geo.rotateX(-Math.PI / 2);                    // extrude along +y
+  geo.translate(0, Y0 + 0.12, 0);
+  const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: BODY }));
+  sp.add(body);
+  const outline = edges(geo.clone(), BODY_LINE, 0.9, 25);
+  sp.add(outline);
 
-  const shell = new THREE.Group();
-  shell.add(occluder(loft(base, mid)));
-  shell.add(occluder(loft(mid, crown)));
-  sp.add(shell);
-
-  const shellLines = new THREE.Group();
-  const l1 = poly(base, C.steel, 0.85, true);
-  const l2 = poly(mid, C.steel, 0.85, true);
-  const l3 = poly(crown, C.steel, 0.9, true);
-  shellLines.add(l1, l2, l3);
-  const ribs = [];
-  for (let i = 0; i < PLAN.length; i += 1) {
-    ribs.push(base[i], mid[i], mid[i], crown[i]);
+  /* A soft vertical shade on each face, so the white reads as a solid with
+     sides and not as a flat sticker: two faint lines down each flat face,
+     where the curve of the corner begins. */
+  const shade = [];
+  for (const [x, z] of [[W / 2 - R, ZF], [-W / 2 + R, ZF], [W / 2, ZF - R], [W / 2, -ZF + R], [-W / 2, ZF - R], [-W / 2, -ZF + R]]) {
+    shade.push(V(x, Y0 + 0.12, z), V(x, Y0 + 0.12 + bodyH, z));
   }
-  const l4 = segs(ribs, C.steel, 0.7);
-  shellLines.add(l4);
-  sp.add(shellLines);
-  const shellMats = [l1, l2, l3, l4].map((o) => o.material);
+  sp.add(segs(shade, 0xb4b2ac, 0.5));
 
-  // The vents down the spine — chevrons, pointing the way the chassis does.
-  const vent = [];
-  for (let i = 0; i < 4; i += 1) {
-    const z = 0.30 - i * 0.19;
-    vent.push(V(-0.22, yTop + 0.001, z - 0.09), V(0, yTop + 0.001, z),
-      V(0, yTop + 0.001, z), V(0.22, yTop + 0.001, z - 0.09));
+  /* ---- the base: a dark band, perforated ---- */
+  const baseGeo = new THREE.ExtrudeGeometry(rrShape(W - 0.06, W - 0.06, R - 0.03), { depth: 0.12, bevelEnabled: false, curveSegments: 6 });
+  baseGeo.rotateX(-Math.PI / 2);
+  baseGeo.translate(0, Y0, 0);
+  sp.add(new THREE.Mesh(baseGeo, new THREE.MeshBasicMaterial({ color: 0x2a2a2a })));
+  sp.add(edges(baseGeo.clone(), C.steel, 0.6, 25));
+  const holes = [];
+  for (let i = 0; i < 14; i += 1) {
+    const x = -W / 2 + 0.2 + i * ((W - 0.4) / 13);
+    holes.push(V(x - 0.012, Y0 + 0.06, ZF - 0.025), V(x + 0.012, Y0 + 0.06, ZF - 0.025));
   }
-  sp.add(keep(segs(vent, C.rhodium, 0.3)));
+  sp.add(segs(holes, C.steel, 0.7));
 
-  /* ---- the light bar ----
-     Across the nose, on the deck in front of the spine. This is the
-     signal, and it is the one part of the chassis allowed to be bright
-     when the rest of it is not. */
-  const strip = [];
-  for (let i = 0; i < BARS; i += 1) {
-    const bar = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.155, 0.085),
-      new THREE.MeshBasicMaterial({ color: C.steel, transparent: true, opacity: 0.12 }),
-    );
-    bar.rotation.x = -Math.PI / 2;
-    bar.position.set(-0.34 + i * 0.17, yDeck + 0.003, 0.81);
-    sp.add(bar);
-    strip.push(bar);
-  }
-  sp.add(keep(poly([
-    V(-0.44, yDeck + 0.002, 0.72), V(0.44, yDeck + 0.002, 0.72),
-    V(0.36, yDeck + 0.002, 0.9), V(-0.36, yDeck + 0.002, 0.9),
-  ], C.rhodium, 0.28, true)));
+  /* ---- the top: flat, with a faint seam round it ---- */
+  sp.add(poly(plan(Y0 + H + 0.001, 0.08), 0xa8a6a0, 0.6, true));
 
-  // The underglow. Every one of these has one and it is never subtle.
-  const glow = keep(ring(1.26, C.beat, 0, 'y'));
-  glow.position.y = Y0 + 0.012;
-  sp.add(glow);
+  /* ---- the back: the recessed port panel, low down ---- */
+  const bz = -ZF - 0.003;
+  const panel = poly([
+    V(-0.42, Y0 + 0.24, bz), V(0.42, Y0 + 0.24, bz), V(0.42, Y0 + 0.62, bz), V(-0.42, Y0 + 0.62, bz),
+  ], 0x6e6e6a, 0.8, true);
+  const portPts = [];
+  const port = (x, w, h) => {
+    const y = Y0 + 0.43;
+    portPts.push(V(x - w / 2, y - h / 2, bz), V(x + w / 2, y - h / 2, bz), V(x + w / 2, y - h / 2, bz), V(x + w / 2, y + h / 2, bz),
+      V(x + w / 2, y + h / 2, bz), V(x - w / 2, y + h / 2, bz), V(x - w / 2, y + h / 2, bz), V(x - w / 2, y - h / 2, bz));
+  };
+  port(-0.2, 0.2, 0.16);         // RJ45
+  port(0.12, 0.08, 0.08);        // WPS
+  const dc = ring(0.05, 0x6e6e6a, 0.8, 'z', 20);
+  dc.position.set(0.3, Y0 + 0.43, bz);
+  sp.add(panel, segs(portPts, 0x6e6e6a, 0.8), dc);
 
-  /* ---- the antennas ----
-     Flat blades, not rods: hinged at the shoulder, leaning further out
-     the further back they sit. */
-  const blade = new THREE.Shape();
-  blade.moveTo(-AW, 0);
-  blade.lineTo(AW, 0);
-  blade.lineTo(AW, AL - 0.09);
-  blade.lineTo(AW * 0.42, AL);
-  blade.lineTo(-AW * 0.42, AL);
-  blade.lineTo(-AW, AL - 0.09);
-  blade.closePath();
-  const bladePts = [
-    V(-AW, 0), V(AW, 0), V(AW, AL - 0.09),
-    V(AW * 0.42, AL), V(-AW * 0.42, AL), V(-AW, AL - 0.09),
-  ];
-  const bladeGeo = new THREE.ShapeGeometry(blade);
-
-  const ants = [];
-  for (let i = 0; i < ANT; i += 1) {
-    const [vi, tilt] = MOUNTS[i];
-    const [px, pz] = PLAN[vi];
-    const at = V(px * SX, yDeck - 0.01, pz * SZ);
+  /* ---- the three lamps, in a column on the front, low down ---- */
+  const lampY = [0.35, 0.28, 0.21].map((f) => Y0 + H * f);   // 5G, 4G, STATUS, top to bottom
+  const lamps = lampY.map((y) => {
     const g = new THREE.Group();
-    g.position.copy(at);
-    /* Built as a basis rather than as Euler angles. Euler order is easy to
-       get backwards, and backwards here means six antennas that lean IN,
-       which looks like a crown of skewers instead of a router. The blade
-       stands along `up`, leaning out along the radial, and its width runs
-       tangentially so the flat of it faces out. */
-    const az = Math.atan2(at.x, at.z);
-    const rad = V(Math.sin(az), 0, Math.cos(az));
-    const up = V(rad.x * Math.sin(tilt), Math.cos(tilt), rad.z * Math.sin(tilt)).normalize();
-    const side = V(Math.cos(az), 0, -Math.sin(az));
-    const face = new THREE.Vector3().crossVectors(side, up).normalize();
-    g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, up, face));
+    g.position.set(0, y, ZF + 0.004);
+    const bead = node(0.058, LED.blue, 1);
+    bead.scale.z = 0.4;
+    // The light it throws on the white round it.
+    const halo = new THREE.Mesh(
+      new THREE.CircleGeometry(0.16, 24),
+      new THREE.MeshBasicMaterial({ color: LED.blue, transparent: true, opacity: 0.25, depthWrite: false }),
+    );
+    halo.position.z = -0.002;
+    const rim = ring(0.075, 0x9a9a96, 0.7, 'z', 20);
+    g.add(halo, rim, bead);
     sp.add(g);
+    return { g, bead, halo };
+  });
+  // The printed legend beside each lamp, as a short rule — the words are not
+  // drawn (no marks on the object), but the column is still a legend.
+  const legend = lampY.flatMap((y) => [V(0.12, y, ZF + 0.003), V(0.3, y, ZF + 0.003)]);
+  sp.add(segs(legend, 0xa0a09a, 0.7));
 
-    // The knuckle it pivots on.
-    const knuckle = keep(ring(0.052, C.rhodium, 0.5, 'z'));
-    g.add(knuckle);
-
-    const arm = new THREE.Group();
-    arm.position.y = 0.06;
-    g.add(arm);
-    arm.add(occluder(bladeGeo));
-    const outline = poly(bladePts, C.rhodium, 0.55, true);
-    arm.add(outline);
-    // The live part: the top of the blade, and the tip.
-    // The ribs across it, so a blade reads as a blade and not a plank.
-    const ribPts = [];
-    for (let k = 1; k <= 4; k += 1) {
-      const ry = (k / 5) * (AL - 0.09);
-      ribPts.push(V(-AW * 0.7, ry), V(AW * 0.7, ry));
-    }
-    arm.add(keep(segs(ribPts, C.rhodium, 0.26)));
-    const lit = poly([V(0, AL - 0.30), V(0, AL - 0.02)], C.beat, 0);
-    arm.add(lit);
-    const tip = node(0.03, C.beat, 0);
-    tip.position.y = AL;
-    arm.add(tip);
-
-    ants.push({ outline, lit, tip, phase: i / ANT });
-  }
-
-  /* ---- the signal ----
-     One train of rings per aggregated carrier, washing out across the
-     desk. Out, not up: a wavefront that climbs turns the object into a
-     flagpole and says nothing extra. */
-  const carriers = [];
-  for (let i = 0; i < MAX_CARRIERS; i += 1) {
-    const root = new THREE.Group();
-    root.position.y = Y0 + 0.02 + i * 0.012;
-    sp.add(root);
-    const rings = [];
-    for (let k = 0; k < RINGS; k += 1) {
-      const r = ring(0.48, C.beat, 0, 'y', 64);
-      root.add(r);
-      rings.push(r);
-    }
-    carriers.push({ root, rings, gen: '4G', phase: i / MAX_CARRIERS });
-    root.visible = false;
-  }
-
-  /* ---- the clients ----
-     Round the desk, each on its own line. The line is the association:
-     no line, no client. */
-  const clients = [];
-  for (let i = 0; i < MAX_CLIENTS; i += 1) {
-    const a = (i / MAX_CLIENTS) * Math.PI * 2 + 0.52;
-    const at = V(Math.cos(a) * 1.9, Y0 + 0.02, Math.sin(a) * 1.9);
-    const mark = node(0.042, C.ok, 0);
-    mark.position.copy(at);
-    sp.add(mark);
-    const link = keep(poly([V(0, Y0 + 0.06, 0), at], C.ok, 0));
-    sp.add(link);
-    clients.push({ mark, link });
-  }
-
-  parts.ants = ants;
-  parts.carriers = carriers;
-  parts.clients = clients;
-  parts.glow = glow;
+  parts.lamps = lamps;
+  parts.outline = outline;
 
   /* ---- state ---- */
-  const st = {
-    status: 'off', bars: 0, connected: false, clients: 0, live: 0,
-  };
+  const st = { status: 'off', connected: false, bars: 0, nr: false, lte: false, blink: null };
+
+  function setLamp(l, hex) {
+    const on = hex != null;
+    l.bead.material.color.setHex(on ? hex : 0x3a3a3a);
+    l.bead.material.opacity = on ? 1 : 0.7;
+    l.halo.material.color.setHex(on ? hex : 0x000000);
+    l.halo.material.opacity = on ? 0.28 : 0;
+    l.on = on;
+  }
 
   function setState(s) {
     const o = (s && typeof s === 'object') ? s : {};
     st.status = STATUS_HEX[o.status] ? o.status : 'off';
-    st.bars = Math.max(0, Math.min(BARS, Math.round(Number(o.bars) || 0)));
     st.connected = !!o.connected;
-    st.clients = Math.max(0, Math.min(MAX_CLIENTS, Math.round(Number(o.clients) || 0)));
+    st.bars = Math.max(0, Math.min(5, Math.round(Number(o.bars) || 0)));
+    const list = Array.isArray(o.carriers) ? o.carriers.filter((c) => c && typeof c === 'object') : [];
+    const gen = (c) => ((String(c.generation || '').toUpperCase() === '5G'
+      || (!c.generation && /^n/i.test(String(c.band || '')))) ? '5G' : '4G');
+    st.nr = list.some((c) => gen(c) === '5G');
+    st.lte = list.some((c) => gen(c) === '4G');
+    // No carrier list at all but a signal: the lead radio is lit as 4G.
+    if (!list.length && st.connected && st.bars) st.lte = true;
 
-    const hex = STATUS_HEX[st.status];
-    for (const m of shellMats) {
-      m.color.setHex(hex);
-      m.opacity = st.connected ? 0.85 : 0.45;
-    }
+    // The module itself down (not the router's link): every lamp dark, the
+    // body's edge carries the status.
+    const reachable = st.status !== 'off' && o.connected !== undefined;
+    outline.material.color.setHex(st.status === 'ok' || st.status === 'off' ? BODY_LINE : STATUS_HEX[st.status]);
 
-    /* The bar reads like a signal meter anywhere else: the bars you have
-       are lit, the ones you do not are still there and dark. A weak
-       signal is amber even when nothing is wrong — two bars IS the news. */
-    const barC = !st.connected ? C.rhodium
-      : st.bars <= 2 ? C.warn : st.bars >= 4 ? C.ok : C.steel;
-    strip.forEach((b, i) => {
-      const on = st.connected && i < st.bars;
-      b.material.color.setHex(on ? barC : C.steel);
-      b.material.opacity = on ? 0.95 : 0.1;
-    });
-    glow.material.color.setHex(st.connected ? barC : C.rhodium);
-    glow.material.opacity = st.connected ? 0.3 : 0.08;
-
-    // The antennas come up with the signal, outside in.
-    st.live = st.connected ? Math.max(1, Math.round((st.bars / BARS) * ANT)) : 0;
-    ants.forEach((a, i) => {
-      const on = i < st.live;
-      a.outline.material.color.setHex(on ? C.steel : C.rhodium);
-      a.outline.material.opacity = st.connected ? 0.6 : 0.3;
-      if (!on) {
-        a.lit.material.opacity = 0;
-        a.tip.material.opacity = 0.05;
-      }
-    });
-
-    const list = Array.isArray(o.carriers)
-      ? o.carriers.filter((c) => c && typeof c === 'object').slice(0, MAX_CARRIERS) : [];
-    carriers.forEach((car, i) => {
-      const c = list[i];
-      car.root.visible = !!c && st.connected;
-      if (!c) return;
-      // An NR band is written N41, an LTE one B3 — the letter is the
-      // fallback when the module does not say which generation it is.
-      const gen = (String(c.generation || '').toUpperCase() === '5G'
-        || (!c.generation && /^n/i.test(String(c.band || '')))) ? '5G' : '4G';
-      car.gen = gen;
-      for (const r of car.rings) r.material.color.setHex(TINT[gen]);
-    });
-
-    clients.forEach((cl, i) => {
-      const on = st.connected && i < st.clients;
-      cl.mark.material.opacity = on ? 0.9 : 0.06;
-      cl.link.material.opacity = on ? 0.32 : 0;
-    });
+    const strength = st.bars >= 4 ? LED.blue : st.bars === 3 ? LED.yellow : LED.red;
+    setLamp(lamps[0], reachable && st.connected && st.nr ? strength : null);
+    setLamp(lamps[1], reachable && st.connected && st.lte ? strength : null);
+    setLamp(lamps[2], reachable ? (st.connected ? LED.blue : LED.red) : null);
+    body.material.color.setHex(reachable ? BODY : 0xb8b6b0);
   }
 
-  /* ---- motion ---- */
-  let t0 = 0;
   group.userData.tick = (t, dt, p, env) => {
-    const slow = env && env.reduced ? 0.25 : 1;
-    if (!(env && env.locked)) t0 += dt * slow;
-
-    for (const car of p.carriers) {
-      if (!car.root.visible) continue;
-      car.rings.forEach((r, k) => {
-        // Each ring is the same journey at a different offset: out from
-        // under the chassis, growing, fading as it goes.
-        const f = ((t0 * SPEED[car.gen]) + car.phase + k / RINGS) % 1;
-        r.scale.setScalar(0.5 + f * SPREAD[car.gen]);
-        r.material.opacity = 0.4 * (1 - f) ** 1.5;
-      });
-    }
-
-    // The antennas fire in sequence, so a working router is never still.
-    for (let i = 0; i < p.ants.length; i += 1) {
-      const a = p.ants[i];
-      if (a.lit.material.opacity <= 0 && a.tip.material.opacity <= 0.06) continue;
-      const w = 0.5 + 0.5 * Math.sin(t * 2.2 - a.phase * Math.PI * 2);
-      a.lit.material.opacity = 0.2 + 0.6 * w;
-      a.tip.material.opacity = 0.35 + 0.6 * w;
-    }
-
-    // A client's line breathes, so an idle network still has a pulse.
-    for (let i = 0; i < p.clients.length; i += 1) {
-      const cl = p.clients[i];
-      if (cl.link.material.opacity <= 0.01) continue;
-      cl.link.material.opacity = 0.22 + 0.12 * (0.5 + 0.5 * Math.sin(t * 1.4 + i));
-    }
-
-    if (p.glow.material.opacity > 0.01) {
-      p.glow.material.opacity = 0.22 + 0.14 * (0.5 + 0.5 * Math.sin(t * 1.1));
+    // A lamp is steady, as the real ones are; only its light on the body
+    // breathes a little, so a living router is never a still picture.
+    const k = env && env.reduced ? 0 : 1;
+    for (const l of p.lamps) {
+      if (l.on) l.halo.material.opacity = 0.22 + 0.08 * k * (0.5 + 0.5 * Math.sin(t * 1.4));
     }
   };
 

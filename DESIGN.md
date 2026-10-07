@@ -180,7 +180,8 @@ Calibre world (cyan on near-black, a bloomed watch movement, brass/blued/ruby
 materials, three mono faces). Nothing here is lit for effect. The page is one flat
 black field, the chrome is opaque, and the only things that carry hue are a reading
 that reports state and content the console is showing rather than drawing — album
-art, a device's real LED colour.
+art, a device's real LED colour, and the real colours of the physical objects the
+3D models depict.
 
 The home page is a status board read top to bottom in the order a glance needs it:
 what is wrong, then the clock and its rate, then one hairline-separated row per
@@ -255,6 +256,16 @@ colour and is not reporting a state, it is grey.
 album art, a device's real LED colour as a swatch, a screen stream. It is data, so it
 is not subject to the rule above.
 
+**The Real Object Rule.** A 3D object that depicts a real thing the user owns wears
+that thing's real colours, shown as they are: they are content, not decoration. The
+watch (Seiko SNXS79) has green LumiBrite lume and a white day-date wheel printed
+black with SAT in blue and SUN in red; the music player is the black Snowsky Echo
+Mini with its red power key; the router is the white Huawei 5G CPE 5s whose three
+lamps (5G, 4G, STATUS) light blue/yellow/red exactly as the real ones do; the R86 HE
+board is lit #00ffff on every key and the V5's lamp is its current DPI stage colour
+as the module reads it. Everything that is not a real colour of a real object stays
+white and grey line art, and status still owns ok/warn/err.
+
 **The Word And Shape Rule.** Every coloured state also changes its words or its shape:
 a module that is down is struck through as well as tinted, the degraded top-bar
 segment says "1 down", a row that needs attention grows and its headline says what
@@ -307,15 +318,18 @@ its foot; the content column is `minmax(0, 1fr)` so one wide table can never wid
 the page. Under 860px the rail and the top-bar links go and a fixed tab bar takes the
 bottom edge.
 
-The status board is a two-column grid: content (`minmax(0, 1fr)`) and the clock's
-object column (`clamp(84px, 11vw, 148px)`), stacked as alerts → clock → now playing →
-rate, caseline and controls → module rows. Each module row is a grid of reading plus a
+The status board is a two-column grid: content (`minmax(0, 1fr)`) and the object
+column (`clamp(96px, 13vw, 184px)`) holding the watch and, under it, the music player
+in a 10:7 box — the two things on the plate beside the time; neither is a row in the
+list. The content column stacks alerts (only when there are any — the slot takes no
+room and draws nothing otherwise) → clock → now playing → rate, caseline and controls
+→ module rows. Each module row is a grid of reading plus a
 `clamp(56px, 7vw, 96px)` object cell, separated from the next by a `{colors.line-2}`
-hairline, never boxed. Under 900px everything becomes one column and the object drops
-under the clock.
+hairline, never boxed. Under 900px everything becomes one column and the watch and
+player drop under the clock, side by side.
 
-The idle display is two columns on one screen: clock, now playing and the watch on the
-left (`1.1fr`), module rows on the right (`0.9fr`). On a phone it is the clock and the
+The idle display is two columns on one screen: clock, now playing and the watch with
+the player beside it on the left (`1.1fr`), module rows on the right (`0.9fr`). On a phone it is the clock and the
 watch only, centred; a row list nobody is close enough to read is removed, not shrunk.
 
 Rhythm is the six-step 4/8/16/24/40/64 scale. Every control's hit area is 44px

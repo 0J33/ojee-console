@@ -182,13 +182,6 @@ body.app .topbar {
 .ov-verdict.is-bad { border-color: var(--warn); color: var(--warn); }
 .ov-verdict-body { color: var(--ink-2); font-size: 0.82rem; display: grid; gap: 6px; }
 .ov-verdict-body strong { color: inherit; }
-.ov-alerts { display: flex; flex-wrap: wrap; gap: var(--s-2); }
-.ov-alert {
-  color: var(--warn); border-bottom: 1px dashed currentColor;
-  font-family: var(--mono); font-size: 0.74rem; text-decoration: none;
-}
-.ov-alert--err { color: var(--err); }
-.ov-alert:hover { color: var(--ink); }
 
 .ov-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
 /* Two hints, each one phrase. Written as one run of text they broke wherever
@@ -704,7 +697,7 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 .ov-stage {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(84px, 11vw, 148px);
+  grid-template-columns: minmax(0, 1fr) clamp(96px, 13vw, 184px);
   grid-template-areas:
     "alert obj"
     "clock obj"
@@ -716,13 +709,38 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   min-width: 0;
   --dial: clamp(56px, 7vw, 96px);
 }
+/* The alert slot is always in the markup, so with nothing to say it must
+   take no room and draw nothing. (A leftover rule from the first build used
+   to give this box a dashed amber underline whether or not it held an alert.) */
 .ov-alert { grid-area: alert; min-width: 0; }
+.ov-alert:empty { display: none; }
 .ov-clock { grid-area: clock; min-width: 0; }
 .ov-stage > .np-slot { grid-area: np; }
 .ov-meta { grid-area: meta; display: grid; gap: var(--s-2); min-width: 0; }
 .ov-ring { grid-area: ring; display: grid; min-width: 0; }
-.ov-cal {
+/* The objects: the watch, and the player beside it (music) — the two things
+   on the plate beside the time. Stacked in the right-hand column on a wide
+   screen, side by side under the clock on a narrow one. */
+.ov-objs {
   grid-area: obj;
+  display: grid;
+  gap: var(--s-3);
+  align-content: start;
+  min-width: 0;
+}
+.ov-pslot:empty { display: none; }
+/* 10:7, the player's own proportions with room for its keys and its lean.
+   The model is fitted to this box in app.js (bindModels). */
+.ov-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 10 / 7;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.ov-player:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.mv-host[data-fallback] ~ .shell .ov-player { border: 1px solid var(--line); }
+.ov-cal {
   width: 100%;
   aspect-ratio: 1;
   align-self: start;
@@ -1020,7 +1038,14 @@ body.is-idle {
 }
 .idle-stage > .ov-ring { align-self: center; max-height: 100%; overflow: hidden; }
 .idle-stage .comp { padding: 12px 0; }
-.idle-cal { width: 100%; height: 100%; min-height: 160px; }
+/* The watch and the player share the bottom-left cell, side by side, as
+   tall as the cell lets them be. */
+.idle-objs {
+  display: flex; align-items: center; gap: clamp(16px, 3vw, 56px);
+  width: 100%; height: 100%; min-height: 160px;
+}
+.idle-cal { height: 100%; width: auto; aspect-ratio: 1; max-width: 52%; min-height: 160px; }
+.idle-objs .ov-pslot { flex: 1 1 0; min-width: 0; max-width: 46%; }
 .idle-clock {
   grid-area: clock;
   width: 100%;
@@ -1064,10 +1089,17 @@ body.is-idle {
   }
   .idle-stage { grid-template-areas: "alert" "clock" "np" "obj" "ring"; }
   .idle { height: auto; min-height: 100dvh; }
-  .ov-cal, .idle-cal {
-    width: min(56vw, 260px); aspect-ratio: 1; justify-self: start;
+  /* Side by side under the clock: the watch square, the player beside it. */
+  .ov-objs, .idle-objs {
     grid-area: obj;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    align-items: center; gap: var(--s-3);
+    width: min(100%, 520px); height: auto; min-height: 0;
   }
+  .ov-cal, .idle-cal {
+    width: 100%; aspect-ratio: 1; justify-self: start; height: auto; min-height: 0; max-width: none;
+  }
+  .idle-objs .ov-pslot { max-width: none; }
   .ov-stage { --dial: clamp(64px, 16vw, 120px); }
   .idle-stage { --dial: clamp(72px, 18vw, 140px); }
   .ov-clock .ch-read { font-size: clamp(2.2rem, 11vw, 4rem); }
@@ -1082,7 +1114,7 @@ body.is-idle {
   .idle-clock { justify-items: center; text-align: center; }
   .idle-clock .ch-side { justify-items: center; }
   .idle-stage { grid-template-rows: none; }
-  .idle-cal { width: min(60vw, 280px); height: auto; min-height: 0; aspect-ratio: 1; justify-self: center; }
+  .idle-objs { justify-self: center; width: min(100%, 460px); }
   /* Clear the row of controls in the corner: they show for a few seconds
      after any touch, and sat on top of the first alert. */
   .idle { padding-top: max(76px, calc(env(safe-area-inset-top) + 64px)); }
@@ -1385,15 +1417,17 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 
 /* ── the Assistant's quick chat ────────────────────────────────────────
    The shell's frame for the agent module's quick chat (assistant-quick.js
-   draws everything inside .qc). It opens near the top like a command bar —
-   the box is what you came for — and grows into a conversation once there
-   is one. On a phone it is a sheet sized to what the keyboard leaves. */
+   draws everything inside .qc). A centred dialog of a fixed size: the
+   module sizes its own content (min(640px, 80vh) tall inside the 780px
+   frame), so the frame stays put whether it is empty or holds a long
+   reply. On a phone it is a bottom sheet sized to what the keyboard
+   leaves. */
 .qc-backdrop {
   position: fixed; left: 0; right: 0;
   top: var(--qc-vvtop, 0); height: var(--qc-vvh, 100dvh);
   z-index: calc(var(--z-modal) - 5);
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: max(24px, 9vh) 16px 24px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px;
   background: rgba(0, 0, 0, 0.0);
   backdrop-filter: blur(0);
   transition: background 0.22s ease-out, backdrop-filter 0.22s ease-out;
@@ -1411,13 +1445,11 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), height 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .qc-backdrop.is-in .qc { opacity: 1; transform: none; }
-.qc:has(.ag-qc.is-convo) { height: min(820px, 100%); }
 html.qc-open { overflow: hidden; }
 
 @media (max-width: 560px) {
   .qc-backdrop { align-items: flex-end; padding: 0; }
   .qc { width: 100%; max-height: calc(100% - 28px); border-width: 1px 0 0; transform: translateY(24px); }
-  .qc:has(.ag-qc.is-convo) { height: calc(100% - 28px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .qc, .qc-backdrop { transition: none; }

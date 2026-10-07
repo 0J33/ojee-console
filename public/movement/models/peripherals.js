@@ -7,8 +7,9 @@
      the mouse's DPI lamp is the colour of the stage it is actually on
      a ring round the mouse's foot is its battery, and it breathes while
        it charges; a cable runs off its nose while it is on the wire
-     the board lights when it is plugged in, and its WASD keys go down and
-       come up again — a magnetic board is the one that registers a key on
+     the board lights when it is plugged in — every key in the board's own
+       backlight, cyan #00ffff, the colour the user runs it at — and its WASD
+       keys go down and come up again — a magnetic board is the one that registers a key on
        the way down AND the way back up, and that is what they are doing
 
    A device the module cannot see is drawn and not lit. The board is on the
@@ -40,6 +41,11 @@ const KB_X = -0.62;             // where the board sits on the desk
 const U = (KB_W - 0.14) / 16;   // one key unit
 const CAP = U * 0.84;           // a cap is a little less than its unit
 const CAP_H = 0.07;
+/* The backlight. A real-object colour, not a decoration: the user's R86 HE
+   has every key lit #00ffff. (The module reports a `lightColor` too, but on
+   this board it reads a stored preset — #3296ff — rather than what is lit,
+   so the board's actual colour is fixed here.) */
+const KEY_LIGHT = 0x00ffff;
 // WASD: row, index-in-row — the four that move.
 const WASD = [[2, 2], [3, 1], [3, 2], [3, 3]];
 
@@ -152,6 +158,15 @@ export function build(opts = {}) {
   kb.add(occluder(capGeo));
   const caps = segs(capLines, C.steel, 0.5);
   kb.add(caps);
+  /* The light under the caps: a faint wash over the plate, the glow that
+     leaks between keys on a lit board. */
+  const wash = new THREE.Mesh(
+    new THREE.PlaneGeometry(KB_W - 0.12, KB_D - 0.12),
+    new THREE.MeshBasicMaterial({ color: KEY_LIGHT, transparent: true, opacity: 0, depthWrite: false }),
+  );
+  wash.rotation.x = -Math.PI / 2;
+  wash.position.y = KB_H + 0.002;
+  kb.add(wash);
 
   const wasd = moving.map((m, k) => {
     const g = new THREE.Group();
@@ -161,10 +176,10 @@ export function build(opts = {}) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.add(occluder(geo));
-    const top = segs(rectPts(0, CAP_H + 0.001, 0, m.w, CAP), C.beat, 0.35);
+    const top = segs(rectPts(0, CAP_H + 0.001, 0, m.w, CAP), KEY_LIGHT, 0.35);
     g.add(top);
     // The magnet under the switch: a ring on the plate that brightens as the key goes down.
-    const field = ring(CAP * 0.36, C.beat, 0, 'y', 32);
+    const field = ring(CAP * 0.36, KEY_LIGHT, 0, 'y', 32);
     field.position.y = 0.004;
     g.add(field);
     kb.add(g);
@@ -234,15 +249,21 @@ export function build(opts = {}) {
   wheel.position.set(wheelAt.x, wheelAt.y + 0.012, wheelAt.z);
   mouse.add(wheel);
   // The slot the wheel sits in.
-  const slot = poly([V(-0.028, 0, -0.07), V(0.028, 0, -0.07), V(0.028, 0, 0.07), V(-0.028, 0, 0.07)], C.steel, 0.4, true);
+  const slot = poly([V(-0.028, 0, -0.07), V(0.028, 0, -0.07), V(0.028, 0, 0.07), V(-0.028, 0, 0.07)], C.steel, 0.6, true);
   slot.position.set(wheelAt.x, wheelAt.y + 0.008, wheelAt.z);
   mouse.add(slot);
 
-  // The DPI lamp, behind the wheel: the colour of the stage the mouse is on.
+  /* The DPI lamp, behind the wheel: the colour of the stage the mouse is on,
+     exactly as the module reads it off the mouse. It was a 0.022 pip and in
+     the overview's row it was a single pixel; it is a lit bead with a halo
+     now, and the wheel's slot carries the same light. */
   const lampAt = shellPoint(0.25, 0);
-  const lamp = node(0.022, C.beat, 0.9);
-  lamp.position.set(lampAt.x, lampAt.y + 0.012, lampAt.z);
+  const lamp = node(0.036, C.beat, 0.95);
+  lamp.position.set(lampAt.x, lampAt.y + 0.014, lampAt.z);
   mouse.add(lamp);
+  const lampHalo = ring(0.06, C.beat, 0.6, 'y', 28);
+  lampHalo.position.copy(lamp.position);
+  mouse.add(lampHalo);
 
   // Battery: a ring on the desk round the mouse's foot, drawn as far as the charge.
   // An oval that follows the mouse's own outline — long nose to tail (z),
@@ -274,8 +295,8 @@ export function build(opts = {}) {
   mouse.add(spark);
 
   Object.assign(P, {
-    kbGroup: kb, caseTop, caseBase, caps, wasd,
-    foot, shellLines, wheel, lamp, batFill, batPts, cable, cableCurve, spark,
+    kbGroup: kb, caseTop, caseBase, caps, wasd, wash,
+    foot, shellLines, wheel, lamp, lampHalo, slot, batFill, batPts, cable, cableCurve, spark,
     kbOnline: false, mouseOnline: false, charging: false, wired: false, battery: null,
   });
 
@@ -288,7 +309,7 @@ export function build(opts = {}) {
       const press = Math.max(0, s - 0.35) / 0.65;          // rests up most of the time
       k.g.position.y = KB_H - press * CAP_H * 0.55;
       k.field.material.opacity = 0.15 + press * 0.7;
-      k.top.material.opacity = 0.35 + press * 0.5;
+      k.top.material.opacity = 0.75 + press * 0.25;
     }
     // The charge ring breathes while it charges.
     if (p.battery != null) {
@@ -307,10 +328,15 @@ export function build(opts = {}) {
     const status = STATUS_HEX[s.status] ? s.status : 'ok';
 
     P.kbOnline = !!k.online;
+    // Lit unless the module says the lights are off.
+    const lit = P.kbOnline && k.lightOn !== false;
     const kbHex = P.kbOnline ? STATUS_HEX[status] : C.rhodium;
     P.caseTop.material.color.setHex(kbHex);
     P.caseTop.material.opacity = P.kbOnline ? 0.85 : 0.35;
-    P.caps.material.opacity = P.kbOnline ? 0.55 : 0.22;
+    P.caps.material.color.setHex(lit ? KEY_LIGHT : C.steel);
+    P.caps.material.opacity = lit ? 0.8 : P.kbOnline ? 0.55 : 0.22;
+    P.wash.material.opacity = lit ? 0.07 : 0;
+    for (const w of P.wasd) w.top.material.color.setHex(lit ? KEY_LIGHT : C.steel);
 
     P.mouseOnline = !!m.online;
     P.wired = m.link === 'wired';
@@ -318,8 +344,15 @@ export function build(opts = {}) {
     P.foot.material.color.setHex(P.mouseOnline ? STATUS_HEX[status] : C.rhodium);
     P.foot.material.opacity = P.mouseOnline ? 0.85 : 0.4;
     P.shellLines.material.opacity = P.mouseOnline ? 0.55 : 0.25;
-    P.lamp.visible = P.mouseOnline;
-    if (m.dpiColor && /^#[0-9a-f]{6}$/i.test(m.dpiColor)) P.lamp.material.color.set(m.dpiColor);
+    const dpiOk = typeof m.dpiColor === 'string' && /^#[0-9a-f]{6}$/i.test(m.dpiColor);
+    P.lamp.visible = P.lampHalo.visible = P.mouseOnline && dpiOk;
+    if (dpiOk) {
+      P.lamp.material.color.set(m.dpiColor);
+      P.lampHalo.material.color.set(m.dpiColor);
+      P.slot.material.color.set(m.dpiColor);
+    } else {
+      P.slot.material.color.setHex(C.steel);
+    }
     P.cable.material.opacity = P.mouseOnline && P.wired ? 0.6 : 0;
 
     P.battery = typeof m.battery === 'number' ? Math.max(0, Math.min(100, m.battery)) : null;
@@ -336,7 +369,8 @@ export function build(opts = {}) {
 
   setState(opts.state || {
     status: 'ok',
-    devices: [{ kind: 'mouse', online: true, battery: 80, charging: false, link: 'dongle', dpiColor: '#ffffff' }],
+    devices: [{ kind: 'mouse', online: true, battery: 80, charging: false, link: 'dongle', dpiColor: '#00ffff' },
+      { kind: 'keyboard', online: true, lightOn: true }],
   });
   return { group, setState };
 }

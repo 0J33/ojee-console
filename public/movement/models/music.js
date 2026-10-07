@@ -7,6 +7,12 @@
    a long volume rocker, then play, menu and back. The jacks are on the
    right flank. No marks on it anywhere.
 
+   Coloured as the user's own one, the BLACK Snowsky Echo Mini — real-object
+   colour, which the console shows as it is (DESIGN.md): a satin black body
+   a shade lighter than the deep-black surround of the screen, every key
+   black except POWER, which is the high-contrast red one, and on the back
+   the printed "battery cover" a cassette player would have had.
+
    On the plate its screen draws what the real ones draw: two tape reels,
    turning while something plays, and a line along the bottom that is how
    far through the track it is.
@@ -20,6 +26,13 @@
 import {
   THREE, C, STATUS_HEX, V, poly, segs, node, occluder, ring, edges, REDUCED, mk,
 } from '../kit.js';
+
+/* The black Echo Mini's own colours. */
+const BODY = 0x1f1f21;          // satin black PC/ABS with a metallic paint
+const BEZEL = 0x060606;         // the deep-black surround the screen sits in
+const BODY_LINE = 0x6a6a6e;     // its edges catching the light
+const POWER = 0xd7262e;         // the red power key
+const solid = (geo, c) => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c }));
 
 // 80 x 54.5 x 14.5 mm, at 3.4 units across.
 const W = 3.4;
@@ -98,8 +111,8 @@ export function build(opts = {}) {
   /* ---- the body ---- */
   const bodyGeo = new THREE.ExtrudeGeometry(rrShape(W, H, R), { depth: D, bevelEnabled: false, curveSegments: 6 });
   bodyGeo.translate(0, 0, -D / 2);
-  sp.add(occluder(bodyGeo));
-  const outline = edges(bodyGeo.clone(), C.steel, 0.85, 25);
+  sp.add(solid(bodyGeo, BODY));
+  const outline = edges(bodyGeo.clone(), BODY_LINE, 0.85, 25);
   sp.add(outline);
 
   /* ---- the window and its glass ---- */
@@ -107,7 +120,7 @@ export function build(opts = {}) {
   const winZ = ZF + 0.035;
   const winGeo = new THREE.ExtrudeGeometry(rrShape(Wn.w, Wn.h, 0.07), { depth: 0.035, bevelEnabled: false, curveSegments: 4 });
   winGeo.translate(Wn.x, Wn.y, ZF);
-  sp.add(occluder(winGeo));
+  sp.add(solid(winGeo, BEZEL));
   const winLine = poly(rrect(Wn.x, Wn.y, Wn.w, Wn.h, 0.07, winZ + 0.002, 4), C.rhodium, 0.9, true);
   sp.add(winLine);
   // A glint across the glass: the one thing that says "window" in wire.
@@ -173,8 +186,9 @@ export function build(opts = {}) {
   for (const [x0, x1, name] of KEYS) {
     const kg = new THREE.BoxGeometry(x1 - x0, keyH, keyD);
     kg.translate((x0 + x1) / 2, H / 2 + keyH / 2, 0);
-    sp.add(occluder(kg));
-    const e = edges(kg.clone(), C.steel, name === 'power' ? 0.9 : 0.7, 25);
+    const red = name === 'power';
+    sp.add(solid(kg, red ? 0x8a1218 : BODY));
+    const e = edges(kg.clone(), red ? POWER : C.steel, red ? 1 : 0.7, 25);
     keyMats[name] = e;
     sp.add(e);
   }
@@ -185,7 +199,20 @@ export function build(opts = {}) {
   sp.add(jack(-0.1, 0.075), jack(0.15, 0.1));
   const usb = poly(rrect(0, 0, 0.1, 0.3, 0.045, 0, 3).map((p) => V(-W / 2 - 0.002, -0.2 + p.x, p.y)), C.steel, 0.7, true);
   const card = segs([V(-W / 2 - 0.002, 0.3, -0.14), V(-W / 2 - 0.002, 0.3, 0.14)], C.rhodium, 0.7);
-  sp.add(usb, card);
+  // The lanyard hole, in the bottom corner of the same flank.
+  const lanyard = ring(0.035, C.rhodium, 0.7, 'x', 16);
+  lanyard.position.set(-W / 2 - 0.002, -H / 2 + 0.16, -0.12);
+  sp.add(usb, card, lanyard);
+
+  /* ---- the back: the printed battery cover, with its grip lines ---- */
+  const bz = -ZF - 0.002;
+  const cover0 = poly(rrect(0, -0.25, 2.3, 1.0, 0.08, bz, 4), C.rhodium, 0.55, true);
+  const grip = [];
+  for (let i = 0; i < 5; i += 1) {
+    const x = 0.75 + i * 0.07;
+    grip.push(V(x, -0.55, bz), V(x, 0.05, bz));
+  }
+  sp.add(cover0, segs(grip, C.rhodium, 0.45));
 
   /* ---- the back: four screws ---- */
   for (const [x, y] of [[-1.5, 0.95], [1.5, 0.95], [-1.5, -0.95], [1.5, -0.95]]) {
@@ -342,7 +369,7 @@ export function build(opts = {}) {
     lastSecond = -1;
     loadCover(s.cover && s.base ? `${s.base}${s.cover}` : null);
     const hex = STATUS_HEX[status] ?? C.steel;
-    outline.material.color.setHex(status === 'ok' ? C.steel : hex);
+    outline.material.color.setHex(status === 'ok' ? BODY_LINE : hex);
     outline.material.opacity = s.connected !== false ? 0.85 : 0.45;
     keyMats.play.material.color.setHex(st.playing ? C.beat : C.steel);
     keyMats.play.material.opacity = st.playing ? 1 : 0.7;

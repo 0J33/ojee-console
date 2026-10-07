@@ -50,10 +50,22 @@ import { pref } from '/prefs.js';
    object and they read as metal. Everything INSIDE the back is white and
    grey line art — the same material as the rest of the console's objects.
 
-   No colour is spent on the parts. Colour arrives only with state: the
-   barrel carries the alert, and that is the one place the object wears
-   amber or red. */
-const LUME = 0xffffff;
+   No colour is spent on the parts. Colour arrives with state — the barrel
+   carries the alert — and with the few things the real SNXS79 is coloured
+   by, which the console shows as they are (DESIGN.md, real-object colour):
+   the lume, and the day wheel's weekend.
+
+   Lume: Seiko LumiBrite on the hands and in every baton, which glows GREEN
+   (its daytime fill is off-white; in the dark, where this console's black
+   lives, it is the green you see). */
+const LUME = 0x7cff6b;
+
+/* The day-date wheels. On the SNXS79 they are WHITE discs printed black,
+   with Saturday in blue and Sunday in red — in both languages of the
+   bilingual wheel. Indexed by Date.getDay(): 0 is Sunday. */
+const WHEEL_DISC = 0xf2f1ec;
+const WHEEL_INK = '#141414';
+const DAY_INK = ['#d0202a', WHEEL_INK, WHEEL_INK, WHEEL_INK, WHEEL_INK, WHEEL_INK, '#1f4fa8'];
 
 const INNER = {
   wheel: C.beat,        // the going train, the barrel, the balance
@@ -292,9 +304,9 @@ function printedPlane(w, h, text, colour, face = 'day', gauge = null) {
     m.material.map = printed(cur, colour, aspect, curFace, curGauge);
     m.material.needsUpdate = true;
   };
-  m.userData.set = (next, nextFace = curFace, nextGauge = curGauge) => {
-    if (next === cur && nextFace === curFace && nextGauge === curGauge) return;
-    cur = next; curFace = nextFace; curGauge = nextGauge;
+  m.userData.set = (next, nextFace = curFace, nextGauge = curGauge, nextColour = colour) => {
+    if (next === cur && nextFace === curFace && nextGauge === curGauge && nextColour === colour) return;
+    cur = next; curFace = nextFace; curGauge = nextGauge; colour = nextColour;
     draw();
   };
   // Redraw once the real face arrives, so the first paint is not the one
@@ -886,9 +898,9 @@ export function build(o = {}) {
   /* The day-date at three. It is the one feature you would name this watch
      by from across a room: a single aperture with a polished surround, a
      divider down it, the day on the left in two thirds of the width and the
-     date on the right in the rest. The wheels behind it are black with
-     white figures, because this dial is dark — a white wheel in a dark dial
-     is a different reference. */
+     date on the right in the rest. The wheels behind it are WHITE, printed
+     black, with the weekend in colour (SAT blue, SUN red) — as on the real
+     SNXS79, whose dark sunburst dial carries a white day-date. */
   const winG = new THREE.Group();
   winG.position.set(TRACK * 0.66, 0, 0.004);
   const winW = TRACK * 0.74;
@@ -898,6 +910,13 @@ export function build(o = {}) {
      it, so the whole thing read as a label printed on the dial rather than
      a wheel seen through a hole. */
   const winH = winW / 2.73;
+  // The discs themselves, seen through the hole.
+  const disc = new THREE.Mesh(
+    new THREE.PlaneGeometry(winW * 0.985, winH * 0.97),
+    new THREE.MeshBasicMaterial({ color: WHEEL_DISC }),
+  );
+  disc.position.z = 0.003;
+  winG.add(disc);
   winG.add(poly(roundRect(winW, winH, winH * 0.24, 0.002), C.hot, 0.75, true));
   winG.add(poly(roundRect(winW + 0.04, winH + 0.04, winH * 0.3, 0.001), C.steel, 0.5, true));
   /* Where the wheels meet. Measured on the photograph the day takes 54%
@@ -912,19 +931,21 @@ export function build(o = {}) {
      back. */
   const DAY_PANE = 0.56;
   const divide = -winW / 2 + winW * DAY_PANE;
-  winG.add(segs([V(divide, -winH / 2, 0.002), V(divide, winH / 2, 0.002)], C.hot, 0.45));
+  // The gap between the two discs, drawn over them.
+  winG.add(segs([V(divide, -winH / 2, 0.0045), V(divide, winH / 2, 0.0045)], C.rhodium, 0.8));
   /* The day pane is cut for the longer of the two languages, not for
      "FRI": the glyphs are drawn at a fixed height either way, so a wider
      pane costs an English day nothing but margin, while a narrower one
      would shrink "الثلاثاء" until it was a smudge. */
   const lang0 = pref('dayLang');
+  const day0 = new Date(now()).getDay();
   const dayText = printedPlane(winW * DAY_PANE * 0.94, winH * 0.86,
-    DAYS[lang0][new Date(now()).getDay()], '#e6e6e6',
+    DAYS[lang0][day0], DAY_INK[day0],
     lang0 === 'ar' ? 'ar' : 'day', DAYS[lang0]);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
   const dateText = printedPlane(winW * (1 - DAY_PANE) * 0.94, winH * 0.86,
-    '25', '#e6e6e6', 'num', DATES);
+    '25', WHEEL_INK, 'num', DATES);
   dateText.position.set((divide + winW / 2) / 2, 0, 0.006);
   winG.add(dateText);
   face.add(winG);
@@ -1362,7 +1383,7 @@ export function build(o = {}) {
     if (day !== lastDay || lang !== lastLang) {
       lastDay = day; lastLang = lang;
       p.dateText.userData.set(String(day));
-      p.dayText.userData.set(DAYS[lang][d.getDay()], lang === 'ar' ? 'ar' : 'day', DAYS[lang]);
+      p.dayText.userData.set(DAYS[lang][d.getDay()], lang === 'ar' ? 'ar' : 'day', DAYS[lang], DAY_INK[d.getDay()]);
     }
     const chrono = o.chrono?.();
     p.chronoHand.visible = chrono != null;
