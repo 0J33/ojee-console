@@ -14,8 +14,9 @@
      STATUS   steady blue connected · red not connected
 
    A lamp whose radio carries nothing (no NR carrier aggregated, say) is
-   dark, as on the real one. The body is white because the real one is:
-   real-object colour, shown as it is (DESIGN.md). No marks on it.
+   dark, as on the real one. The body is drawn like every other object in
+   the console — see-through line art over an occluder, steel and rhodium —
+   and only the lamps carry colour. No marks on it.
 
    Mapped from what the router module reports in `summary.model`:
    `bars` (0..5, the lead radio), `connected`, and `carriers` with their
@@ -25,7 +26,7 @@
    ============================================================ */
 
 import {
-  THREE, C, STATUS_HEX, V, poly, segs, node, ring, edges, mk,
+  THREE, C, STATUS_HEX, V, poly, segs, node, ring, edges, occluder, mk,
 } from '../kit.js';
 
 const W = 1.5;                  // 90 mm across, both ways
@@ -34,8 +35,7 @@ const R = 0.2;                  // the vertical edges' radius
 const Y0 = -H / 2;              // its foot
 const ZF = W / 2;               // the front face
 
-const BODY = 0xdedcd6;          // white plastic, a shade under paper-white on black
-const BODY_LINE = 0x8c8c88;     // its edges
+const BODY_LINE = C.steel;      // its edges, as on every other object
 const LED = { blue: 0x1e7bff, yellow: 0xffc21a, red: 0xff2a2a };
 
 function rrShape(w, d, r) {
@@ -78,41 +78,41 @@ export function build(opts = {}) {
   const geo = new THREE.ExtrudeGeometry(rrShape(W, W, R), { depth: bodyH, bevelEnabled: false, curveSegments: 6 });
   geo.rotateX(-Math.PI / 2);                    // extrude along +y
   geo.translate(0, Y0 + 0.12, 0);
-  const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: BODY }));
-  sp.add(body);
+  // An occluder, not a white solid: the back edges hide behind it, and the
+  // object reads as line art like the rest of the console's objects.
+  sp.add(occluder(geo));
   const outline = edges(geo.clone(), BODY_LINE, 0.9, 25);
   sp.add(outline);
 
-  /* A soft vertical shade on each face, so the white reads as a solid with
-     sides and not as a flat sticker: two faint lines down each flat face,
-     where the curve of the corner begins. */
+  /* Two faint lines down each flat face, where the curve of the corner
+     begins, so the rounded square reads as a solid with sides. */
   const shade = [];
   for (const [x, z] of [[W / 2 - R, ZF], [-W / 2 + R, ZF], [W / 2, ZF - R], [W / 2, -ZF + R], [-W / 2, ZF - R], [-W / 2, -ZF + R]]) {
     shade.push(V(x, Y0 + 0.12, z), V(x, Y0 + 0.12 + bodyH, z));
   }
-  sp.add(segs(shade, 0xb4b2ac, 0.5));
+  sp.add(segs(shade, C.rhodium, 0.5));
 
   /* ---- the base: a dark band, perforated ---- */
   const baseGeo = new THREE.ExtrudeGeometry(rrShape(W - 0.06, W - 0.06, R - 0.03), { depth: 0.12, bevelEnabled: false, curveSegments: 6 });
   baseGeo.rotateX(-Math.PI / 2);
   baseGeo.translate(0, Y0, 0);
-  sp.add(new THREE.Mesh(baseGeo, new THREE.MeshBasicMaterial({ color: 0x2a2a2a })));
-  sp.add(edges(baseGeo.clone(), C.steel, 0.6, 25));
+  sp.add(occluder(baseGeo));
+  sp.add(edges(baseGeo.clone(), C.rhodium, 0.7, 25));
   const holes = [];
   for (let i = 0; i < 14; i += 1) {
     const x = -W / 2 + 0.2 + i * ((W - 0.4) / 13);
     holes.push(V(x - 0.012, Y0 + 0.06, ZF - 0.025), V(x + 0.012, Y0 + 0.06, ZF - 0.025));
   }
-  sp.add(segs(holes, C.steel, 0.7));
+  sp.add(segs(holes, C.rhodium, 0.7));
 
   /* ---- the top: flat, with a faint seam round it ---- */
-  sp.add(poly(plan(Y0 + H + 0.001, 0.08), 0xa8a6a0, 0.6, true));
+  sp.add(poly(plan(Y0 + H + 0.001, 0.08), C.rhodium, 0.6, true));
 
   /* ---- the back: the recessed port panel, low down ---- */
   const bz = -ZF - 0.003;
   const panel = poly([
     V(-0.42, Y0 + 0.24, bz), V(0.42, Y0 + 0.24, bz), V(0.42, Y0 + 0.62, bz), V(-0.42, Y0 + 0.62, bz),
-  ], 0x6e6e6a, 0.8, true);
+  ], C.rhodium, 0.8, true);
   const portPts = [];
   const port = (x, w, h) => {
     const y = Y0 + 0.43;
@@ -121,9 +121,9 @@ export function build(opts = {}) {
   };
   port(-0.2, 0.2, 0.16);         // RJ45
   port(0.12, 0.08, 0.08);        // WPS
-  const dc = ring(0.05, 0x6e6e6a, 0.8, 'z', 20);
+  const dc = ring(0.05, C.rhodium, 0.8, 'z', 20);
   dc.position.set(0.3, Y0 + 0.43, bz);
-  sp.add(panel, segs(portPts, 0x6e6e6a, 0.8), dc);
+  sp.add(panel, segs(portPts, C.rhodium, 0.8), dc);
 
   /* ---- the three lamps, in a column on the front, low down ---- */
   const lampY = [0.35, 0.28, 0.21].map((f) => Y0 + H * f);   // 5G, 4G, STATUS, top to bottom
@@ -138,7 +138,7 @@ export function build(opts = {}) {
       new THREE.MeshBasicMaterial({ color: LED.blue, transparent: true, opacity: 0.25, depthWrite: false }),
     );
     halo.position.z = -0.002;
-    const rim = ring(0.075, 0x9a9a96, 0.7, 'z', 20);
+    const rim = ring(0.075, C.rhodium, 0.7, 'z', 20);
     g.add(halo, rim, bead);
     sp.add(g);
     return { g, bead, halo };
@@ -146,7 +146,7 @@ export function build(opts = {}) {
   // The printed legend beside each lamp, as a short rule — the words are not
   // drawn (no marks on the object), but the column is still a legend.
   const legend = lampY.flatMap((y) => [V(0.12, y, ZF + 0.003), V(0.3, y, ZF + 0.003)]);
-  sp.add(segs(legend, 0xa0a09a, 0.7));
+  sp.add(segs(legend, C.rhodium, 0.7));
 
   parts.lamps = lamps;
   parts.outline = outline;
@@ -185,7 +185,7 @@ export function build(opts = {}) {
     setLamp(lamps[0], reachable && st.connected && st.nr ? strength : null);
     setLamp(lamps[1], reachable && st.connected && st.lte ? strength : null);
     setLamp(lamps[2], reachable ? (st.connected ? LED.blue : LED.red) : null);
-    body.material.color.setHex(reachable ? BODY : 0xb8b6b0);
+    outline.material.opacity = reachable ? 0.9 : 0.4;
   }
 
   group.userData.tick = (t, dt, p, env) => {
