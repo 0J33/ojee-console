@@ -710,15 +710,6 @@ function splitCompanions(mods) {
   return { companions, ring: mods.filter((m) => !companions.includes(m)) };
 }
 
-function companionHTML(m) {
-  const ready = m.status === 'ready';
-  return `
-    <a class="ov-companion" href="#/${esc(m.id)}" ${ready ? `data-focus="${esc(m.id)}"` : ''}
-       aria-label="${esc(m.name)}${ready ? ' — open the player' : ' — unavailable'}" data-state="${ready ? 'ok' : 'down'}">
-      <span class="ov-companion-dial" data-dial="${esc(m.id)}"></span>
-    </a>`;
-}
-
 const npClock = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -788,16 +779,21 @@ function complication(m, i, factCount = 2) {
   const facts = (sum?.facts || []).slice(0, factCount).map((f) => `
     <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
   const st = !ready ? 'down' : (sum?.status || 'ok');
+  const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
+    : (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok');
+  const has = movement.has(m.id);
+  // Clicking the OBJECT opens the module's own object up in place; clicking
+  // the row opens the module. Only reachable where there is a focus UI.
+  const focus = has && ready && m.focus ? ` data-focus="${esc(m.id)}"` : '';
 
   return `
-    <a class="comp" href="${href}" data-state="${esc(st)}" data-obj="${movement.has(m.id) ? '1' : '0'}" style="--i:${i}">
-      <span class="comp-dial" data-dial="${esc(m.id)}">
-        <span class="comp-mark">${esc(m.name)}</span>
-      </span>
+    <a class="comp" href="${href}" data-state="${esc(st)}" data-obj="${has ? '1' : '0'}" style="--i:${i}">
       <span class="comp-read">
+        <span class="comp-name"><i class="dot ${dot}"></i>${esc(m.name)}</span>
         <span class="comp-head">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
         ${facts ? `<dl class="comp-facts">${facts}</dl>` : ''}
       </span>
+      ${has ? `<span class="comp-dial" data-dial="${esc(m.id)}"${focus} aria-hidden="true"></span>` : ''}
     </a>`;
 }
 
@@ -809,7 +805,6 @@ function barrelAlertHTML(alerts) {
   const worst = alerts.some((a) => a.severity === 'err') ? 'err' : 'warn';
   return `
     <div class="ov-barrel ov-barrel--${worst}">
-      <span class="ov-barrel-leader" aria-hidden="true"></span>
       <div class="ov-barrel-body">
         <span class="ov-barrel-count">${alerts.length} ${alerts.length > 1 ? 'things need' : 'thing needs'} attention</span>
         ${alerts.slice(0, 3).map((a) => `
@@ -818,12 +813,9 @@ function barrelAlertHTML(alerts) {
     </div>`;
 }
 
-/* The callout from the alert to the mainspring it is about. One polyline: a
-   short shelf off the text, then a straight run to wherever the barrel has
-   turned to, and a tick on the end. It is drawn rather than styled because
-   the barrel is part of a turning object — where it lands changes every
-   frame — and it is hidden whenever there is nothing to point at or nothing
-   to point with, so no stroke is ever left orphaned in the field. */
+/* The old callout from an alert to the mainspring barrel. The status board
+   has no leader lines; the function is kept so the frame hook stays valid,
+   and it now does nothing the moment its svg is gone. */
 function drawLeader() {
   const svg = $('#ov-leader') || $('#idle-leader');
   if (!svg) return;
@@ -919,28 +911,22 @@ function renderLauncher() {
       <section class="ov">
         <h1 class="sr-only">Overview</h1>
         <div class="ov-stage" id="ov-stage">
-          <div class="ov-side">
-            <div class="ov-alert" id="ov-barrel"></div>
-            <div class="ov-movement">
-              <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
-              <div class="ov-companions" id="ov-companions"></div>
-            </div>
-            <div class="ov-core">
-              <div class="ov-clock" id="ov-clock"></div>
-              <div class="np-slot" id="ov-np"></div>
-              <div class="ov-regulator"><div id="ov-rate"></div></div>
-              <div class="ov-caseline" id="ov-caseline"></div>
-              <div class="ov-case">
-                ${crownHTML()}
-                ${displayHTML()}
-                <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
-                <a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>
-                <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
-              </div>
+          <div class="ov-alert" id="ov-barrel"></div>
+          <div class="ov-clock" id="ov-clock"></div>
+          <div class="np-slot" id="ov-np"></div>
+          <div class="ov-meta">
+            <div class="ov-regulator"><div id="ov-rate"></div></div>
+            <div class="ov-caseline" id="ov-caseline"></div>
+            <div class="ov-case">
+              ${crownHTML()}
+              ${displayHTML()}
+              <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
+              <a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>
+              <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
             </div>
           </div>
           <div class="ov-ring" id="ov-ring"></div>
-          <svg class="ov-leader" id="ov-leader" aria-hidden="true"></svg>
+          <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
         </div>
         <footer class="ov-foot">
           <span class="meta ov-keys">
@@ -951,11 +937,12 @@ function renderLauncher() {
         </footer>
       </section>`;
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
-    fitBase = 0;  // a fresh plate is measured afresh
+    fitBase = 0;
   }
-  const { ring, companions } = splitCompanions(mods);
-  $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 2)).join('');
-  $('#ov-companions').innerHTML = companions.map(companionHTML).join('');
+  // One list: every module is a row. The player (music) used to sit beside
+  // the watch as a "companion"; it is a row like the rest now, and its
+  // in-place player still opens from its object.
+  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 2)).join('');
   paintNowPlaying();
   $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
   $('#ov-rate').innerHTML = rateHTML();
@@ -985,14 +972,10 @@ function mvHost() { return $('#mv'); }
 
 let stagePending = null;
 
-/* Bloom is a screen effect, not an object one, so the same setting reads
-   differently at different sizes: five objects at 130px have their lines
-   packed close enough that each line's glow overlaps its neighbours and sums
-   into a halo, while one object at 330px has those lines three times further
-   apart, each glowing alone. A module's page shows exactly one object and
-   shows it big, so it gets a little less; the idle display, read from across
-   a room, a little more. */
-const bloomFor = (screen) => (screen === 'idle' ? 0.95 : screen.startsWith('mod:') ? 0.85 : 0.85);
+/* v2: bloom is off. The world is flat line art on black — a halo around
+   every stroke is exactly the flash this redesign removed. The knob stays
+   because the scene still accepts it. */
+const bloomFor = (screen) => 0;
 
 async function ensureStage(screen) {
   const host = mvHost();
@@ -1767,19 +1750,11 @@ function renderIdle() {
     $('#view').innerHTML = `
       <section class="idle" aria-label="Clock and status">
         <div class="ov-stage idle-stage" id="idle-stage">
-          <div class="ov-side">
-            <div class="ov-alert" id="idle-barrel"></div>
-            <div class="ov-movement">
-              <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
-              <div class="ov-companions" id="idle-companions"></div>
-            </div>
-            <div class="ov-core">
-              <div class="idle-clock" id="idle-clock"></div>
-              <div class="np-slot" id="idle-np"></div>
-            </div>
-          </div>
+          <div class="ov-alert" id="idle-barrel"></div>
+          <div class="idle-clock" id="idle-clock"></div>
+          <div class="np-slot" id="idle-np"></div>
           <div class="ov-ring" id="idle-ring"></div>
-          <svg class="ov-leader" id="idle-leader" aria-hidden="true"></svg>
+          <div class="ov-cal idle-cal" id="idle-cal" data-mv-grab aria-hidden="true"></div>
         </div>
         <div class="idle-tools">
           ${crownHTML()}
@@ -1794,9 +1769,7 @@ function renderIdle() {
     fitBase = 0;
     idleRig = startIdleRig($('#view > .idle'));
   }
-  const { ring, companions } = splitCompanions(mods);
-  $('#idle-ring').innerHTML = ring.map((m, i) => complication(m, i, 3)).join('');
-  $('#idle-companions').innerHTML = companions.map(companionHTML).join('');
+  $('#idle-ring').innerHTML = mods.map((m, i) => complication(m, i, 1)).join('');
   paintNowPlaying();
   $('#idle-barrel').innerHTML = barrelAlertHTML(alerts);
   fitView();

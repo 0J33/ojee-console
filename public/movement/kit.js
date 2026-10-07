@@ -39,22 +39,22 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 export { THREE };
 
-/* The movement's colours. Each means one thing; nothing is coloured
-   for decoration. Steel and rhodium are the structure, brass is the
-   train that carries force, blued steel is a hand, ruby is a bearing,
-   and cyan is reserved for what is alive right now. */
+/* The movement's colours. v2: the same six roles in white and grey —
+   nothing is coloured for decoration. The darkest greys are structure,
+   the lighter greys are what should read, and pure white is reserved for
+   what is alive right now. Colour exists only as state: ok, warn, bad. */
 export const C = {
-  plate: 0x0b0f12,      // the ground under everything — near the page's own black
-  rhodium: 0x46565e,    // bridges, plate edges, perlage: present, never the subject
-  steel: 0x7d8b93,      // secondary structure that should read
-  brass: 0xffbf3f,      // the going train, anything transmitting force
-  blued: 0x4a8fe0,      // hands and screws
-  ruby: 0xff4a6e,       // jewels at the pivots
-  beat: 0x00ffff,       // the live second, and only that
-  hot: 0xdffcff,        // the one hot value in a frame
-  ok: 0x5bffa5,
-  warn: 0xffb000,
-  bad: 0xff2d2d,
+  plate: 0x000000,      // the ground under everything — the page's own black
+  rhodium: 0x5e5e5e,    // bridges, plate edges: present, never the subject
+  steel: 0x9a9a9a,      // secondary structure that should read
+  brass: 0xd4d4d4,      // the going train, anything transmitting force
+  blued: 0xffffff,      // hands and screws
+  ruby: 0xb0b0b0,       // jewels at the pivots — bearings, not baubles
+  beat: 0xffffff,       // the live part, and only that
+  hot: 0xffffff,        // the one hot value in a frame
+  ok: 0x5fc26e,
+  warn: 0xd1a03a,
+  bad: 0xe05555,
 };
 
 export const STATUS_HEX = { ok: C.ok, warn: C.warn, err: C.bad, off: C.rhodium };
@@ -204,7 +204,7 @@ export function mk(tiltZ = 0, tiltX = 0) {
      its time showing you the back of something and the other half
      edge-on. */
   g.userData = {
-    sp, tilt: t, spin: [0, 0.12, 0], sway: null, swayPeriod: 9, swayPhase: 0,
+    sp, tilt: t, spin: [0, 0.035, 0], sway: null, swayPeriod: 14, swayPhase: 0,
     rx: 0, ry: 0, av: { x: 0, y: 0 }, hitR: 1.8, parts: {},
     // `fixed`: held facing the viewer, square on, with no tilt and no sway —
     // an object opened up to be USED rather than looked at. Eased in and out

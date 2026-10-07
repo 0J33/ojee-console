@@ -90,7 +90,7 @@ export async function create(host, o = {}) {
   const view = kit.mount(host, {
     ortho: PPU,
     onFrame: () => { onFrame(); o.onFrame?.(); },
-    bloom: o.bloom ?? 0.85,
+    bloom: o.bloom ?? 0,
     drag: true,
     locked: o.locked,
     onLock: o.onLock,

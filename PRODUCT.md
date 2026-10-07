@@ -34,7 +34,7 @@ Local control, no cloud. It runs on the owner's own hardware, is reachable only 
 ## Brand Commitments
 
 - Name and wordmark: "ojee.console" (`ojee` + accent `.` + `console`), tagline "local control · no cloud".
-- The existing identity: cyan on near-black, all-monospace (Geist Mono, Departure Mono for HUD micro-type, Major Mono Display for the wordmark), zero radius, one accent, shared with the ojee.net sites.
+- The identity is monochrome: white on black, all Geist Mono, zero radius, colour reserved for status (ok, warn, err). The cyan identity is retired from the console; the ojee.net sites keep theirs.
 
 ## Evidence on Hand
 

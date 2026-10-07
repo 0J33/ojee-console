@@ -336,7 +336,7 @@ export function build(opts = {}) {
 
   setState(opts.state || {
     status: 'ok',
-    devices: [{ kind: 'mouse', online: true, battery: 80, charging: false, link: 'dongle', dpiColor: '#00ffff' }],
+    devices: [{ kind: 'mouse', online: true, battery: 80, charging: false, link: 'dongle', dpiColor: '#ffffff' }],
   });
   return { group, setState };
 }

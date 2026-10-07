@@ -170,6 +170,7 @@ const server = createServer((req, res) => {
     '/': ['public/index.html', 'text/html; charset=utf-8'],
     '/index.html': ['public/index.html', 'text/html; charset=utf-8'],
     '/ojee-ui.css': ['public/ojee-ui.css', 'text/css; charset=utf-8'],
+    '/ojee-ui2.css': ['public/ojee-ui2.css', 'text/css; charset=utf-8'],
     '/chrome.js': ['public/chrome.js', 'text/javascript; charset=utf-8'],
     '/favicon.svg': ['public/favicon.svg', 'image/svg+xml'],
   };

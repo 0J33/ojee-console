@@ -6,15 +6,54 @@
    is module-specific.
    ============================================================ */
 
-/* ---------- nav ---------- */
-/* The settings button sits outside .nav-links so it survives the
-   860px breakpoint, where the links collapse into the tab bar.
-   Settings has no tab-bar slot — five module tabs is already the
-   limit — so this is the only way to reach it on a phone. */
-.nav-settings { margin-left: auto; }
-.nav-links + .nav-settings { margin-left: var(--s-3); }
-.nav-logo { color: var(--ink); }
+/* ---------- top bar ----------
+   One slim bar: wordmark, state, the segments that used to ride the hud
+   strip, the module views, the clock and the two controls. The old three
+   strips (hud, nav, status) were three panes of glass stacked on each
+   other; this is one surface with one hairline under it. */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  /* The bar scrolls its own overflow instead of widening the page: on a
+     phone the clock must never be pushed out by the segments before it. */
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-height: var(--nav-h);
+  padding: 0 var(--s-3);
+  padding-left:  max(var(--s-3), env(safe-area-inset-left));
+  padding-right: max(var(--s-3), env(safe-area-inset-right));
+  background: var(--chrome-surface);
+  border-bottom: 1px solid var(--line);
+}
+.topbar::-webkit-scrollbar { display: none; }
+.nav-logo { color: var(--ink); margin-right: var(--s-1); flex: none; }
 .nav-logo:hover { color: var(--ink); }
+.topbar .seg {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  font-family: var(--hud); font-size: 0.6rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dim); white-space: nowrap;
+}
+.topbar .seg b { color: var(--ink-2); font-weight: 400; }
+.topbar .seg--live { color: var(--ink-2); }
+.topbar .seg--live::before {
+  content: ''; width: 5px; height: 5px; background: var(--accent);
+}
+.topbar .seg--degraded, .topbar .seg--degraded b { color: var(--warn); }
+.topbar .seg--degraded::before { background: var(--warn); }
+.topbar .seg--conn.warn, .topbar .seg--conn.warn b { color: var(--warn); }
+.topbar .seg--note { text-transform: none; letter-spacing: 0.08em; }
+.topbar .nav-links { display: flex; gap: 18px; margin-left: auto; }
+.nav-jump {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 0 10px;
+  background: none; border: 1px solid var(--line-strong);
+  color: var(--ink-2); cursor: pointer; transition: var(--t);
+  font-family: var(--mono); font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.nav-jump:hover { color: var(--ink); border-color: var(--line-hover); }
+.nav-settings { margin-left: 0; }
 
 /* A module that is down keeps its nav entry, marked. Strikethrough
    plus colour, never colour alone. */
@@ -24,40 +63,33 @@
 
 .tabitem[data-down="1"] { color: var(--warn); }
 
-/* ---------- hud ---------- */
-/* The live pip is cyan when everything is up and amber when it is
-   not — but the text next to it also changes ("nominal" vs "2 down"),
-   so the colour is reinforcement, not the message. */
-.hudbar .seg--degraded::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-.hudbar .seg--degraded, .hudbar .seg--degraded b { color: var(--warn); }
-.statusbar .warn { color: var(--warn); }
-
-/* .hide-sm is display:none under 700px, but `.hudbar .seg` sets display at
-   higher specificity, so the user segment never hid — and on a phone it pushed
-   the clock off the end of the bar. */
-@media (max-width: 700px) {
-  .hudbar .seg.hide-sm { display: none; }
+/* The bar sticks to the top and pays for the notch: viewport-fit=cover puts
+   the page under the status bar, so the bar must grow by the inset or its
+   content row is squashed behind it. */
+body.app .topbar {
+  position: sticky; top: 0; z-index: var(--z-hud); flex: none;
+  padding-top: env(safe-area-inset-top);
+  min-height: calc(var(--nav-h) + env(safe-area-inset-top));
 }
-.statusbar .warn::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
 
-/* ---------- status bar ---------- */
-/* Pinned to the bottom of the window the way the hud and nav are pinned to the
-   top, so a long page scrolls UNDER it instead of carrying it off-screen and
-   only showing it once you reach the end.
+/* .hide-sm is display:none under 860px, but a flex child sets display at
+   higher specificity, so the hidden segments never hid — and on a phone
+   they pushed the clock off the end of the bar. */
+@media (max-width: 860px) {
+  .topbar .seg.hide-sm { display: none; }
+  /* The tab bar carries Jump on a phone; a second one up here pushed the
+     settings button off the end of a 390px bar. */
+  .topbar .nav-jump { display: none; }
+  /* The module views live in the view strip on a phone; .topbar .nav-links
+     would otherwise outrank ojee-ui's breakpoint hide. */
+  .topbar .nav-links { display: none; }
+  .topbar { gap: var(--s-2); }
+}
 
-   sticky, not fixed. It is the last thing in the body's flex column, so it
-   keeps its own space at the end of the flow: a short page still ends exactly
-   at the window bottom with nothing to scroll, and on a long one the last row
-   of content comes to rest above the bar rather than behind it. The nav's
-   translucent surface and blur, so what scrolls behind reads as behind.
-
-   Only matters above 860px — below that the tab bar replaces it and the design
-   system hides it. */
-body.app .statusbar {
-  position: sticky; bottom: 0; z-index: var(--z-nav);
-  background: var(--chrome-surface);
-  -webkit-backdrop-filter: var(--chrome-blur);
-  backdrop-filter: var(--chrome-blur);
+/* The view strip sticks below both old bars per ojee-ui's math; with one
+   bar it sticks below that one. Retuning the token keeps the two in step. */
+@media (max-width: 860px) {
+  :root { --hud-h: 0px; }
 }
 
 /* ---------- login ---------- */
@@ -182,9 +214,8 @@ body.app .statusbar {
        however little was on it. The safe-area terms are 0 on a desktop; they
        are there for an iPad in landscape, which is wide enough for the rail
        and pays for its notch and home bar in the bars' own heights. */
-    --statusbar-h: 24px;   /* .statusbar's min-height in ojee-ui.css */
-    position: sticky; top: calc(var(--hud-h) + var(--nav-h) + env(safe-area-inset-top));
-    height: calc(100dvh - var(--hud-h) - var(--nav-h) - var(--statusbar-h)
+    position: sticky; top: calc(var(--nav-h) + env(safe-area-inset-top));
+    height: calc(100dvh - var(--nav-h)
                  - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y: auto;
     padding: var(--s-3) var(--s-2) var(--s-5);
@@ -212,8 +243,16 @@ body.app .statusbar {
   .sn-view:hover { color: var(--ink-2); background: var(--tint-1); }
   .sn-view.is-on { color: var(--accent); }
   /* With the sidebar carrying every module and view, the top strip would be
-     a second copy of the same links. */
-  .nav-links { display: none; }
+     a second copy of the same links. `.topbar` in the selector, or the bar's
+     own `display: flex` outranks this and the views show twice. */
+  .topbar .nav-links { display: none; }
+}
+
+/* The bar is one row and never scrolls on a desktop: below a wide window the
+   segments that repeat what the page already says (user, module count, the
+   connection note) give way before anything is pushed off the end. */
+@media (max-width: 1279px) {
+  .topbar .seg.hide-sm { display: none; }
 }
 
 /* ── settings on a phone ─────────────────────────────────────────────────
@@ -279,7 +318,7 @@ body.app .statusbar {
   margin-inline-start: 0.34em; vertical-align: 0.9em;
 }
 .ch-ap:empty { display: none; }
-.ch-ss { color: var(--accent); text-shadow: 0 0 0.35em var(--glow-mid); transition: color var(--dur-2); }
+.ch-ss { color: var(--ink-2); transition: color var(--dur-2); }
 .ch.is-top .ch-ss { color: var(--ink-hi); }
 
 /* The minute as sixty marks: every fifth taller, the last five set apart as
@@ -290,7 +329,8 @@ body.app .statusbar {
 .ch-rail i.on { background: var(--accent); opacity: 0.8; }
 .ch-rail i.ch-app { background: var(--line-strong); }
 .ch-rail i.ch-app.on { background: var(--ink-hi); opacity: 1; }
-.ch.is-top .ch-rail i { animation: ch-flash 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+/* v2: the second's flash is retired. The rail still marks the minute; the
+   digits still show the second. Nothing pulses. */
 @keyframes ch-flash { 0% { background: var(--accent); opacity: 1; } 100% { opacity: 0.8; } }
 
 .ch-tb { width: 100%; }
@@ -327,29 +367,15 @@ body.app .statusbar {
 .ch-hand--s {
   --w: max(1px, 0.5%); height: 54.35%; bottom: 40.22%;
   transform-origin: 50% 82%;
-  background: var(--accent); box-shadow: 0 0 6px var(--glow-soft);
+  background: var(--accent);
 }
-/* Where the seconds hand has just been: a wedge that fades behind it. It is
-   one static gradient, rotated with the hand — never repainted. */
-.ch-trail {
-  position: absolute; inset: 3.26%; border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg 318deg, var(--glow-faint) 342deg, var(--glow-mid) 360deg);
-  -webkit-mask: radial-gradient(closest-side, transparent 30%, black 58%, black 100%);
-          mask: radial-gradient(closest-side, transparent 30%, black 58%, black 100%);
-  will-change: transform;
-}
-.ch.is-reduced .ch-trail { display: none; }
+.ch-trail { display: none; }
 .ch-hub {
   position: absolute; left: 50%; top: 50%;
   width: max(7px, 3.4%); aspect-ratio: 1; translate: -50% -50%;
   border-radius: 50%; background: var(--bg); border: 2px solid var(--accent);
 }
-.ch-pulse {
-  position: absolute; inset: 3.26%; border-radius: 50%;
-  border: 1px solid var(--accent); opacity: 0; pointer-events: none;
-}
-.ch.is-top .ch-pulse { animation: ch-pulse 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes ch-pulse { 0% { opacity: 0.9; scale: 1; } 100% { opacity: 0; scale: 1.1; } }
+.ch-pulse { display: none; }
 
 @media (max-width: 640px) {
   .ch--home { grid-template-columns: minmax(0, 1fr); }
@@ -365,8 +391,8 @@ body.app .statusbar {
 }
 
 /* ── the idle display ─────────────────────────────────────────────────────── */
-body.is-idle .hudbar, body.is-idle .nav, body.is-idle .viewstrip,
-body.is-idle .sidenav, body.is-idle .tabbar, body.is-idle .statusbar { display: none; }
+body.is-idle .topbar, body.is-idle .viewstrip,
+body.is-idle .sidenav, body.is-idle .tabbar { display: none; }
 body.is-idle .shell { display: block; }
 body.is-idle .wrap { max-width: none; padding: 0; }
 body.is-idle #view { min-height: 100dvh; }
@@ -505,7 +531,7 @@ body.mv-turning { cursor: grabbing; user-select: none; }
   padding: var(--s-3);
   margin-bottom: var(--s-3);
   border: 1px solid var(--line);
-  background: linear-gradient(158deg, var(--panel), var(--bg-1) 62%);
+  background: var(--panel);
 }
 /* The one box on a module's page that offers its object for turning: a
    pointer event here is a drag, and `touch-action: none` is what stops the
@@ -662,112 +688,89 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 }
 
 
-/* ── the plate ────────────────────────────────────────────────────────────
-   The movement down the left at the height of the screen, the five modules
-   as lines down the right. The watch is the thing this console is; it gets
-   the room to be one, and the modules read beside it rather than around it.
-   No card grid — a repeating panel per module is the arrangement this world
-   exists to refuse. */
+/* ── the overview: a status board ──────────────────────────────────────────
+   What is wrong, then the clock and its rate, then one row per module —
+   state dot, name, headline, readings, and the module's own object small at
+   the row's end as identification. The old plate arranged a movement and its
+   five sub-dials across one screen; this arranges the same facts in the
+   order a glance needs them. */
 
 .ov {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--s-4);
-  padding-block: var(--s-3) var(--s-4);
-  /* One screenful, measured. Nothing on the home screen is below the fold. */
-  height: var(--view-h, auto);
-  min-height: 0;
-  overflow: hidden;
+  padding-block: var(--s-3) var(--s-5);
 }
 
 .ov-stage {
   position: relative;
-  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
-  /* One row, and it may not be taller than the plate. Without this the
-     implicit row is `auto`, sizes itself to its tallest child, and the whole
-     column quietly overflows the screen it was measured to fit. */
-  grid-template-rows: minmax(0, 1fr);
-  gap: clamp(20px, 3vw, 64px);
-  align-items: stretch;
-  --dial: min(9vw, 15vh, 148px);
-}
-
-/* The movement's column: what needs attention, the movement itself, the
-   figures under it, and the crown at the bottom where a crown is wound. */
-.ov-side {
-  display: grid;
-  grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
-  min-height: 0;
-  justify-items: center;
-  gap: var(--s-3);
+  grid-template-columns: minmax(0, 1fr) clamp(84px, 11vw, 148px);
+  grid-template-areas:
+    "alert obj"
+    "clock obj"
+    "np    obj"
+    "meta  obj"
+    "ring  obj";
+  gap: var(--s-3) clamp(16px, 3vw, 48px);
+  align-items: start;
   min-width: 0;
+  --dial: clamp(56px, 7vw, 96px);
 }
-/* The movement's box is simply the room left over: the full width of its
-   column and whatever height the rows above and below it did not take. It
-   does not describe a square — `aspect-ratio` with `height: 100%` resolves
-   against an indefinite height, comes back as the column's WIDTH, and pushes
-   the figures off the bottom of the screen. The scene fits its object to the
-   short side of whatever box this turns out to be, which is the same
-   arrangement with none of the arithmetic. */
+.ov-alert { grid-area: alert; min-width: 0; }
+.ov-clock { grid-area: clock; min-width: 0; }
+.ov-stage > .np-slot { grid-area: np; }
+.ov-meta { grid-area: meta; display: grid; gap: var(--s-2); min-width: 0; }
+.ov-ring { grid-area: ring; display: grid; min-width: 0; }
 .ov-cal {
-  align-self: stretch;
-  justify-self: stretch;
+  grid-area: obj;
   width: 100%;
-  min-height: 0;
-  /* Grabbable, and it owns the gesture that starts on it: without
-     `touch-action: none` a phone hands the first few pixels of every drag to
-     its own scroller and the watch jumps as the page slides out from under
-     it. Everything else on the page keeps scrolling normally, because a
-     touch only turns an object when it starts inside a box like this one. */
+  aspect-ratio: 1;
+  align-self: start;
+  justify-self: stretch;
   pointer-events: auto; touch-action: none; cursor: grab;
 }
 .ov-cal:active { cursor: grabbing; }
-.ov-core {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-/* The chronometer is a grid of one `1fr` column. Shrink-wrapped by the
-   centring above it that column resolves to nothing and every figure hangs
-   off the right of a zero-width box, so it takes the column's width. */
-.ov-core .ch { width: 100%; }
-.ov-core .ch-read { font-size: clamp(2rem, 4.4vw, 3.6rem); }
-.ov-core .ch--home { grid-template-columns: minmax(0, 1fr); }
-.ov-core .ch-main { justify-items: center; gap: var(--s-2); }
-.ov-core .ch-dialwrap, .ov-core .tb, .ov-core .ch-rail { display: none; }
-.ov-core .ch-readbox { gap: var(--s-2); }
+
+/* The clock. The chronometer is the one figure that must never be
+   ambiguous, so it takes the width and the weight. */
+.ov-clock { width: 100%; grid-template-columns: minmax(0, 1fr); }
+.ov-clock .ch-read { font-size: clamp(2.4rem, 6vw, 4.6rem); }
+.ov-clock .ch-main { justify-items: start; gap: var(--s-2); }
+.ov-clock .ch-dialwrap, .ov-clock .tb { display: none; }
+.ov-clock .ch-readbox { gap: var(--s-2); }
 .ov-regulator { width: 100%; }
 
-/* Date, zone and how well the time is known: engraved along the case, under
-   the movement, where a caseback's markings go. */
+/* Date, zone and how well the time is known. */
 .ov-caseline {
-  display: flex; flex-wrap: wrap; justify-content: center;
+  display: flex; flex-wrap: wrap; align-items: center;
   gap: 4px var(--s-3);
   font-family: var(--hud); font-size: 0.72rem; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--ink-2);
 }
 .ov-caseline b { color: var(--ink); font-weight: 400; }
 
-/* ── the register column ─────────────────────────────────────────────────
-   One line per module: its object, its headline, its readings. They are
-   separated by a rule, never boxed — a box per module is a card, and a card
-   per module is the grid this refuses. */
-.ov-ring {
-  display: grid;
-  grid-auto-rows: minmax(0, 1fr);
-  align-content: stretch;
-  min-width: 0;
+/* The controls that change what is shown: hold the movement, 24H/12H,
+   the day wheel's language, the Assistant, the watch, the idle display. */
+.ov-case {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+  z-index: 2;
 }
+
+/* ── module rows ─────────────────────────────────────────────────────────
+   One row per module, separated by a hairline and never boxed. A row that
+   needs attention grows a little and takes the room's eye: the cadence
+   breaks exactly where the priority does. Never colour alone — the dot is a
+   shape, the headline says what happened. */
 .comp {
   display: grid;
-  grid-template-columns: var(--dial) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) var(--dial);
   align-items: center;
   gap: var(--s-3);
-  padding: var(--s-2) 0;
+  padding: var(--s-3) 0;
   border: 0;
   border-top: 1px solid var(--line-2);
   background: none;
@@ -777,27 +780,13 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 }
 .comp:first-child { border-top: 0; }
 .comp::before { content: none; }
-/* No ring around the object: a circle drawn round a drawing makes it a
-   badge, and these are not badges. The object sits in the open with its
-   name under it. */
-.comp-dial {
-  position: relative;
-  width: var(--dial); height: var(--dial);
-  border: 0;
-  background: none;
-  pointer-events: none;
+.comp-name {
+  display: flex; align-items: center; gap: 9px;
+  font-family: var(--hud); font-size: 0.68rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--ink-2);
 }
-.comp-mark {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  text-align: center;
-  font-family: var(--hud);
-  font-size: 0.68rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-.comp-read { display: grid; gap: 7px; width: 100%; min-width: 0; padding-left: 14px; }
-.comp-head { font-size: 1rem; line-height: 1.3; color: var(--ink); }
+.comp-read { display: grid; gap: 6px; width: 100%; min-width: 0; }
+.comp-head { font-size: 1rem; line-height: 1.35; color: var(--ink); }
 .comp-facts { display: grid; gap: 3px; margin: 0; width: 100%; }
 .comp-fact { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .comp-fact dt {
@@ -808,86 +797,46 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 .comp-fact dd {
   margin: 0; min-width: 0; text-align: right;
   font-variant-numeric: tabular-nums; color: var(--ink);
-  white-space: normal; overflow-wrap: anywhere; font-size: 0.82rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.82rem;
 }
 .comp:hover .comp-head { color: var(--ink-hi); }
-.comp:hover .comp-mark { color: var(--ink); }
-.comp:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+.comp:hover .comp-name { color: var(--ink); }
+.comp:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 
-/* Five rows on one rhythm is five rows of equal weight, and they are not of
-   equal weight — one of them is telling you something is wrong. A module
-   that needs attention takes more room and puts a mark in the gutter, so the
-   cadence breaks exactly where the priority does. Never colour alone: the
-   mark is a shape, the headline says what happened, and the object beside it
-   lights its own failing part. */
-.comp[data-state="warn"], .comp[data-state="err"] { padding-block: var(--s-3); }
-.comp[data-state="warn"] .comp-head, .comp[data-state="err"] .comp-head {
+/* The object at the row's end: identification, not the show. It sits in an
+   open box — no circle, no badge; a circle round a drawing is a badge. */
+.comp-dial {
   position: relative;
-  font-size: 1.06rem;
+  width: var(--dial); height: var(--dial);
+  border: 0;
+  background: none;
+  pointer-events: none;
 }
+/* A module with an object that opens in place offers its object; the row
+   itself still opens the module. */
+.comp-dial[data-focus] { pointer-events: auto; cursor: pointer; }
+.comp[data-obj="0"] { grid-template-columns: minmax(0, 1fr); }
+
+/* A row that needs attention: more room, and the head says it in words
+   as well as colour. */
+.comp[data-state="warn"], .comp[data-state="err"] { padding-block: calc(var(--s-3) + 3px); }
 .comp[data-state="warn"] .comp-head { color: var(--warn); }
 .comp[data-state="err"] .comp-head { color: var(--err); }
-.comp[data-state="warn"] .comp-head::before,
-.comp[data-state="err"] .comp-head::before {
-  content: '';
-  position: absolute; left: -14px; top: 0.55em;
-  width: 6px; height: 6px;
-  background: currentColor;
-}
-.comp[data-state="err"] .comp-head::before { border-radius: 50%; }
 .comp[data-state="down"] { opacity: 0.68; }
-/* A module this build has no object for keeps its line and loses its dial:
-   the name printed on the dial steps out to become the line's own label, and
-   the register reads as a row of text rather than as a frame around nothing.
-   Keyed on whether there IS an object, not on how wide the screen is — a
-   phone used to lose every dial here, which is the opposite of the trade. */
-.ov-stage .comp[data-obj="0"] {
-  grid-template-columns: minmax(0, 1fr); gap: 5px; align-items: start;
-}
-.ov-stage .comp[data-obj="0"] .comp-dial {
-  position: static; width: auto; height: auto; background: none;
-}
-.ov-stage .comp[data-obj="0"] .comp-mark {
-  position: static; text-align: left; font-size: 0.68rem; color: var(--ink-2);
-}
-.ov-stage .comp[data-obj="0"] .comp-read { padding-left: 0; }
+.comp[data-state="down"] .comp-name { text-decoration: line-through; text-decoration-color: var(--line-hover); }
 
-/* ── the barrel's alert ──────────────────────────────────────────────────
-   Engraved above the movement with a leader drawn down onto the mainspring
-   barrel itself — because in a movement the barrel is what everything
-   downstream depends on, and because a full-width bordered banner is the
-   admin-panel reflex this refuses. */
+/* ── the alert block ─────────────────────────────────────────────────────
+   Only present when something needs attention, and the first thing on the
+   page when it is. */
 .ov-barrel {
-  align-self: start;
-  justify-self: stretch;
-  display: flex;
-  gap: var(--s-2);
-  min-height: 0;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
   z-index: 2;
 }
-.ov-barrel-leader {
-  flex: none;
-  width: 34px;
-  align-self: flex-start;
-  margin-top: 9px;
-  border-top: 1px solid var(--warn);
-  position: relative;
-}
-.ov-barrel-leader::after {
-  content: '';
-  position: absolute; right: -3px; top: -3px;
-  width: 5px; height: 5px;
-  background: var(--warn);
-}
-/* On the plate a drawn leader takes over from the ruled one, because it has
-   to land on a part of a turning object. */
-.ov-stage .ov-barrel-leader { display: none; }
-.ov-barrel--err .ov-barrel-leader { border-color: var(--err); }
-.ov-barrel--err .ov-barrel-leader::after { background: var(--err); }
+.ov-barrel:empty { display: none; }
 .ov-barrel-body { display: grid; gap: 5px; min-width: 0; }
-/* Sized for its PRIORITY, not for its word count. Blurred, this has to be
-   the second thing you see after the watch; at 0.7rem in the corner it was
-   the fifth. */
 .ov-barrel-count {
   font-family: var(--hud); font-size: 0.85rem; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--warn);
@@ -902,22 +851,6 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 }
 .ov-barrel-item:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
-/* The drawn leader. Its geometry is script's — it has to end on a part of a
-   turning object — but its weight, colour and cap belong here. */
-.ov-leader {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  overflow: visible;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity var(--dur) ease;
-}
-.ov-leader[data-on] { opacity: 1; }
-.ov-leader polyline { fill: none; stroke: var(--warn); stroke-width: 1; }
-.ov-leader circle { fill: none; stroke: var(--warn); stroke-width: 1; }
-.ov-leader[data-sev="err"] polyline, .ov-leader[data-sev="err"] circle { stroke: var(--err); }
-
 /* A jewel: the bearing a status pip is drawn as in this console. Cut for
    the Calibre sheet, kept here so the module header keeps its pip when that
    sheet is not loaded. */
@@ -926,13 +859,12 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   width: 7px; height: 7px;
   flex: none;
   border-radius: 50%;
-  background: var(--chart-5);
-  box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.55), 0 0 6px rgba(255, 74, 110, 0.5);
+  background: var(--dim);
 }
-.jewel--ok { background: var(--ok); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-ok); }
-.jewel--warn { background: var(--warn); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-warn); }
-.jewel--err { background: var(--err); box-shadow: 0 0 0 1px rgba(255, 191, 63, 0.4), var(--glow-err); }
-.jewel--off { background: var(--dim); box-shadow: 0 0 0 1px rgba(190, 214, 222, 0.2); }
+.jewel--ok { background: var(--ok); }
+.jewel--warn { background: var(--warn); }
+.jewel--err { background: var(--err); }
+.jewel--off { background: var(--dim); }
 
 /* ── the crown and the rate scale ────────────────────────────────────────
    Two controls this console owns outright: the crown that holds the watch
@@ -1054,136 +986,113 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 /* The bullet of this world. A ruby in a gold chaton, at 7px, used
    where a list needs a mark and a dot would be anonymous. */
 
-/* ── the case ────────────────────────────────────────────────────────────
-   The crown sits under the movement on the caseline, where a crown is
-   wound — not floating in open field with nothing to sit on. */
-.ov-case {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-  margin-top: var(--s-2);
-  z-index: 2;
-}
-
 /* ── the idle display ────────────────────────────────────────────────────
-   The same plate with the screen to itself — and black, not near-black.
-   This screen runs for hours on a panel that lights every pixel it shows,
-   and on OLED black is a pixel that is OFF: it costs nothing to draw and it
-   cannot burn in. The drafting grid goes with it for the same reason. */
+   The clock given the screen — and pure black, not near-black. This runs
+   for hours on a panel that lights every pixel it shows, and on OLED black
+   is a pixel that is OFF: it costs nothing and cannot burn in. */
 body.is-idle { background: #000; }
 body.is-idle .shell, body.is-idle .idle { background: #000; }
 body.is-idle.grid-bg::before,
 body.is-idle .idle::before { display: none; }
-/* Everything on it comes off pure black, so the faint tints that read on
-   #08080e are re-based here rather than washing out. */
 body.is-idle {
   --bg: #000;
   --bg-1: #000;
-  --panel: #05070a;
-  --chrome-surface: rgba(0, 0, 0, 0.72);
+  --panel: #0a0a0a;
 }
+/* Two columns, one screen. The clock, what is playing and the watch itself
+   down the left; the module rows down the right. The rows used to sit under
+   the clock, and seven of them pushed the clock off the top of a display
+   that cannot scroll. */
 .idle-stage {
-  /* Height, not min-height: the plate may not be taller than the screen it
-     is on. Everything inside it is a row that can give. */
+  width: 100%;
   height: 100%;
   min-height: 0;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-  gap: clamp(24px, 4vw, 96px);
-  /* Bounded by the screen's HEIGHT as well as its width: five rows have to
-     fit between the top and the bottom, and a dial sized off the width alone
-     pushes the last one off a short screen. */
-  --dial: min(10vw, 12.5vh, 176px);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "alert ring"
+    "clock ring"
+    "np    ring"
+    "obj   ring";
+  gap: var(--s-3) clamp(32px, 5vw, 112px);
+  align-content: stretch;
+  --dial: clamp(56px, 6vw, 96px);
 }
-.idle-cal { width: 100%; }
-.idle-stage .ov-core .ch-read { font-size: clamp(3rem, 6vw, 7rem); }
-/* Read from across a room: the register name, the headline and the readings
-   all step up, and nothing on this screen is under twelve pixels or on the
-   dimmest ink. */
-.idle-stage .comp-mark { font-size: 0.85rem; letter-spacing: 0.2em; }
+.idle-stage > .ov-ring { align-self: center; max-height: 100%; overflow: hidden; }
+.idle-stage .comp { padding: 12px 0; }
+.idle-cal { width: 100%; height: 100%; min-height: 160px; }
+.idle-clock {
+  grid-area: clock;
+  width: 100%;
+  display: grid;
+  gap: var(--s-3);
+  justify-items: start;
+  min-width: 0;
+}
+.idle-clock.ch { grid-template-columns: minmax(0, 1fr); }
+.idle-clock .ch-read { font-size: clamp(3.4rem, 8vw, 8.5rem); }
+.idle-clock .ch-dialwrap { display: none; }
+.idle-clock .ch-side { min-width: 0; width: 100%; justify-items: start; }
+/* Read from across a room: name, headline and readings all step up, and
+   nothing here is on the dimmest ink. */
+.idle-stage .comp-name { font-size: 0.85rem; letter-spacing: 0.2em; color: var(--ink-2); }
 .idle-stage .comp-head { font-size: 1.12rem; color: var(--ink-hi); }
 .idle-stage .comp-fact dt { font-size: 0.8rem; color: var(--ink-2); }
 .idle-stage .comp-fact dd { font-size: 0.95rem; }
-.idle-stage .ov-barrel-count { font-size: 0.8rem; }
+.idle-stage .ov-barrel-count { font-size: 0.85rem; }
 .idle-stage .ov-barrel-item { font-size: 0.95rem; }
 .idle-stage .ch-line {
   font-size: 0.8rem; letter-spacing: 0.16em; color: var(--ink-2);
-  justify-content: center; text-align: center;
 }
-.idle-stage .ch-date { font-size: clamp(1rem, 1.5vw, 1.5rem); text-align: center; }
+.idle-stage .ch-date { font-size: clamp(1rem, 1.5vw, 1.5rem); }
 .idle-stage .ch-src { color: var(--ink); }
 .ch-date-b { display: block; color: var(--ink-2); }
 .ch--idle { grid-template-columns: minmax(0, 1fr); }
 .ch--idle .ch-dialwrap { display: none; }
-.ch--idle .ch-side { min-width: 0; width: 100%; justify-items: center; }
+.ch--idle .ch-side { min-width: 0; width: 100%; justify-items: start; }
 
 /* ── narrow ──────────────────────────────────────────────────────────────
-   Under 900px the two columns become one: the movement and its figures own
-   the first screen and the registers read under it. Under 640px the
-   registers lose their objects entirely — line art at ninety pixels on a
-   phone is noise, and one field should dominate. */
+   Under 900px the object column drops under the clock, and the rows take
+   the full width. Under 640px the readings give way before the objects do. */
 @media (max-width: 900px) {
-  /* A phone cannot show a movement, a clock and five modules at once, and
-     pretending otherwise is how you get six things on top of each other.
-     Here the page scrolls and the fixed screenful is dropped. */
-  .ov { height: auto; overflow: visible; grid-template-rows: auto auto; }
   .ov-stage, .idle-stage {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
+    grid-template-areas: "alert" "clock" "np" "meta" "obj" "ring";
     height: auto;
     min-height: 0;
     gap: var(--s-4);
   }
+  .idle-stage { grid-template-areas: "alert" "clock" "np" "obj" "ring"; }
   .idle { height: auto; min-height: 100dvh; }
-  .ov-side { grid-template-rows: auto auto auto; }
-  /* Stacked, there is no leftover row to fill, so the movement takes a size
-     of its own. */
-  .ov-cal { width: min(80vw, 400px); aspect-ratio: 1; justify-self: center; }
-  .idle-cal { width: min(88vw, 440px); aspect-ratio: 1; justify-self: center; }
-  /* Stacked, each register has the full width of the screen to share between
-     its object and its readings, so the object takes a real size instead of
-     the token one it could afford beside a plate. */
-  .ov-stage { --dial: min(34vw, 156px); }
-  .idle-stage { --dial: min(36vw, 168px); }
-  /* No plate to fit around here, so the figures take the size they deserve:
-     on a phone the console's clock is the first thing the screen is for, and
-     on the idle display it is nearly the only thing. */
-  .ov-core .ch-read { font-size: clamp(2.2rem, 12vw, 4rem); }
-  .idle-stage .ov-core .ch-read { font-size: clamp(3rem, 15vw, 5.5rem); }
+  .ov-cal, .idle-cal {
+    width: min(56vw, 260px); aspect-ratio: 1; justify-self: start;
+    grid-area: obj;
+  }
+  .ov-stage { --dial: clamp(64px, 16vw, 120px); }
+  .idle-stage { --dial: clamp(72px, 18vw, 140px); }
+  .ov-clock .ch-read { font-size: clamp(2.2rem, 11vw, 4rem); }
+  .idle-clock .ch-read { font-size: clamp(3rem, 14vw, 5.5rem); }
   .idle-stage .ch-date { font-size: clamp(0.95rem, 4vw, 1.3rem); }
 
-  /* The idle display on a phone is the watch and the time, centred, and
-     nothing else. Five registers under them turn a screen meant to be read
-     from across a room into a list nobody is close enough to read, and the
-     first thing you would have to do to see the time is scroll. */
+  /* The idle display on a phone is the clock and the time, centred, and
+     nothing else: a row list turns a screen meant to be read from across a
+     room into a list nobody is close enough to read. */
   body.is-idle .ov-ring { display: none; }
-  .idle-stage {
-    height: 100%;
-    align-content: center;
-    justify-items: center;
-  }
-  .idle-stage .ov-side {
-    align-content: center;
-    justify-items: center;
-    height: 100%;
-  }
-  .idle-cal { width: min(86vw, 420px); }
+  .idle-stage { align-content: center; justify-items: center; }
+  .idle-clock { justify-items: center; text-align: center; }
+  .idle-clock .ch-side { justify-items: center; }
+  .idle-stage { grid-template-rows: none; }
+  .idle-cal { width: min(60vw, 280px); height: auto; min-height: 0; aspect-ratio: 1; justify-self: center; }
+  /* Clear the row of controls in the corner: they show for a few seconds
+     after any touch, and sat on top of the first alert. */
+  .idle { padding-top: max(76px, calc(env(safe-area-inset-top) + 64px)); }
 }
 
-/* This used to throw the objects away below 640px — the box collapsed to the
-   height of its own label, the scene refused to draw into anything that small,
-   and a phone got a list of words where the plate has a movement. That was the
-   wrong half to drop: the drawing is what this console is, and a phone is
-   where it is read most. The register keeps its object; it is the readings
-   that give, from three lines to one. */
 @media (max-width: 640px) {
-  .ov-stage { --dial: min(32vw, 138px); }
-  .ov-stage .comp {
-    grid-template-columns: var(--dial) minmax(0, 1fr);
-    gap: var(--s-2);
-    align-items: center;
-  }
-  .ov-stage .comp-read { gap: 5px; padding-left: 10px; }
-  .ov-stage .comp-mark { font-size: 0.62rem; letter-spacing: 0.18em; }
+  .ov-stage { --dial: clamp(52px, 14vw, 100px); }
+  .ov-stage .comp { gap: var(--s-2); }
+  .ov-stage .comp-read { gap: 5px; }
+  .ov-stage .comp-name { font-size: 0.62rem; letter-spacing: 0.18em; }
   .ov-stage .comp-head { font-size: 0.92rem; }
 }
 
@@ -1245,14 +1154,14 @@ body.is-idle {
   position: fixed; inset: 0; z-index: 2;
   /* Dark enough that the page behind is gone, not merely dim: a panel of
      text over a readable overview reads as two layers of text. */
-  background: rgba(3, 6, 8, 0.975);
+  background: rgba(0, 0, 0, 0.975);
   opacity: 0; transition: opacity 0.32s ease;
 }
 .mfocus.is-open .mfocus-scrim { opacity: 1; }
 .mfocus-box { position: fixed; pointer-events: none; }
 .mfocus-plate {
   position: fixed; z-index: 2; pointer-events: none;
-  background: #0b0f12;
+  background: var(--bg);
   opacity: 0; transition: opacity 0.2s ease 0.22s;
 }
 .mfocus.is-open .mfocus-plate { opacity: 1; }
@@ -1281,14 +1190,14 @@ body.is-idle {
 .mfocus-bar a, .mfocus-bar button {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--ink-2); background: rgba(8, 12, 14, 0.7);
+  color: var(--ink-2); background: rgba(10, 10, 10, 0.7);
   border: 1px solid var(--line-strong); padding: 9px 14px; min-height: 40px;
   cursor: pointer; text-decoration: none;
 }
 .mfocus-bar a:hover, .mfocus-bar button:hover { color: var(--ink); border-color: var(--line-hover); }
 .mfocus-bar a:focus-visible, .mfocus-bar button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .mfocus-bar .ic { width: 16px; height: 16px; }
-.mfocus-err { margin: 0; padding: 12px; color: var(--warn); font-size: 0.85rem; background: #05090b; height: 100%; }
+.mfocus-err { margin: 0; padding: 12px; color: var(--warn); font-size: 0.85rem; background: var(--bg); height: 100%; }
 /* No text selection while something is open: spinning an unlocked object
    is a drag across the page, and it selected everything it crossed. */
 body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; }
@@ -1296,35 +1205,9 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   .mfocus-scrim, .mfocus-plate, .mfocus > .mfocus-ui > * { transition: none; }
 }
 
-/* ── the watch's companion and the line under the time ─────────────────── */
-/* The movement's row holds the watch and, in its lower right corner, the
-   player — beside the watch rather than in the register column. The watch is
-   fitted to the short side of its box, so a landscape box leaves both lower
-   corners empty; the player takes one of them. */
-.ov-movement {
-  position: relative;
-  align-self: stretch; justify-self: stretch;
-  width: 100%; min-height: 0;
-  display: grid;
-  /* One cell that IS the row's height: an auto row around an empty box is
-     zero tall, and the watch with it. */
-  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-}
-.ov-movement > .ov-cal { grid-area: 1 / 1; height: 100%; }
-/* Beside the watch, at the watch's size: the row splits in two when there is
-   a companion, and the scene fits each object to its own half. */
-.ov-movement:has(.ov-companion) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: clamp(8px, 2vw, 32px); }
-.ov-companions { position: relative; grid-area: 1 / 2; min-width: 0; min-height: 0; }
-.ov-companions:empty { display: none; }
-.ov-companion {
-  position: absolute; inset: 0;
-  pointer-events: auto; border-radius: 8px;
-}
-.ov-companion-dial { position: absolute; inset: 0; pointer-events: none; }
-.ov-companion:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
-.ov-companion[data-state="down"] { opacity: 0.6; }
-
-.np-slot { width: 100%; display: flex; justify-content: center; min-width: 0; }
+/* ── now playing ─────────────────────────────────────────────────────────
+   The line under the clock: title, artist, and how far through. */
+.np-slot { width: 100%; display: flex; justify-content: flex-start; min-width: 0; }
 .np-slot:empty { display: none; }
 .np {
   display: flex; align-items: center; gap: 10px;
@@ -1336,12 +1219,11 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   transition: border-color var(--dur-2), color var(--dur-2);
 }
 .np:hover { border-color: var(--line-strong); color: var(--ink); }
-.np:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.np:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .np .ic { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
 .np.is-playing .ic { color: var(--accent); }
 .np-title { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
-.np-artist { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 2 auto; }
-.np:not(.is-playing) .np-artist { color: var(--ink-2); }
+.np-artist { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 2 auto; }
 .np-bar { flex: 0 0 clamp(48px, 9vw, 120px); height: 2px; background: var(--line-strong); position: relative; }
 .np-bar i { position: absolute; inset: 0 auto 0 0; width: calc(var(--f, 0) * 100%); background: var(--accent); }
 .np:not(.is-playing) .np-bar i { background: var(--ink-2); }
@@ -1352,46 +1234,6 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .idle-stage .np { font-size: clamp(1rem, 1.35vw, 1.5rem); gap: 14px; max-width: min(100%, 820px); }
 .idle-stage .np .ic { width: 22px; height: 22px; }
 .idle-stage .np-time { font-size: clamp(0.85rem, 1vw, 1.1rem); }
-
-/* A register short of room drops readings rather than clipping them: each
-   row measures itself, and below the height two readings need it keeps one. */
-/* Only where the rows share out a fixed height (the plate, side by side).
-   Stacked, a row is as tall as its content, and size containment would make
-   that nothing: every register collapsed onto the first. */
-@media (min-width: 901px) {
-  .ov-ring .comp { container-type: size; container-name: reg; }
-}
-/* The object is sized to the ROW, not only to the screen: --dial is a width
-   budget, and a row shorter than it (six modules at 900px tall is 103px) had
-   each object and its name spill into the row below. Inside a measured row the
-   dial is the smaller of the two. And the readings are dropped only when they
-   genuinely do not fit: a headline and two readings need about 80px — the old
-   threshold of 118px hid the second reading on every laptop screen. */
-@media (min-width: 901px) {
-  /* The column keeps its width (the name under the object needs it); only
-     the height follows the row, and the scene fits the object to the
-     shorter side. */
-  .ov-ring .comp-dial { height: min(var(--dial), 100cqh); }
-}
-/* One line per reading, however long the value: a wrapped value pushed the
-   row past its share and into the next one. */
-.comp-fact dd { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.comp-fact dt { flex: none; }
-/* Measured against the row's CONTENT box: a headline and two readings are
-   ~65px of it, one reading ~45px. */
-@container reg (max-height: 66px) {
-  .comp-fact:nth-child(n + 2) { display: none; }
-}
-@container reg (max-height: 46px) {
-  .comp-facts { display: none; }
-}
-/* Stacked, the watch has its own phone size — which, halved by the player
-   beside it, ran off the screen. Beside a companion both share the row. */
-@media (max-width: 900px) {
-  .ov-movement:has(.ov-companion) { width: min(94vw, 640px); justify-self: center; }
-  .ov-movement:has(.ov-companion) > .ov-cal { width: 100%; }
-  .ov-movement:has(.ov-companion) > .ov-companions { aspect-ratio: 1; }
-}
 
 /* ── the watch, opened up: its panel ─────────────────────────────────────
    The panel has no background of its own: the scrim is the ground, and the
@@ -1426,11 +1268,11 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .wv-btn {
   font-family: var(--hud); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
   padding: 10px 18px; min-height: 40px; cursor: pointer; text-decoration: none;
-  color: var(--ink); background: rgba(8, 12, 14, 0.6); border: 1px solid var(--line-strong);
+  color: var(--ink); background: rgba(10, 10, 10, 0.6); border: 1px solid var(--line-strong);
   display: inline-flex; align-items: center;
 }
 .wv-btn:hover:not(:disabled) { border-color: var(--line-hover); }
-.wv-btn--primary { color: #041014; background: var(--accent); border-color: var(--accent); min-width: 120px; justify-content: center; }
+.wv-btn--primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); min-width: 120px; justify-content: center; }
 .wv-btn--primary:hover:not(:disabled) { filter: brightness(1.1); }
 .wv-btn:disabled { opacity: 0.4; cursor: default; }
 .wv-btn:focus-visible, .wv-chip:focus-visible, .wv-link:focus-visible, .wv-segb:focus-visible, .wv-x:focus-visible, .wv-in:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
@@ -1440,12 +1282,12 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .wv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .wv-chip {
   font-family: var(--mono); font-size: 0.8rem; padding: 6px 12px; cursor: pointer;
-  color: var(--ink-2); background: rgba(8, 12, 14, 0.6); border: 1px solid var(--line-strong);
+  color: var(--ink-2); background: rgba(10, 10, 10, 0.6); border: 1px solid var(--line-strong);
 }
 .wv-chip:hover { color: var(--accent); border-color: var(--accent); }
 .wv-in {
   font-family: var(--mono); font-size: 0.85rem; color: var(--ink);
-  background: rgba(8, 12, 14, 0.75); border: 1px solid var(--line-strong); padding: 9px 10px; min-height: 40px;
+  background: rgba(10, 10, 10, 0.75); border: 1px solid var(--line-strong); padding: 9px 10px; min-height: 40px;
   flex: 1 1 160px; min-width: 0;
 }
 .wv-in--time { flex: 0 0 96px; }
@@ -1462,7 +1304,7 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 
 /* timers */
 .wv-timers { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.wv-timer { border: 1px solid var(--line-strong); padding: 10px 12px; display: grid; gap: 8px; background: rgba(8, 12, 14, 0.5); }
+.wv-timer { border: 1px solid var(--line-strong); padding: 10px 12px; display: grid; gap: 8px; background: rgba(10, 10, 10, 0.5); }
 .wv-timer-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
 .wv-timer-label { color: var(--ink-2); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wv-timer-left { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 400; font-size: 1.5rem; color: var(--ink); }
@@ -1511,7 +1353,7 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .wv-band { fill: var(--accent); opacity: 0.12; }
 .wv-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .wv-cross { stroke: var(--line-hover); stroke-width: 1; }
-.wv-hover circle { fill: var(--accent); stroke: #05090b; stroke-width: 2; }
+.wv-hover circle { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
 .wv-hit { fill: transparent; cursor: crosshair; }
 .wv-tip {
   position: absolute; top: -6px; transform: translate(-50%, -100%); pointer-events: none;
@@ -1533,7 +1375,7 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 .wv-seg { display: inline-flex; border: 1px solid var(--line-strong); }
 .wv-segb { background: none; border: 0; padding: 8px 14px; min-height: 38px; cursor: pointer; font: inherit; font-size: 0.85rem; color: var(--ink-2); }
 .wv-segb + .wv-segb { border-left: 1px solid var(--line-strong); }
-.wv-segb[aria-pressed="true"] { color: #041014; background: var(--accent); }
+.wv-segb[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); }
 
 .mfocus--watch .mfocus-bar { transform: translateX(-50%); }
 @media (prefers-reduced-motion: reduce) {
@@ -1557,7 +1399,7 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
   transition: background 0.22s ease-out, backdrop-filter 0.22s ease-out;
 }
 .qc-backdrop[hidden] { display: none; }
-.qc-backdrop.is-in { background: var(--scrim); backdrop-filter: blur(4px); }
+.qc-backdrop.is-in { background: var(--scrim); }
 .qc {
   width: min(780px, 100%);
   max-height: 100%;

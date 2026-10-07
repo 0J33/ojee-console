@@ -3,7 +3,7 @@
 
    After the small cassette-era players: a landscape slab, a raised glass
    window with the screen in it, a ledge under the window where a cassette
-   door's hinge would be, and the keys along the top edge — power in red,
+   door's hinge would be, and the keys along the top edge — power first,
    a long volume rocker, then play, menu and back. The jacks are on the
    right flank. No marks on it anywhere.
 
@@ -165,7 +165,7 @@ export function build(opts = {}) {
   sp.add(deckMesh);
 
   /* ---- the keys along the top ----
-     Left to right as on the real one: power (red), volume (long), play,
+     Left to right as on the real one: power, volume (long), play,
      menu, back. Play lights while something is playing. */
   const KEYS = [[-1.39, -1.16, 'power'], [-0.93, -0.19, 'volume'], [0.0, 0.35, 'play'], [0.5, 0.85, 'menu'], [1.0, 1.35, 'back']];
   const keyH = 0.07; const keyD = D * 0.56;
@@ -174,7 +174,7 @@ export function build(opts = {}) {
     const kg = new THREE.BoxGeometry(x1 - x0, keyH, keyD);
     kg.translate((x0 + x1) / 2, H / 2 + keyH / 2, 0);
     sp.add(occluder(kg));
-    const e = edges(kg.clone(), name === 'power' ? C.bad : C.steel, name === 'power' ? 0.9 : 0.7, 25);
+    const e = edges(kg.clone(), C.steel, name === 'power' ? 0.9 : 0.7, 25);
     keyMats[name] = e;
     sp.add(e);
   }
@@ -216,36 +216,33 @@ export function build(opts = {}) {
     const p = posMs();
     const f = d ? p / d : 0;
     const F = fonts();
-    c.fillStyle = '#05090b'; c.fillRect(0, 0, w, h);
-    const g = c.createRadialGradient(w / 2, 0, 0, w / 2, 0, w * 0.6);
-    g.addColorStop(0, 'rgba(0,255,255,0.10)'); g.addColorStop(1, 'rgba(0,255,255,0)');
-    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#000000'; c.fillRect(0, 0, w, h);
     // The shell.
-    c.strokeStyle = 'rgba(125,139,147,0.32)'; c.lineWidth = 2;
+    c.strokeStyle = 'rgba(154,154,154,0.32)'; c.lineWidth = 2;
     roundRect(c, 0.06 * w, 0.07 * h, 0.88 * w, 0.555 * h, 0.022 * h); c.stroke();
     if (!live) {
-      c.fillStyle = 'rgba(159,176,182,0.8)'; c.font = `500 ${0.09 * h}px ${F.sans}`;
+      c.fillStyle = 'rgba(179,179,179,0.8)'; c.font = `500 ${0.09 * h}px ${F.sans}`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(st.connected === false ? 'Not connected' : 'Nothing playing', w / 2, 0.8 * h);
     }
     // The label: the cover.
     const cs = 0.5 * h; const cx = w / 2 - cs / 2; const cy = 0.1 * h;
-    c.fillStyle = '#0b0f12'; c.fillRect(cx - 6, cy - 6, cs + 12, cs + 12);
+    c.fillStyle = '#0a0a0a'; c.fillRect(cx - 6, cy - 6, cs + 12, cs + 12);
     if (cover?.ready) c.drawImage(cover.img, cx, cy, cs, cs);
     else {
-      c.strokeStyle = 'rgba(125,139,147,0.5)'; c.lineWidth = 2;
+      c.strokeStyle = 'rgba(154,154,154,0.5)'; c.lineWidth = 2;
       c.beginPath(); c.arc(w / 2, cy + cs / 2, cs * 0.26, 0, Math.PI * 2); c.stroke();
       c.beginPath(); c.arc(w / 2, cy + cs / 2, cs * 0.09, 0, Math.PI * 2); c.stroke();
     }
-    c.strokeStyle = 'rgba(125,139,147,0.45)'; c.lineWidth = 2; c.strokeRect(cx, cy, cs, cs);
+    c.strokeStyle = 'rgba(154,154,154,0.45)'; c.lineWidth = 2; c.strokeRect(cx, cy, cs, cs);
     if (!live || !st.title) { scr.texture.needsUpdate = true; return; }
     // Device, top left.
     c.textBaseline = 'top'; c.textAlign = 'left';
-    c.fillStyle = 'rgba(159,176,182,0.85)'; c.font = `${0.036 * h}px ${F.hud}`;
+    c.fillStyle = 'rgba(179,179,179,0.85)'; c.font = `${0.036 * h}px ${F.hud}`;
     spaced(c, `ON ${String(st.device || (st.last ? 'last played' : '')).toUpperCase()}`, 0.09 * w, 0.014 * h, 0.16);
     // Title, then artist · album.
     c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-    c.fillStyle = '#eef6f8'; c.font = `500 ${0.086 * h}px ${F.sans}`;
+    c.fillStyle = '#ffffff'; c.font = `500 ${0.086 * h}px ${F.sans}`;
     c.fillText(fit(c, st.title, 0.84 * w), w / 2, 0.73 * h);
     c.font = `${0.056 * h}px ${F.sans}`;
     const artist = st.artist || '';
@@ -255,23 +252,23 @@ export function build(opts = {}) {
     c.textAlign = 'left';
     const x0 = w / 2 - aw / 2;
     const cut = Math.min(line.length, artist.length);
-    c.fillStyle = '#00e5e5'; c.fillText(line.slice(0, cut), x0, 0.83 * h);
-    c.fillStyle = '#6f8188'; c.fillText(line.slice(cut), x0 + c.measureText(line.slice(0, cut)).width, 0.83 * h);
+    c.fillStyle = '#ffffff'; c.fillText(line.slice(0, cut), x0, 0.83 * h);
+    c.fillStyle = '#8a8a8a'; c.fillText(line.slice(cut), x0 + c.measureText(line.slice(0, cut)).width, 0.83 * h);
     // The bar: where it really is.
     const by = 0.93 * h; const bx0 = 0.14 * w; const bx1 = 0.86 * w;
-    c.font = `${0.044 * h}px ${F.mono}`; c.fillStyle = 'rgba(159,176,182,0.9)';
+    c.font = `${0.044 * h}px ${F.mono}`; c.fillStyle = 'rgba(179,179,179,0.9)';
     c.textBaseline = 'middle'; c.textAlign = 'right'; c.fillText(mmss(p), bx0 - 14, by);
     c.textAlign = 'left'; c.fillText(mmss(d), bx1 + 14, by);
-    c.fillStyle = 'rgba(125,139,147,0.35)'; c.fillRect(bx0, by - 2, bx1 - bx0, 4);
-    c.fillStyle = st.playing ? '#00ffff' : '#9fb0b6'; c.fillRect(bx0, by - 2, (bx1 - bx0) * f, 4);
-    c.fillStyle = '#dffcff'; c.beginPath(); c.arc(bx0 + (bx1 - bx0) * f, by, 7, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(154,154,154,0.35)'; c.fillRect(bx0, by - 2, bx1 - bx0, 4);
+    c.fillStyle = st.playing ? '#ffffff' : '#b3b3b3'; c.fillRect(bx0, by - 2, (bx1 - bx0) * f, 4);
+    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(bx0 + (bx1 - bx0) * f, by, 7, 0, Math.PI * 2); c.fill();
     scr.texture.needsUpdate = true;
   }
 
   function drawDeck() {
     const { ctx: c, w, h } = dk;
     c.clearRect(0, 0, w, h);
-    c.fillStyle = '#0b0f12'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#0a0a0a'; c.fillRect(0, 0, w, h);
     const keys = [
       ['shuffle', 0.11, st.shuffle], ['prev', 0.15, false], [st.playing ? 'pause' : 'play', 0.22, 'main'],
       ['next', 0.15, false], ['repeat', 0.11, st.repeat && st.repeat !== 'off'],
@@ -283,12 +280,12 @@ export function build(opts = {}) {
     for (const [name, frac, on] of keys) {
       const kw = frac * w;
       const lit = on === 'main' || on === true;
-      c.fillStyle = lit ? 'rgba(0,255,255,0.07)' : 'rgba(11,15,18,0.6)';
+      c.fillStyle = lit ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.6)';
       roundRect(c, x, ky, kw, kh, 5); c.fill();
-      c.strokeStyle = lit ? '#00ffff' : 'rgba(125,139,147,0.6)'; c.lineWidth = 2; c.stroke();
-      glyph(c, name, x + kw / 2, ky + kh / 2, kh * 0.46, lit ? '#00ffff' : '#9fb0b6');
+      c.strokeStyle = lit ? '#ffffff' : 'rgba(154,154,154,0.6)'; c.lineWidth = 2; c.stroke();
+      glyph(c, name, x + kw / 2, ky + kh / 2, kh * 0.46, lit ? '#ffffff' : '#b3b3b3');
       if (name === 'repeat' && st.repeat === 'track') {
-        c.fillStyle = '#00ffff'; c.font = `${kh * 0.26}px ${fonts().mono}`; c.textAlign = 'center';
+        c.fillStyle = '#ffffff'; c.font = `${kh * 0.26}px ${fonts().mono}`; c.textAlign = 'center';
         c.fillText('1', x + kw * 0.82, ky + kh * 0.3);
       }
       x += kw + gap;

@@ -275,6 +275,7 @@ app.post('/api/login', (req, res) => {
  */
 const PRE_AUTH_ASSETS = new Set([
   '/ojee-ui.css',
+  '/ojee-ui2.css',
   '/calibre.css',
   '/app.css',
   '/chrome.js',

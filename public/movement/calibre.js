@@ -47,27 +47,19 @@ import { pref } from '/prefs.js';
 
 /* ---- what the movement is made of ----------------------------------
    The case and the dial are steel and white: they are the outside of the
-   object and they read as metal. Everything INSIDE the back is cyan.
+   object and they read as metal. Everything INSIDE the back is white and
+   grey line art — the same material as the rest of the console's objects.
 
-   That is not only a preference. A brass movement made the whole back amber
-   — and amber is the colour this console uses to say something needs
-   attention. A field of it behind the one part that is allowed to mean that
-   leaves the meaning with nowhere to land. In cyan the movement is the
-   console's own material, and the barrel going amber is the only warm thing
-   on the screen. */
-/* LumiBrite, sampled off a photograph of the real watch glowing in the dark
-   rather than guessed at: hue 176 degrees, which is cyan a hair to the green
-   side — not the green this was drawn with, and not the console's own beat
-   cyan either, which is fully saturated and belongs to the live second. The
-   value is lifted from what the photograph measured, because a photograph of
-   something glowing in a dark room is underexposed by definition. */
-const LUME = 0x5fe6ec;
+   No colour is spent on the parts. Colour arrives only with state: the
+   barrel carries the alert, and that is the one place the object wears
+   amber or red. */
+const LUME = 0xffffff;
 
 const INNER = {
   wheel: C.beat,        // the going train, the barrel, the balance
-  frame: 0x2a7f8c,      // bridges and the plate under them: cyan, held back
-  fine: 0x4fd6e0,       // the escapement, where the detail is
-  jewel: C.ruby,        // the bearings, and the only red in the object
+  frame: 0x5e5e5e,      // bridges and the plate under them: present, quiet
+  fine: 0x9a9a9a,       // the escapement, where the detail is
+  jewel: C.ruby,        // the bearings
 };
 
 /* ---- printed text ---------------------------------------------------
@@ -187,7 +179,7 @@ const DATES = Array.from({ length: 31 }, (_, i) => String(i + 1));
    looking broken. */
 const XS_MIN = 0.74;
 
-function printed(text, colour = '#dffcff', aspect = 2, face = 'day', gauge = null) {
+function printed(text, colour = '#e6e6e6', aspect = 2, face = 'day', gauge = null) {
   /* The canvas is cut to the ASPECT of the plane it will be mapped onto.
      A fixed 128x64 texture stretched over a narrower plane squeezes the
      glyphs by exactly the ratio between the two, and the date pane is a
@@ -927,12 +919,12 @@ export function build(o = {}) {
      would shrink "الثلاثاء" until it was a smudge. */
   const lang0 = pref('dayLang');
   const dayText = printedPlane(winW * DAY_PANE * 0.94, winH * 0.86,
-    DAYS[lang0][new Date(now()).getDay()], '#dffcff',
+    DAYS[lang0][new Date(now()).getDay()], '#e6e6e6',
     lang0 === 'ar' ? 'ar' : 'day', DAYS[lang0]);
   dayText.position.set((-winW / 2 + divide) / 2, 0, 0.006);
   winG.add(dayText);
   const dateText = printedPlane(winW * (1 - DAY_PANE) * 0.94, winH * 0.86,
-    '25', '#dffcff', 'num', DATES);
+    '25', '#e6e6e6', 'num', DATES);
   dateText.position.set((divide + winW / 2) / 2, 0, 0.006);
   winG.add(dateText);
   face.add(winG);
@@ -985,8 +977,8 @@ export function build(o = {}) {
   secHand.add(poly(tailPts, C.beat, 0.85, true));
   face.add(secHand);
 
-  /* The stopwatch's hand: a fine needle in brass — the colour this world
-     keeps for what carries the going train — over the seconds hand, with a
+  /* The stopwatch's hand: a fine needle in the train's grey (C.brass is
+     a role name now, not a hue) — over the seconds hand, with a
      round counterweight so it cannot be mistaken for it. Only there while
      the stopwatch has time on it, and it SWEEPS, as a chronograph does. */
   const chronoHand = new THREE.Group();

@@ -219,7 +219,7 @@ export async function ready() {
   if (!native) return;
   try {
     await plugin('StatusBar')?.setStyle({ style: 'DARK' });
-    await plugin('StatusBar')?.setBackgroundColor({ color: '#08080e' });
+    await plugin('StatusBar')?.setBackgroundColor({ color: '#000000' });
   } catch { /* not every platform has a themeable status bar */ }
   try {
     await plugin('SplashScreen')?.hide();

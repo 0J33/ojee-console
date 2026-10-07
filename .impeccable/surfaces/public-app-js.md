@@ -14,40 +14,43 @@ Audience/job: one person, on his own machines over his own tailnet, glancing to 
 whether everything is healthy, what needs him, and the exact second — he sets a mechanical
 watch by this clock.
 
-Pins from the user (these bind whatever the round chose): spinnable 3D on the launcher, in
-every module header and on the idle screen; the idle screen is the showpiece; the result
-ships as an alternate ojee-ui other surfaces can adopt; the clock's rotation can be locked
-for legibility when wanted. Console-only identity: it may diverge from the other five
-surfaces.
+Pins from the user (these bind whatever the round chose):
+- Black background, white text. No cyan, no blue, no cosmetic colour anywhere. The only
+  colour that remains is what carries state: ok / warn / err, and the odd contextual cue
+  (a power key, terminal ANSI in Remote) where the colour IS the information.
+- Simple, clean layout. Mono or modern clean-tech type. Much less happening on screen.
+- Full re-layout: every screen's information architecture is rethought, not just recoloured.
+- All functionality survives. Nothing gets lost.
+- The 3D models keep their geometry but get new white line versions; where a part needs
+  colour for context it may keep it. The movement is secondary and calmer: status and
+  readings lead, bloom goes to zero, idle spin is gentle or still.
+- Flawless on phone and desktop.
 
-Chosen direction: the movement (IMPECCABLE'S PICK, taken over the roll's Board Level).
-Memorable moment: the balance beating on the true second, and the crown that locks the
-whole calibre flat to read it.
-
-Unresolved: which module objects earn their own complication geometry versus a shared
-bridge; whether the digital face is a second view of the clock or a complication of it.
+Chosen direction: Monochrome (user-pinned). The former world — one calibre seen through its
+display back, cyan beat, brass train, bloom — is the anti-reference. It was too flashy and
+too busy; it is retired, and ojee-ui v1 stays as the archive it shipped as. The console
+adopts a NEW design-system version (ojee-ui2) rather than rewriting v1 in place.
 
 ## Direction contract
 
-THESIS: The console as one calibre seen through its display back — the clock is the
-balance, every module a complication on the same plate. It refuses the grid of status cards.
+THESIS: The console as a quiet black instrument panel — pure black ground, white mono type,
+hairline rules, and state as the only colour. It refuses the glowing calibre and the
+equally default grid of colourful status cards.
 
-OWN-WORLD: Near-black plate. Everything is unlit line art under bloom, never shaded metal:
-rhodium bridges and perlage, brass trains, blued hands, ruby jewels at the pivots. Cyan is
-the live beat, white the hot value; green, amber and red appear only on a complication in
-state. Mono type throughout, zero radius.
+OWN-WORLD: #000 ground. White ink ramp to grey (white / #b3 / #8a / #5c). Geist Mono
+throughout at a few weights. Zero radius, zero glow, zero gradient decoration. One accent,
+white (black text on it). Status colours exist only inside a reading that reports state.
 
-STORY: He sees the balance beating on the true second and every complication normal, reads
-the rate to set his watch, locks the calibre flat to read it, and opens the one
-complication showing amber.
+STORY: He opens it and reads: everything fine, or here is the one thing that needs him. He
+sets his watch by the clock, opens the module that is amber, and closes the tab.
 
-FIRST VIEWPORT: Balance and escapement left of centre, its seconds hand on the true second;
-the rate engraved beneath; five complications ringed on the plate, each holding its own
-module's object and headline; alerts ride the barrel. The crown at the case edge locks
-rotation.
+FIRST VIEWPORT: A single top bar (state, user, clock). Below it the overview as a status
+board: alerts first, then one row per module — state dot, name, headline, key readings —
+then the clock with its rate. The white 3D objects sit small and still at the right edge of
+their rows as identification, never as the show. Nothing pulses.
 
-FORM: watchmaker's movement, position 1 of my grounded list (the roll assigned position 6,
-Board Level), seed 294bd7ac.
+FORM: Monochrome instrument panel, user-pinned world (the brief names the palette, type and
+material; no roll), re-layout of every surface inside it.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review,
 the verdict, DESIGN.md, and every shipping raster carrying its provenance

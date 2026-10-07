@@ -98,7 +98,7 @@ export function mount(el, ctx) {
     const tl = watch.timers.list();
     pane.innerHTML = `
       <section class="wv-sec">
-        <h3 class="wv-h">Stopwatch <span class="wv-hint">its hand is the brass one on the watch</span></h3>
+        <h3 class="wv-h">Stopwatch <span class="wv-hint">its hand is the fine needle that appears on the watch</span></h3>
         <div class="wv-sw" aria-live="off">${watch.fmtStopwatch(sw.elapsed())}</div>
         <div class="wv-row">
           <button type="button" class="wv-btn wv-btn--primary" data-sw="${sw.running ? 'stop' : 'start'}">${sw.running ? 'Stop' : (sw.active ? 'Resume' : 'Start')}</button>

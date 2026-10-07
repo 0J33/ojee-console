@@ -14,10 +14,10 @@ Produces, into public/:
 Geometry is measured from the icons this replaces rather than guessed, so the
 new set sits identically on a home screen next to the old one:
 
-    background   #08080e   flat, square, no rounded corners — iOS and Android
+    background   #000000   flat, square, no rounded corners — iOS and Android
                            apply their own mask, and baking one in means it
                            gets masked twice and looks pinched
-    glyph        #00ffff   centred, 55.6% of the canvas
+    glyph        #ffffff   centred, 55.6% of the canvas
     margin       22.2%     on every side
 
 That margin is not decoration. iOS crops a home-screen icon to a squircle and
@@ -44,8 +44,8 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC = ROOT / "public"
 
-BG = "#08080e"
-FG = "#00ffff"
+BG = "#000000"
+FG = "#ffffff"
 CANVAS = 180          # the reference size everything is expressed against
 GLYPH = 100           # 55.6% of CANVAS
 OFFSET = (CANVAS - GLYPH) / 2   # 40 → 22.2% margin

@@ -3,20 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#08080e">
+<meta name="theme-color" content="#000000">
 <meta name="description" content="Tailnet-only control console.">
 <title>console</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;700;900&family=Major+Mono+Display&display=swap" rel="stylesheet">
-<style>
-@font-face {
-  font-family: 'Departure Mono';
-  src: url('https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@main/public/assets/DepartureMono-Regular.woff2') format('woff2');
-  font-display: swap;
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -26,9 +19,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 
-<link rel="stylesheet" href="/ojee-ui.css">
-<!-- The movement: tokens first, then the parts a calibre has that a
-     dashboard does not. -->
+<link rel="stylesheet" href="/ojee-ui2.css">
 <!-- Branding theme overlay; src set at runtime from config. -->
 <link id="theme-link" rel="stylesheet" href="">
 <link rel="stylesheet" href="/app.css">
@@ -97,26 +88,27 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="hudbar" id="hudbar">
-  <span class="seg seg--accent seg--live"><b id="hud-state">booting</b></span>
-  <span class="seg hide-sm">user <b id="hud-user">—</b></span>
-  <span class="seg">modules <b id="hud-modules">–</b></span>
-  <span class="seg right">local <b id="hud-clock">--:--:--</b></span>
-</div>
-
-<nav class="nav" aria-label="Primary">
+<!-- One slim top bar: the former hud strip, the nav and the status strip
+     are one surface. Everything the shell paints keeps its id. -->
+<header class="topbar" id="hudbar">
   <a class="nav-logo" id="nav-logo" href="#/">console</a>
+  <span class="seg seg--live"><b id="hud-state">booting</b></span>
+  <span class="seg hide-sm">user <b id="hud-user">—</b></span>
+  <span class="seg hide-sm">modules <b id="hud-modules">–</b></span>
   <div class="nav-links" id="nav-links"></div>
+  <span class="seg seg--conn hide-sm" id="sb-conn">connecting</span>
+  <span class="seg seg--note hide-sm" id="sb-note"></span>
+  <span class="seg">local <b id="hud-clock">--:--:--</b></span>
   <button class="nav-jump" id="nav-jump" type="button"
           aria-label="Jump to (press slash)" title="Jump to  /">
     <svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
-    <span>Jump</span>
-    <kbd class="kbd">/</kbd>
+    <span class="hide-sm">Jump</span>
+    <kbd class="kbd hide-sm">/</kbd>
   </button>
   <a class="nav-settings iconbtn" href="#/settings" aria-label="Settings" title="Settings">
     <svg class="ic" aria-hidden="true"><use href="#i-cog"></use></svg>
   </a>
-</nav>
+</header>
 
 <!-- Mobile only: the ACTIVE module's views. The bottom tab bar switches
      MODULES, so without this strip a module's other views are unreachable
@@ -138,12 +130,6 @@
 </div>
 
 <nav class="tabbar" id="tabbar" aria-label="Modules"></nav>
-
-<div class="statusbar">
-  <span class="ok" id="sb-conn">connecting</span>
-  <span class="hide-sm" id="sb-note"></span>
-  <span class="right"><a href="#/settings">settings</a></span>
-</div>
 
 <div id="modal-root"></div>
 <div class="toast-stack" id="toasts" aria-live="polite" aria-atomic="false"></div>
