@@ -1241,34 +1241,99 @@ body.is-focus { overflow: hidden; -webkit-user-select: none; user-select: none; 
 }
 
 /* ── now playing ─────────────────────────────────────────────────────────
-   The line under the clock: title, artist, and how far through. */
+   Under the clock: the title on its own line, artist · album under it, and
+   the bar with elapsed / total on a third. Every line has the block's full
+   width, so nothing on one line can squeeze another; text ends in an
+   ellipsis, and on a narrow line the album is the one that goes. The icon sits
+   in its own column, on the clock's left edge; the box's padding hangs
+   outside it, so the hover outline does not push the text in. */
 .np-slot { width: 100%; display: flex; justify-content: flex-start; min-width: 0; }
 .np-slot:empty { display: none; }
 .np {
-  display: flex; align-items: center; gap: 10px;
-  max-width: min(100%, 560px); min-width: 0;
-  padding: 6px 12px;
+  --np-pad: 12px;
+  --np-ic: 16px;
+  --np-gap: 12px;
+  container: np / inline-size;
+  display: grid;
+  grid-template-columns: var(--np-ic) minmax(0, 1fr);
+  column-gap: var(--np-gap);
+  row-gap: 4px;
+  align-items: center;
+  width: min(100% + var(--np-pad) * 2 + 2px, 600px);
+  min-width: 0;
+  margin-inline-start: calc(-1 * (var(--np-pad) + 1px));
+  padding: 10px var(--np-pad);
   color: var(--ink-2); text-decoration: none;
   border: 1px solid transparent;
-  font-size: 0.88rem;
+  font-size: 0.95rem; line-height: 1.35;
   transition: border-color var(--dur-2), color var(--dur-2);
 }
-.np:hover { border-color: var(--line-strong); color: var(--ink); }
+.np:hover { border-color: var(--line-strong); }
 .np:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.np .ic { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
-.np.is-playing .ic { color: var(--accent); }
-.np-title { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
-.np-artist { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 2 auto; }
-.np-bar { flex: 0 0 clamp(48px, 9vw, 120px); height: 2px; background: var(--line-strong); position: relative; }
+.np > .ic { grid-column: 1; grid-row: 1; width: var(--np-ic); height: var(--np-ic); color: var(--ink-2); }
+.np.is-playing > .ic { color: var(--accent); }
+.np-title, .np-sub, .np-prog { grid-column: 2; min-width: 0; }
+.np-title {
+  grid-row: 1;
+  color: var(--ink); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-sub {
+  display: flex; min-width: 0;
+  font-size: 0.82rem; color: var(--ink-2); white-space: nowrap;
+}
+/* The artist takes up to two thirds when an album follows it, so neither
+   can shrink the other to a stub; under 340px the album is dropped. */
+.np-artist { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.np-artist:not(:last-child) { max-width: 66%; }
+.np-album { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
+.np-artist + .np-album::before { content: '·'; margin: 0 0.6em; }
+@container np (max-width: 340px) {
+  .np-album { display: none; }
+  .np-artist:not(:last-child) { max-width: none; }
+}
+.np-prog {
+  display: grid; grid-template-columns: minmax(64px, 1fr) auto; align-items: center;
+  gap: var(--s-3); margin-top: 6px;
+}
+.np-bar { height: 2px; background: var(--line-strong); position: relative; }
 .np-bar i { position: absolute; inset: 0 auto 0 0; width: calc(var(--f, 0) * 100%); background: var(--accent); }
 .np:not(.is-playing) .np-bar i { background: var(--ink-2); }
-.np-time { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--ink-2); flex: none; }
+.np-time {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.75rem;
+  color: var(--ink-2); white-space: nowrap;
+}
+.np-sep { color: var(--dim); margin: 0 0.4em; }
+.np-t1 { color: var(--dim); }
 .np--quiet { font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; }
+.np--quiet .np-title { color: var(--ink-2); font-weight: 400; }
 
-/* Idle: read from across the room. */
-.idle-stage .np { font-size: clamp(1rem, 1.35vw, 1.5rem); gap: 14px; max-width: min(100%, 820px); }
-.idle-stage .np .ic { width: 22px; height: 22px; }
-.idle-stage .np-time { font-size: clamp(0.85rem, 1vw, 1.1rem); }
+/* Idle: read from across the room — nothing under 0.8rem, no reading in dim. */
+.idle-stage .np {
+  --np-ic: 22px; --np-gap: 16px;
+  width: min(100% + var(--np-pad) * 2 + 2px, 760px);
+  row-gap: 6px;
+  font-size: clamp(1.1rem, 1.5vw, 1.6rem);
+}
+.idle-stage .np-sub { font-size: clamp(0.9rem, 1.05vw, 1.15rem); }
+.idle-stage .np-album { color: var(--ink-2); }
+.idle-stage .np-prog { margin-top: 10px; }
+.idle-stage .np-bar { height: 3px; }
+.idle-stage .np-time { font-size: clamp(0.85rem, 0.95vw, 1.05rem); }
+.idle-stage .np-t1, .idle-stage .np-sep { color: var(--ink-2); }
+/* Under 900px the idle display is centred: what is playing becomes a
+   centred stack, the icon on top, so a short title is not stranded at the
+   left of a wide box. As wide as the watch and player under it. */
+@media (max-width: 900px) {
+  .idle-stage > .np-slot { justify-content: center; }
+  .idle-stage .np {
+    width: min(100%, 460px); margin-inline: 0;
+    grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center;
+  }
+  .idle-stage .np > .ic { grid-column: 1; grid-row: auto; margin-bottom: 2px; }
+  .idle-stage .np-title, .idle-stage .np-sub, .idle-stage .np-prog { grid-column: 1; grid-row: auto; max-width: 100%; }
+  .idle-stage .np-prog { width: 100%; }
+}
 
 /* ── the watch, opened up: its panel ─────────────────────────────────────
    The panel has no background of its own: the scrim is the ground, and the

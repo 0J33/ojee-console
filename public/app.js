@@ -807,14 +807,21 @@ function paintCompanion(slot, m) {
   el.innerHTML = html;
 }
 
+/* m:ss, or h:mm:ss once a track runs past the hour (a long mix, a podcast). */
 const npClock = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 };
 
-/* The line under the time: title, artist, and how far through. Its bar and
-   time are moved on a one-second beat between the module's reports, which
-   arrive only when something changes. */
+/* What is playing, under the time, as three lines: the title; the artist
+   and album; and how far through, as a bar with elapsed / total. Each line
+   has the full width, so a long title never squeezes the bar or pushes the
+   artist out — it ends in an ellipsis, and the album is what goes first. The
+   bar and elapsed time move on a one-second beat between the module's
+   reports, which arrive only when something changes. */
 let npTimer = 0;
 function npPos(sum) {
   const md = sum?.model || {};
@@ -836,14 +843,18 @@ function paintNowPlaying() {
       html = `<a class="np np--quiet" href="#/${esc(m.id)}">${icon('i-music')}<span class="np-title">${esc(sum.headline || 'Not connected')}</span></a>`;
     } else if (md.title) {
       const { d, p } = npPos(sum);
+      const label = `${md.playing ? 'Playing' : 'Paused'}: ${md.title}${md.artist ? ` by ${md.artist}` : ''}`
+        + `${md.album ? `, from ${md.album}` : ''} — open the player`;
       html = `
         <a class="np${md.playing ? ' is-playing' : ''}" href="#/${esc(m.id)}" data-focus="${esc(m.id)}"
-           aria-label="${esc(`${md.playing ? 'Playing' : 'Paused'}: ${md.title} by ${md.artist || 'unknown'} — open the player`)}">
+           aria-label="${esc(label)}" title="${esc([md.title, md.artist, md.album].filter(Boolean).join('\n'))}">
           ${icon(md.playing ? 'i-music' : 'i-pause')}
           <span class="np-title">${esc(md.title)}</span>
-          <span class="np-artist">${esc(md.artist || '')}</span>
-          <span class="np-bar" aria-hidden="true"><i style="--f:${d ? (p / d).toFixed(4) : 0}"></i></span>
-          <span class="np-time" aria-hidden="true">${npClock(p)}</span>
+          ${md.artist || md.album ? `<span class="np-sub" aria-hidden="true">${md.artist ? `<span class="np-artist">${esc(md.artist)}</span>` : ''}${md.album ? `<span class="np-album">${esc(md.album)}</span>` : ''}</span>` : ''}
+          <span class="np-prog" aria-hidden="true">
+            <span class="np-bar"><i style="--f:${d ? (p / d).toFixed(4) : 0}"></i></span>
+            <span class="np-time"><span class="np-t0">${npClock(p)}</span><span class="np-sep">/</span><span class="np-t1">${npClock(d)}</span></span>
+          </span>
         </a>`;
     }
   }
@@ -857,7 +868,7 @@ function paintNowPlaying() {
       const { d, p } = npPos(cur);
       for (const el of live) {
         el.querySelector('.np-bar i')?.style.setProperty('--f', d ? (p / d).toFixed(4) : '0');
-        const t = el.querySelector('.np-time');
+        const t = el.querySelector('.np-t0');
         if (t) t.textContent = npClock(p);
       }
     }, 1000);

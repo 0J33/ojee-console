@@ -50,6 +50,16 @@ export const LAYOUT = {
   deck: { x: 0, y: -0.86, w: 2.9, h: 0.42 },
 };
 
+/* The painted screen, in fractions of its height: the label (cover) and the
+   reels beside it, then two lines of text and the bar. */
+const SCR = {
+  coverTop: 0.08, cover: 0.44, reel: 0.19,
+  shellTop: 0.04, shellBot: 0.56,
+  title: 0.15, titleY: 0.715,
+  artist: 0.105, artistY: 0.855,
+  barY: 0.945,
+};
+
 /** A rounded rectangle as a list of points, in the z = z plane. */
 function rrect(cx, cy, w, h, r, z = 0, seg = 6) {
   const pts = [];
@@ -137,20 +147,26 @@ export function build(opts = {}) {
   sp.add(screenEdge);
 
   /* What the screen shows when the page is not drawing it: the same cassette
-     the opened player shows — the cover as the label, title and artist under
-     it, the real position along the bottom — painted into a texture, with
-     the two reels drawn as lines over it so they glow and turn like the rest
-     of the object. Laid out in fractions of the screen, the same fractions
-     the page uses, so opening it up changes nothing but who draws it. */
+     the opened player shows — the cover as the label, the title and artist
+     under it, the real position along the bottom — painted into a texture,
+     with the two reels drawn as lines over it so they turn like the rest of
+     the object. Laid out in fractions of the screen (SCR), the fractions the
+     page's short-screen layout uses, so opening it up changes little but who
+     draws it.
+
+     This screen is only ever seen small: 60-120 px tall on the plate and the
+     idle display. So it carries two lines of text, set large enough to read
+     there (the title is 15% of the screen's height), and nothing smaller —
+     no device line, no times. The line under the clock carries those. */
   const art = new THREE.Group();
   art.position.set(S.x, S.y, sZ + 0.002);
   sp.add(art);
   const scr = paintSurface(1024, Math.round(1024 * S.h / S.w));
   const scrMesh = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.h), scr.material);
   art.add(scrMesh);
-  const RR = 0.21 * S.h;                                   // reel radius
-  const RY = S.h / 2 - 0.35 * S.h;                         // reels' hubs level with the label's middle
-  const RX = Math.max(0.25 * S.h + RR + 0.05 * S.w, 0.26 * S.w);
+  const RR = SCR.reel * S.h;                               // reel radius
+  const RY = S.h / 2 - (SCR.coverTop + SCR.cover / 2) * S.h; // reels' hubs level with the label's middle
+  const RX = Math.max((SCR.cover / 2) * S.h + RR + 0.05 * S.w, 0.26 * S.w);
   const L = reel(RR); L.g.position.set(-RX, RY, 0.004);
   const Rr = reel(RR); Rr.g.position.set(RX, RY, 0.004);
   // The tape wound on each reel: the left empties as the right fills.
@@ -240,20 +256,14 @@ export function build(opts = {}) {
   function drawScreen() {
     const { ctx: c, w, h } = scr;
     const d = Number(st.durationMs) || 0;
-    const p = posMs();
-    const f = d ? p / d : 0;
+    const f = d ? Math.min(1, posMs() / d) : 0;
     const F = fonts();
     c.fillStyle = '#000000'; c.fillRect(0, 0, w, h);
-    // The shell.
+    // The shell, round the label and the reels.
     c.strokeStyle = 'rgba(154,154,154,0.32)'; c.lineWidth = 2;
-    roundRect(c, 0.06 * w, 0.07 * h, 0.88 * w, 0.555 * h, 0.022 * h); c.stroke();
-    if (!live) {
-      c.fillStyle = 'rgba(179,179,179,0.8)'; c.font = `500 ${0.09 * h}px ${F.sans}`;
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(st.connected === false ? 'Not connected' : 'Nothing playing', w / 2, 0.8 * h);
-    }
+    roundRect(c, 0.06 * w, SCR.shellTop * h, 0.88 * w, (SCR.shellBot - SCR.shellTop) * h, 0.022 * h); c.stroke();
     // The label: the cover.
-    const cs = 0.5 * h; const cx = w / 2 - cs / 2; const cy = 0.1 * h;
+    const cs = SCR.cover * h; const cx = w / 2 - cs / 2; const cy = SCR.coverTop * h;
     c.fillStyle = '#0a0a0a'; c.fillRect(cx - 6, cy - 6, cs + 12, cs + 12);
     if (cover?.ready) c.drawImage(cover.img, cx, cy, cs, cs);
     else {
@@ -262,33 +272,25 @@ export function build(opts = {}) {
       c.beginPath(); c.arc(w / 2, cy + cs / 2, cs * 0.09, 0, Math.PI * 2); c.stroke();
     }
     c.strokeStyle = 'rgba(154,154,154,0.45)'; c.lineWidth = 2; c.strokeRect(cx, cy, cs, cs);
-    if (!live || !st.title) { scr.texture.needsUpdate = true; return; }
-    // Device, top left.
-    c.textBaseline = 'top'; c.textAlign = 'left';
-    c.fillStyle = 'rgba(179,179,179,0.85)'; c.font = `${0.036 * h}px ${F.hud}`;
-    spaced(c, `ON ${String(st.device || (st.last ? 'last played' : '')).toUpperCase()}`, 0.09 * w, 0.014 * h, 0.16);
-    // Title, then artist · album.
     c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-    c.fillStyle = '#ffffff'; c.font = `500 ${0.086 * h}px ${F.sans}`;
-    c.fillText(fit(c, st.title, 0.84 * w), w / 2, 0.73 * h);
-    c.font = `${0.056 * h}px ${F.sans}`;
-    const artist = st.artist || '';
-    const album = st.album ? ` · ${st.album}` : '';
-    const line = fit(c, artist + album, 0.84 * w);
-    const aw = c.measureText(line).width;
-    c.textAlign = 'left';
-    const x0 = w / 2 - aw / 2;
-    const cut = Math.min(line.length, artist.length);
-    c.fillStyle = '#ffffff'; c.fillText(line.slice(0, cut), x0, 0.83 * h);
-    c.fillStyle = '#8a8a8a'; c.fillText(line.slice(cut), x0 + c.measureText(line.slice(0, cut)).width, 0.83 * h);
-    // The bar: where it really is.
-    const by = 0.93 * h; const bx0 = 0.14 * w; const bx1 = 0.86 * w;
-    c.font = `${0.044 * h}px ${F.mono}`; c.fillStyle = 'rgba(179,179,179,0.9)';
-    c.textBaseline = 'middle'; c.textAlign = 'right'; c.fillText(mmss(p), bx0 - 14, by);
-    c.textAlign = 'left'; c.fillText(mmss(d), bx1 + 14, by);
-    c.fillStyle = 'rgba(154,154,154,0.35)'; c.fillRect(bx0, by - 2, bx1 - bx0, 4);
-    c.fillStyle = st.playing ? '#ffffff' : '#b3b3b3'; c.fillRect(bx0, by - 2, (bx1 - bx0) * f, 4);
-    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(bx0 + (bx1 - bx0) * f, by, 7, 0, Math.PI * 2); c.fill();
+    if (!live || !st.title) {
+      c.fillStyle = '#b3b3b3'; c.font = `500 ${0.12 * h}px ${F.sans}`;
+      c.fillText(st.connected === false ? 'Not connected' : 'Nothing playing', w / 2, 0.78 * h);
+      scr.texture.needsUpdate = true;
+      return;
+    }
+    // The title, then the artist: one line each, ellipsed, never squeezed.
+    const tw = 0.86 * w;
+    c.fillStyle = '#ffffff'; c.font = `600 ${SCR.title * h}px ${F.sans}`;
+    c.fillText(fit(c, st.title, tw), w / 2, SCR.titleY * h);
+    if (st.artist) {
+      c.fillStyle = '#b3b3b3'; c.font = `${SCR.artist * h}px ${F.sans}`;
+      c.fillText(fit(c, st.artist, tw), w / 2, SCR.artistY * h);
+    }
+    // The bar: where it really is, the width of the shell.
+    const by = SCR.barY * h; const bx0 = 0.06 * w; const bx1 = 0.94 * w; const bh = 0.014 * h;
+    c.fillStyle = 'rgba(154,154,154,0.4)'; c.fillRect(bx0, by - bh / 2, bx1 - bx0, bh);
+    c.fillStyle = st.playing ? '#ffffff' : '#b3b3b3'; c.fillRect(bx0, by - bh / 2, (bx1 - bx0) * f, bh);
     scr.texture.needsUpdate = true;
   }
 
@@ -433,24 +435,12 @@ function roundRect(c, x, y, w, h, r) {
   c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
 }
 
-/** Letter-spaced text, the way the page sets its small capitals. */
-function spaced(c, text, x, y, em) {
-  const size = parseFloat(c.font.match(/([\d.]+)px/)?.[1] || 12);
-  let cx = x;
-  for (const ch of text) { c.fillText(ch, cx, y); cx += c.measureText(ch).width + size * em; }
-}
-
 function fit(c, text, max) {
   if (c.measureText(text).width <= max) return text;
   let t = text;
   while (t.length > 1 && c.measureText(`${t}…`).width > max) t = t.slice(0, -1);
   return `${t.trimEnd()}…`;
 }
-
-const mmss = (ms) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
 
 /* The keys' glyphs: the same drawings the opened player uses. */
 const GLYPHS = {
