@@ -5,24 +5,21 @@
    white square-section tower, 90 x 90 x 183 mm, rounded on its four
    vertical edges, flat on top, standing on a vented base. Its antennas are
    inside it. What it says about itself it says with three lamps in a
-   column on its front face, low down, labelled 5G, 4G and STATUS — and
-   that is exactly what this object says too, in the lamps' own colours
-   (Huawei quick start guide):
+   column on its front face, low down, labelled 5G, 4G and STATUS.
 
-     5G       steady blue strong · yellow moderate · red weak signal
-     4G       the same, for the LTE side
-     STATUS   steady blue connected · red not connected
-
-   A lamp whose radio carries nothing (no NR carrier aggregated, say) is
-   dark, as on the real one. The body is drawn like every other object in
-   the console — see-through line art over an occluder, steel and rhodium —
-   and only the lamps carry colour. No marks on it.
+   It speaks the console's language, not Huawei's (2026-10-08: the real
+   LEDs' blue/yellow/red made it the one object in a different palette).
+   The body is see-through line art over an occluder, like every other
+   object; its outline and its foot carry the module's overall status, as
+   the agent's board, the remote's bezel and fleet's plinth do; and each lamp is a bead with a ring of light round it in
+   the status colours — ok, warn, bad — dark when it says nothing. A lamp
+   in trouble blinks and a healthy one breathes, as fleet's beads do. No
+   marks on it.
 
    Preferred: the module's `lights` (summary.model.lights) — three
    self-describing lamps, top to bottom, each {id, label, state, detail}
    with state ok|warn|err|off. The owner repurposed them: Internet, Signal
-   (the radio carrying traffic), Data (this month against the plan). They
-   take the real LEDs' own colours — blue ok, yellow warn, red err, dark off.
+   (the radio carrying traffic), Data (this month against the plan).
 
    Fallback, for a module that predates `lights`, from `summary.model`:
    `bars` (0..5, the lead radio), `connected`, and `carriers` with their
@@ -42,7 +39,6 @@ const Y0 = -H / 2;              // its foot
 const ZF = W / 2;               // the front face
 
 const BODY_LINE = C.steel;      // its edges, as on every other object
-const LED = { blue: 0x1e7bff, yellow: 0xffc21a, red: 0xff2a2a };
 
 function rrShape(w, d, r) {
   const s = new THREE.Shape();
@@ -103,7 +99,9 @@ export function build(opts = {}) {
   baseGeo.rotateX(-Math.PI / 2);
   baseGeo.translate(0, Y0, 0);
   sp.add(occluder(baseGeo));
-  sp.add(edges(baseGeo.clone(), C.rhodium, 0.7, 25));
+  // The foot carries the module's status, as every object's foot does.
+  const foot = edges(baseGeo.clone(), STATUS_HEX.off, 0.85, 25);
+  sp.add(foot);
   const holes = [];
   for (let i = 0; i < 14; i += 1) {
     const x = -W / 2 + 0.2 + i * ((W - 0.4) / 13);
@@ -136,18 +134,14 @@ export function build(opts = {}) {
   const lamps = lampY.map((y) => {
     const g = new THREE.Group();
     g.position.set(0, y, ZF + 0.004);
-    const bead = node(0.058, LED.blue, 1);
+    const bead = node(0.05, C.ok, 0.95);
     bead.scale.z = 0.4;
-    // The light it throws on the white round it.
-    const halo = new THREE.Mesh(
-      new THREE.CircleGeometry(0.16, 24),
-      new THREE.MeshBasicMaterial({ color: LED.blue, transparent: true, opacity: 0.25, depthWrite: false }),
-    );
-    halo.position.z = -0.002;
-    const rim = ring(0.075, C.rhodium, 0.7, 'z', 20);
+    // Its light, drawn as a ring like the mouse's lamp — a line, not a fill.
+    const halo = ring(0.095, C.ok, 0.6, 'z', 28);
+    const rim = ring(0.07, C.rhodium, 0.7, 'z', 20);
     g.add(halo, rim, bead);
     sp.add(g);
-    return { g, bead, halo };
+    return { g, bead, halo, state: 'off', ph: lampY.indexOf(y) * 1.31 };
   });
   // The printed legend beside each lamp, as a short rule — the words are not
   // drawn (no marks on the object), but the column is still a legend.
@@ -156,17 +150,19 @@ export function build(opts = {}) {
 
   parts.lamps = lamps;
   parts.outline = outline;
+  parts.foot = foot;
 
   /* ---- state ---- */
   const st = { status: 'off', connected: false, bars: 0, nr: false, lte: false, blink: null };
 
-  function setLamp(l, hex) {
-    const on = hex != null;
-    l.bead.material.color.setHex(on ? hex : 0x3a3a3a);
-    l.bead.material.opacity = on ? 1 : 0.7;
-    l.halo.material.color.setHex(on ? hex : 0x000000);
-    l.halo.material.opacity = on ? 0.28 : 0;
-    l.on = on;
+  function setLamp(l, state) {
+    const on = state === 'ok' || state === 'warn' || state === 'err';
+    const hex = on ? STATUS_HEX[state] : C.rhodium;
+    l.state = on ? state : 'off';
+    l.bead.material.color.setHex(hex);
+    l.bead.material.opacity = on ? 0.95 : 0.35;
+    l.halo.material.color.setHex(hex);
+    l.halo.material.opacity = on ? 0.6 : 0;
   }
 
   function setState(s) {
@@ -183,29 +179,35 @@ export function build(opts = {}) {
     if (!list.length && st.connected && st.bars) st.lte = true;
 
     // The module itself down (not the router's link): every lamp dark, the
-    // body's edge carries the status.
+    // body dimmed, the foot in the status colour.
     const reachable = st.status !== 'off' && o.connected !== undefined;
-    outline.material.color.setHex(st.status === 'ok' || st.status === 'off' ? BODY_LINE : STATUS_HEX[st.status]);
+    for (const l of [outline, foot]) {
+      l.material.color.setHex(STATUS_HEX[st.status]);
+      l.material.opacity = st.status !== 'off' ? 0.9 : 0.4;
+    }
 
     const lights = Array.isArray(o.lights) ? o.lights.slice(0, 3) : null;
     if (lights && lights.length === 3) {
-      const colour = { ok: LED.blue, warn: LED.yellow, err: LED.red };
-      lights.forEach((l, i) => setLamp(lamps[i], reachable ? (colour[l && l.state] ?? null) : null));
+      lights.forEach((l, i) => setLamp(lamps[i], reachable ? l && l.state : 'off'));
       return;
     }
-    const strength = st.bars >= 4 ? LED.blue : st.bars === 3 ? LED.yellow : LED.red;
-    setLamp(lamps[0], reachable && st.connected && st.nr ? strength : null);
-    setLamp(lamps[1], reachable && st.connected && st.lte ? strength : null);
-    setLamp(lamps[2], reachable ? (st.connected ? LED.blue : LED.red) : null);
-    outline.material.opacity = reachable ? 0.9 : 0.4;
+    const strength = st.bars >= 4 ? 'ok' : st.bars === 3 ? 'warn' : 'err';
+    setLamp(lamps[0], reachable && st.connected && st.nr ? strength : 'off');
+    setLamp(lamps[1], reachable && st.connected && st.lte ? strength : 'off');
+    setLamp(lamps[2], reachable ? (st.connected ? 'ok' : 'err') : 'off');
   }
 
   group.userData.tick = (t, dt, p, env) => {
-    // A lamp is steady, as the real ones are; only its light on the body
-    // breathes a little, so a living router is never a still picture.
-    const k = env && env.reduced ? 0 : 1;
+    // A lamp in trouble blinks; a healthy one breathes — fleet's beads say
+    // it the same way, and both read at a glance.
+    const reduced = !!(env && env.reduced);
     for (const l of p.lamps) {
-      if (l.on) l.halo.material.opacity = 0.22 + 0.08 * k * (0.5 + 0.5 * Math.sin(t * 1.4));
+      if (l.state === 'off') continue;
+      if (reduced) { l.bead.material.opacity = 0.95; l.halo.material.opacity = 0.6; continue; }
+      const w = Math.sin(t * (l.state === 'err' ? 7.4 : 2.1) + l.ph);
+      const k = l.state === 'err' ? (w > 0 ? 1 : 0.28) : 0.72 + 0.28 * (0.5 + 0.5 * w);
+      l.bead.material.opacity = 0.95 * k;
+      l.halo.material.opacity = 0.6 * k;
     }
   };
 
