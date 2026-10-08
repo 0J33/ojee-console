@@ -2292,6 +2292,8 @@ async function boot() {
 
   // Notifications the server routes to "the app" — phone app, desktop app or
   // browser alike. A module going down is one of them now (server side).
+  // In a browser (secure context, not the phone or desktop app) this also
+  // registers the Web Push service worker, /sw.js.
   notifyClient.start({ toast });
 
   // Inside the app only: dismiss the splash and post location to the home hub.

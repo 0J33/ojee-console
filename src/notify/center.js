@@ -87,8 +87,10 @@ export class NotifyCenter extends EventEmitter {
    * @param {string} o.publicOrigin    for "open in console" links in Discord
    * @param {string} o.tz
    */
-  constructor({ registry, prefs, identitySecret, publicOrigin = '', tz = process.env.TIMEZONE || process.env.TZ, fetchImpl = fetch, now = () => Date.now(), log = (m) => console.log(m) }) {
+  constructor({ registry, prefs, identitySecret, publicOrigin = '', tz = process.env.TIMEZONE || process.env.TZ, fetchImpl = fetch, now = () => Date.now(), log = (m) => console.log(m), push = null }) {
     super();
+    // Web Push (./push.js): the App channel for consoles that are not open.
+    this.push = push;
     this.setMaxListeners(100);
     this.registry = registry;
     this.prefs = prefs;
@@ -187,6 +189,12 @@ export class NotifyCenter extends EventEmitter {
     }
     if (d.app) this.emit('app', ev);
     this.#remember(rec);
+    // The same decision, delivered to every device subscribed to Web Push
+    // (an iPhone's Home Screen console, a desktop or Android browser) —
+    // which reaches them when no console is open.
+    const pushing = d.app && this.push?.count()
+      ? this.push.sendAll(ev).then((r) => { rec.push = r.summary; this.emit('history', rec); }, (e) => { rec.push = `push failed (${e.message})`; })
+      : null;
     if (d.discord && type.discordBy !== 'module') {
       const hook = this.prefs.webhookFor(moduleId);
       if (!hook) rec.discord = 'no webhook';
@@ -196,6 +204,7 @@ export class NotifyCenter extends EventEmitter {
       }
       this.emit('history', rec);
     }
+    if (pushing) await pushing;
     return rec;
   }
 
@@ -243,15 +252,38 @@ export class NotifyCenter extends EventEmitter {
 
   /* ── tests from the page ─────────────────────────────────────────── */
 
-  testApp(clients) {
+  async testApp(clients) {
+    const devices = this.push?.count() || 0;
     const ev = {
       key: `test-${Date.now().toString(36)}`, id: 'console.test', module: 'console', moduleName: 'Console', label: 'Test',
-      title: 'Test notification', body: `Sent from Settings → Notifications to ${clients} open console${clients === 1 ? '' : 's'}. If you can read this here, app notifications work on this device.`,
+      title: 'Test notification', body: `Sent from Settings → Notifications to ${clients} open console${clients === 1 ? '' : 's'}${devices ? ` and ${devices} push device${devices === 1 ? '' : 's'}` : ''}. If you can read this here, app notifications work on this device.`,
       tag: `console.test:${Date.now()}`, severity: 'info', route: '#/settings/notifications', at: this.now(),
     };
     this.emit('app', ev);
-    this.#remember({ ...ev, app: 'sent', discord: 'off' });
-    return ev;
+    const rec = { ...ev, app: 'sent', discord: 'off' };
+    this.#remember(rec);
+    if (devices) {
+      const r = await this.push.sendAll(ev);
+      rec.push = r.summary;
+      this.emit('history', rec);
+      return { ev, push: r };
+    }
+    return { ev, push: null };
+  }
+
+  /** A test to one push device, from its row on the page. */
+  async testPush(id) {
+    const s = this.push?.subs.find((x) => x.id === id);
+    if (!s) return { ok: false, error: 'No such device' };
+    const ev = {
+      key: `test-${Date.now().toString(36)}`, id: 'console.test', module: 'console', moduleName: 'Console', label: 'Test',
+      title: 'Test notification', body: `Sent to "${s.label}" by Web Push. It arrives even when the console is closed.`,
+      tag: `console.test:${id}`, severity: 'info', route: '#/settings/notifications', at: this.now(),
+    };
+    const r = await this.push.sendAll(ev, { only: [id] });
+    this.#remember({ ...ev, app: 'push only', discord: 'off', push: r.summary });
+    const one = r.results[0] || {};
+    return { ok: !!one.ok, status: one.status || null, error: one.ok ? null : (one.error || null), gone: !!one.gone };
   }
 
   async testDiscord(webhookId) {

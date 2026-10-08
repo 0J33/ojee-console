@@ -34,6 +34,7 @@ import { createModuleProxy, proxyUpgrade } from './modules/proxy.js';
 import { TimeReference } from './time.js';
 import { PrefsStore } from './notify/prefs.js';
 import { NotifyCenter } from './notify/center.js';
+import { PushStore, loadVapid, PUSH_HOSTS } from './notify/push.js';
 
 const cfg = loadConfig();
 
@@ -59,11 +60,23 @@ const registry = new ModuleRegistry({ configured: cfg.modules });
 // state its own accuracy instead of assuming it. Off in tests (no network).
 const timeRef = new TimeReference({ historyFile: join(cfg.dataDir, 'time-history.json') });
 const notifyPrefs = new PrefsStore({ file: join(cfg.dataDir, 'notifications.json') });
+// Web Push: the VAPID pair is made once and kept in DATA_DIR (0600); only the
+// public half ever reaches a page. PUSH_ALLOW_HOSTS (comma list) admits extra
+// push hosts — for a local mock push service in tests, never in production.
+const extraPushHosts = new Set(String(process.env.PUSH_ALLOW_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean));
+const vapid = loadVapid(join(cfg.dataDir, 'vapid.json'));
+const push = new PushStore({
+  file: join(cfg.dataDir, 'push-subscriptions.json'),
+  vapid,
+  subject: process.env.PUSH_SUBJECT || (/^https:\/\//.test(cfg.publicOrigin || '') && !/localhost|127\.0\.0\.1/.test(cfg.publicOrigin) ? cfg.publicOrigin : 'https://ojee.net'),
+  allowHost: (h) => PUSH_HOSTS.test(h) || extraPushHosts.has(h),
+});
 const notify = new NotifyCenter({
   registry,
   prefs: notifyPrefs,
   identitySecret: cfg.secrets.identitySecret,
   publicOrigin: cfg.publicOrigin,
+  push,
 });
 if (process.env.NTP_PROBE !== 'off') timeRef.start();
 
@@ -292,8 +305,27 @@ const PRE_AUTH_ASSETS = new Set([
   '/favicon.ico',
   '/apple-touch-icon.png',
   '/manifest.webmanifest',
+  // The manifest's own icons: "Add to Home Screen" can happen from the
+  // login page, before any session exists.
+  '/icon-192.png',
+  '/icon-512.png',
 ]);
 const PRE_AUTH_THEME = /^\/themes\/[a-z0-9-]+\.css$/;
+
+/**
+ * The service worker (Web Push). Pre-auth on purpose: a browser re-fetches it
+ * to check for updates on its own schedule, often long after the session has
+ * expired, and a 302 to /login there would leave an old worker in place for
+ * good. It holds no secrets — it shows notifications and opens routes.
+ */
+app.get('/sw.js', (req, res) => {
+  res.set({
+    'Content-Type': 'text/javascript; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Service-Worker-Allowed': '/',
+  });
+  res.sendFile(join(ROOT, 'public', 'sw.js'));
+});
 
 app.get('*', (req, res, next) => {
   if (!PRE_AUTH_ASSETS.has(req.path) && !PRE_AUTH_THEME.test(req.path)) return next();
@@ -369,6 +401,7 @@ const notifyView = () => ({
   tz: notify.tz || null,
   clients: notifyClients.size,
   history: notify.history.slice(0, 30),
+  push: { publicKey: push.publicKey, devices: push.devices() },
 });
 
 app.get('/api/notify', requireAuth, (req, res) => res.json(notifyView()));
@@ -396,8 +429,8 @@ app.delete('/api/notify/webhooks/:id', requireAuth, (req, res) => {
 app.post('/api/notify/test', requireAuth, async (req, res) => {
   const b = req.body || {};
   if (b.channel === 'app') {
-    notify.testApp(notifyClients.size);
-    return res.json({ ok: true, clients: notifyClients.size });
+    const r = await notify.testApp(notifyClients.size);
+    return res.json({ ok: true, clients: notifyClients.size, push: r.push ? { sent: r.push.sent, failed: r.push.failed, gone: r.push.gone } : null });
   }
   if (b.channel === 'discord' && b.module) return res.json(await notify.testModule(String(b.module), 'discord'));
   if (b.channel === 'discord') {
@@ -405,6 +438,37 @@ app.post('/api/notify/test', requireAuth, async (req, res) => {
     return res.status(r.ok ? 200 : 502).json(r);
   }
   res.status(400).json({ error: 'channel must be app or discord' });
+});
+
+/* Web Push devices (src/notify/push.js). */
+app.get('/api/notify/push', requireAuth, (req, res) => {
+  res.set('cache-control', 'no-store');
+  res.json({ publicKey: push.publicKey, devices: push.devices() });
+});
+
+app.post('/api/notify/push/subscribe', requireAuth, (req, res) => {
+  try {
+    const b = req.body || {};
+    const rec = push.add(b.subscription, { label: b.label, ua: req.get('user-agent') || '', replaces: b.replaces || null });
+    res.json({ ok: true, id: rec.id, ...notifyView() });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+app.patch('/api/notify/push/:id', requireAuth, (req, res) => {
+  if (!push.rename(req.params.id, req.body?.label)) return res.status(404).json({ error: 'No such device' });
+  res.json(notifyView());
+});
+
+app.delete('/api/notify/push/:id', requireAuth, (req, res) => {
+  if (!push.remove(req.params.id)) return res.status(404).json({ error: 'No such device' });
+  res.json(notifyView());
+});
+
+app.post('/api/notify/push/:id/test', requireAuth, async (req, res) => {
+  const r = await notify.testPush(req.params.id);
+  res.status(r.ok ? 200 : r.error === 'No such device' ? 404 : 502).json({ ...r, ...notifyView() });
 });
 
 /**
@@ -558,6 +622,7 @@ server.listen(cfg.port, cfg.host, () => {
   }
   // Names only — a webhook URL is a credential and never goes in a log.
   const hooks = notifyPrefs.webhooks();
+  console.log(`  web push      ${push.count()} device${push.count() === 1 ? '' : 's'}${vapid.created ? ' · new VAPID key pair made' : ''}`);
   console.log(`  notifications ${hooks.length ? `Discord via ${hooks.map((w) => w.id).join(', ')}` : 'no Discord webhook'} · quiet ${notifyPrefs.get().quiet.on ? `${notifyPrefs.get().quiet.from}–${notifyPrefs.get().quiet.to}` : 'off'} · tz ${notify.tz || 'system'}`);
 });
 

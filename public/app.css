@@ -1587,6 +1587,19 @@ html.qc-open { overflow: hidden; }
 .nt .nt-res--ok { color: var(--ink); }
 .nt .nt-res--no { color: var(--dim); }
 .nt .nt-res--err { color: var(--err); }
+.nt .nt-pushres { display: block; white-space: normal; font-size: 0.64rem; color: var(--dim); }
+.nt .nt-pushres--err { color: var(--err); }
+/* Web Push: this device, and the device list */
+.nt .nt-push { display: flex; flex-direction: column; gap: var(--s-2); padding-top: var(--s-3); border-top: 1px dotted var(--line); }
+.nt .nt-push:empty { display: none; }
+.nt .nt-pushform { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
+.nt .nt-pushform .btn { justify-self: start; }
+@media (max-width: 480px) { .nt .nt-pushform .btn { justify-self: stretch; } }
+.nt .nt-ios p { margin: 4px 0 0; }
+.nt .nt-pname { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.nt .nt-plabel { min-height: 32px; padding: 4px 8px; width: 18em; max-width: 100%; }
+.nt .nt-perr { color: var(--err); }
+.nt .nt-pdev { align-items: center; }
 @media (max-width: 720px) {
   .nt .nt-hist thead { display: none; }
   .nt .nt-hist tr { display: grid; grid-template-columns: auto 1fr 1fr; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line-2); }

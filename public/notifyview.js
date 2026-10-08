@@ -141,7 +141,7 @@ function historyRows() {
     <tbody>${h.slice(0, 30).map((r) => `<tr>
       <td class="nt-when">${H.esc(H.relTime(r.at))}</td>
       <td><b>${H.esc(r.title)}</b><span class="meta"> · ${H.esc(r.moduleName || r.module)}${r.label ? ` · ${H.esc(r.label)}` : ''}</span></td>
-      <td class="nt-res nt-res--${r.app === 'sent' ? 'ok' : 'no'}">${word(r.app)}</td>
+      <td class="nt-res nt-res--${r.app === 'sent' || r.app === 'push only' ? 'ok' : 'no'}">${word(r.app)}${r.push ? `<span class="nt-pushres${/failed|gone/.test(r.push) ? ' nt-pushres--err' : ''}">${H.esc(r.push)}</span>` : ''}</td>
       <td class="nt-res nt-res--${r.discord === 'sent' || r.discord === 'by module' ? 'ok' : String(r.discord).startsWith('failed') ? 'err' : 'no'}">${word(r.discord)}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }
@@ -152,10 +152,15 @@ async function deviceBlock() {
   const on = N.deviceEnabled();
   const permWord = { granted: 'allowed', denied: 'blocked — change it in the system/browser settings', default: 'not asked yet', prompt: 'not asked yet', unavailable: 'not available here' }[perm] || perm;
   const canAsk = perm === 'default' || perm === 'prompt';
+  // Where push works, "Enable notifications on this device" below asks for
+  // permission itself; a second button that only half does it would confuse.
+  const pushable = N.pushSupport().ok;
   const honest = {
     'phone app': 'Arrives while the app is open or was opened recently. When the app is fully closed, a phone cannot be woken without a push service, and this sideloaded build has none — Discord is how a closed app hears. What arrived while it was away (last 2 h, up to 5) shows when you open it.',
     'desktop app': 'Arrives while the desktop app is running, including hidden in the tray. Clicking one brings the window back on the right screen.',
-    browser: 'Arrives while a console tab is open. A tab in the background shows a system notification; the tab you are looking at shows it in the corner instead.',
+    browser: N.pushActive()
+      ? 'Push is on here: notifications arrive even when no console is open, and they always come as system notifications (the service worker shows them).'
+      : 'Arrives while a console tab is open. A tab in the background shows a system notification; the tab you are looking at shows it in the corner instead. Turn on push below to get them with the console closed.',
   }[kind];
   return `
     ${line('This device', `<span class="fl-v--accent">${H.esc(kind)}</span>`)}
@@ -163,10 +168,81 @@ async function deviceBlock() {
     ${line('Live stream', `<span id="nt-conn">${N.connected() ? 'connected' : 'connecting…'}</span> · ${V.clients} open console${V.clients === 1 ? '' : 's'}`)}
     <div class="togglegrid nt-devtog">${togrow('device', on, 'Show notifications on this device', 'i-bell')}</div>
     <div class="nt-btns">
-      ${canAsk ? `<button type="button" class="btn btn--sm" data-act="allow">${H.icon('i-bell')} Allow notifications</button>` : ''}
-      <button type="button" class="btn btn--sm btn--ghost" data-act="test-app">${H.icon('i-send')} Send a test to every open console</button>
+      ${canAsk && !pushable ? `<button type="button" class="btn btn--sm" data-act="allow">${H.icon('i-bell')} Allow notifications</button>` : ''}
+      <button type="button" class="btn btn--sm btn--ghost" data-act="test-app">${H.icon('i-send')} Send a test to every open console and push device</button>
     </div>
-    <p class="nt-desc">${H.esc(honest)}</p>`;
+    <p class="nt-desc">${H.esc(honest)}</p>
+    <div class="nt-push" id="nt-push">${await pushBlock()}</div>`;
+}
+
+/* ── Web Push: this device, and every subscribed device ───────────── */
+
+let me = { id: null };      // this browser's push device id, if subscribed
+
+async function pushBlock() {
+  const sup = N.pushSupport();
+  if (sup.why === 'app') return '';
+  const head = '<div class="nt-pushhead"><span class="label">Push on this device</span></div>';
+  if (sup.why === 'ios-browser') {
+    return `${head}<div class="alert alert--info nt-ios" role="note">${H.icon('i-bell')}<div>
+      <b>Add to Home Screen first</b>
+      <p class="nt-desc">On iPhone, notifications with the console closed only work from the Home Screen app. In Safari tap <b>Share</b> → <b>Add to Home Screen</b>, then open the console from that icon, sign in, and come back here.</p>
+    </div></div>`;
+  }
+  if (!sup.ok) {
+    return `${head}${line('Push', sup.why === 'insecure' ? 'needs https' : 'not supported in this browser')}`;
+  }
+  const st = await N.pushState();
+  const dev = st.id ? (V.push?.devices || []).find((d) => d.id === st.id) : null;
+  me = { id: dev ? st.id : null };
+  const perm = Notification.permission;
+  if (dev) {
+    return `${head}
+      ${line('Push', `<span class="fl-v--accent">on</span> · ${H.esc(dev.label)}`)}
+      <div class="nt-btns">
+        <button type="button" class="btn btn--sm btn--ghost" data-pushtest="${H.esc(dev.id)}">${H.icon('i-send')} Send test</button>
+        <button type="button" class="btn btn--sm btn--ghost" data-act="push-off">Turn off on this device</button>
+      </div>`;
+  }
+  if (perm === 'denied') {
+    return `${head}${line('Push', 'blocked')}<p class="nt-desc">Notifications are blocked for this site. Allow them in ${sup.ios ? 'Settings → Notifications → ojee' : 'the browser’s site settings'}, then reload.</p>`;
+  }
+  return `${head}
+    <form class="nt-pushform" data-form="push">
+      <div class="field"><label for="nt-plabel">Name this device</label><input id="nt-plabel" class="input" name="label" maxlength="60" value="${H.esc(N.guessLabel())}" autocomplete="off"></div>
+      <button type="submit" class="btn" data-act="push-on">${H.icon('i-bell')} Enable notifications on this device</button>
+    </form>
+    <p class="nt-desc">Notifications then arrive even with the console closed${sup.ios ? ' — the Home Screen app does not need to be open' : ''}. They follow the same choices, quiet hours and cooldowns as everything else on this page.</p>`;
+}
+
+function pushDevicesPanel() {
+  const list = V.push?.devices || [];
+  const when = (t) => (t ? H.esc(H.relTime(t)) : '—');
+  return `<section class="panel" id="nt-pushdevs">
+    <div class="panel-head"><span class="label">Push devices</span><span class="meta">${list.length} device${list.length === 1 ? '' : 's'}</span></div>
+    <div class="stack">
+      ${list.length ? list.map((d) => `<div class="row nt-hookrow nt-pdev" data-pdev="${H.esc(d.id)}">
+        <span class="stack nt-hookname">
+          <span class="nt-pname"><input class="input nt-plabel" value="${H.esc(d.label)}" maxlength="60" data-pdlabel="${H.esc(d.id)}" aria-label="Name of ${H.esc(d.label)}">${d.id === me.id ? '<span class="vtag">this device</span>' : ''}</span>
+          <span class="meta">added ${when(d.addedAt)} · last delivered ${when(d.lastOkAt)} · ${H.esc(d.service)}</span>
+          ${d.lastError ? `<span class="meta nt-perr">last error ${when(d.lastErrorAt)}: ${H.esc(d.lastError)}</span>` : ''}
+        </span>
+        <span class="nt-btns">
+          <button type="button" class="btn btn--sm btn--ghost" data-pushtest="${H.esc(d.id)}">${H.icon('i-send')} Send test</button>
+          <button type="button" class="btn btn--sm btn--danger" data-pushdel="${H.esc(d.id)}">Remove</button>
+        </span>
+      </div>`).join('') : '<p class="nt-desc">No device has push yet. Open this page on the device — on iPhone, from the Home Screen icon — and tap Enable notifications on this device.</p>'}
+      <p class="nt-desc">Each device here gets every App notification by Web Push, even with the console closed. A device whose browser dropped its subscription is removed on the next send.</p>
+    </div>
+  </section>`;
+}
+
+async function refreshPush() {
+  if (!H?.el) return;
+  const box = H.el.querySelector('#nt-push');
+  if (box) box.innerHTML = await pushBlock();
+  const panel = H.el.querySelector('#nt-pushdevs');
+  if (panel) panel.outerHTML = pushDevicesPanel();
 }
 
 /* ── render ───────────────────────────────────────────────────────── */
@@ -193,6 +269,7 @@ async function render() {
         </div>
       </section>
     </div>
+    ${pushDevicesPanel()}
     <section class="panel">
       <div class="panel-head"><span class="label">Discord</span><span class="meta">${hooks.length} webhook${hooks.length === 1 ? '' : 's'}</span></div>
       <div class="stack">
@@ -218,6 +295,9 @@ async function render() {
       <div id="nt-history">${historyRows()}</div>
     </section>`;
   H.el.querySelector('#nt-device').innerHTML = await deviceBlock();
+  // The "this device" tag in the list needs the id deviceBlock just found.
+  const panel = H.el.querySelector('#nt-pushdevs');
+  if (panel && me.id) panel.outerHTML = pushDevicesPanel();
 }
 
 /* ── events ───────────────────────────────────────────────────────── */
@@ -267,8 +347,44 @@ async function onClick(e) {
   if (act === 'test-app') {
     try {
       const r = await api('/test', { method: 'POST', body: JSON.stringify({ channel: 'app' }) });
-      H.toast('info', 'Test sent', `To ${r.clients} open console${r.clients === 1 ? '' : 's'}. On this one it shows as a ${document.hasFocus() ? 'corner message (you are looking at it)' : 'system notification'}.`);
+      const push = r.push ? ` and ${r.push.sent} push device${r.push.sent === 1 ? '' : 's'}${r.push.failed ? ` (${r.push.failed} failed)` : ''}` : '';
+      H.toast('info', 'Test sent', `To ${r.clients} open console${r.clients === 1 ? '' : 's'}${push}. On this one it shows as a ${N.pushActive() || !document.hasFocus() ? 'system notification' : 'corner message (you are looking at it)'}.`);
     } catch (err) { H.toast('err', 'Test', err.message); }
+    return;
+  }
+  const pt = t.closest('[data-pushtest]');
+  if (pt) {
+    pt.disabled = true;
+    try {
+      const r = await fetch(`/api/notify/push/${encodeURIComponent(pt.dataset.pushtest)}/test`, { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (j.catalogue) V = j;
+      if (j.ok) H.toast('ok', 'Push sent', 'Accepted by the push service — it should show on that device now.');
+      else H.toast('err', 'Push failed', j.gone ? 'The device dropped its subscription; it was removed.' : (j.error || `HTTP ${r.status}`));
+    } catch (err) { H.toast('err', 'Push failed', err.message); }
+    pt.disabled = false;
+    await refreshPush();
+    return;
+  }
+  const pd = t.closest('[data-pushdel]');
+  if (pd) {
+    const ok = await H.modal({ title: 'Remove this device?', body: '<p class="nt-desc">It stops getting push notifications. Enable it again from the device itself.</p>', actions: [{ label: 'Cancel', value: false, variant: 'ghost' }, { label: 'Remove', value: true, variant: 'danger' }] });
+    if (!ok) return;
+    try {
+      if (pd.dataset.pushdel === me.id) await N.disablePush();
+      else await api(`/push/${encodeURIComponent(pd.dataset.pushdel)}`, { method: 'DELETE' });
+      V = await api('');
+      await refreshPush();
+    } catch (err) { H.toast('err', 'Not removed', err.message); }
+    return;
+  }
+  if (act === 'push-off') {
+    await N.disablePush();
+    V = await api('');
+    H.toast('ok', 'Push off', 'This device no longer gets push notifications.');
+    H.el.querySelector('#nt-device').innerHTML = await deviceBlock();
+    const panel = H.el.querySelector('#nt-pushdevs');
+    if (panel) panel.outerHTML = pushDevicesPanel();
     return;
   }
   const ht = t.closest('[data-hooktest]');
@@ -299,6 +415,12 @@ async function onClick(e) {
 
 function onChange(e) {
   const t = e.target;
+  if (t.dataset.pdlabel) {
+    api(`/push/${encodeURIComponent(t.dataset.pdlabel)}`, { method: 'PATCH', body: JSON.stringify({ label: t.value }) })
+      .then((v) => { V = v; H?.toast('ok', 'Renamed', t.value, { ms: 1400 }); })
+      .catch((err) => H?.toast('err', 'Not renamed', err.message));
+    return;
+  }
   if (t.dataset.quiet) { if (t.value) queue({ quiet: { [t.dataset.quiet]: t.value } }); return; }
   if (t.dataset.cooldown) { queue({ types: { [t.dataset.cooldown]: { cooldownMin: Math.max(0, Math.min(1440, Number(t.value) || 0)) } } }); return; }
   if (t.dataset.hook !== undefined && t.matches('select')) {
@@ -316,6 +438,28 @@ function onChange(e) {
 }
 
 async function onSubmit(e) {
+  const pf = e.target.closest('[data-form="push"]');
+  if (pf) {
+    e.preventDefault();
+    // Nothing awaited before enablePush: it asks for permission first, and
+    // iOS only asks inside the tap.
+    const btn = pf.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const r = await N.enablePush({ publicKey: V.push.publicKey, label: pf.elements.label.value.trim() || N.guessLabel() });
+    if (r.ok) {
+      V = r.view?.catalogue ? r.view : await api('');
+      H.toast('ok', 'Push on', 'This device now gets notifications even with the console closed. Send a test to check.');
+      H.el.querySelector('#nt-device').innerHTML = await deviceBlock();
+      const panel = H.el.querySelector('#nt-pushdevs');
+      if (panel) panel.outerHTML = pushDevicesPanel();
+    } else {
+      btn.disabled = false;
+      H.toast('err', 'Push not enabled', r.error);
+      // A refusal changes what this block should say (blocked, how to undo it).
+      H.el.querySelector('#nt-device').innerHTML = await deviceBlock();
+    }
+    return;
+  }
   const f = e.target.closest('[data-form="hook"]');
   if (!f) return;
   e.preventDefault();

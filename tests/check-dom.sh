@@ -105,7 +105,7 @@ styled=$(ev "(() => {
 # must stay behind the gate.
 leak=$(node -e '
   const base = process.argv[1];
-  const allowed = ["/ojee-ui.css", "/app.css", "/favicon.svg", "/manifest.webmanifest", "/themes/paper.css"];
+  const allowed = ["/ojee-ui.css", "/app.css", "/favicon.svg", "/manifest.webmanifest", "/themes/paper.css", "/sw.js", "/icon-192.png", "/icon-512.png"];
   const denied  = ["/index.html", "/app.js", "/api/modules", "/themes/../app.js"];
   (async () => {
     const bad = [];
@@ -122,6 +122,26 @@ leak=$(node -e '
 ' "$BASE" 2>/dev/null)
 [ "$leak" = "ok" ] && ok "pre-auth allowlist serves the login chrome and nothing else" \
                    || bad "pre-auth allowlist wrong: ${leak}"
+
+# The Web Push service worker must be fetchable with no session (browsers
+# re-check it for updates long after a session ends), as JavaScript, never
+# cached, and allowed to control the whole origin.
+swh=$(node -e '
+  fetch(process.argv[1] + "/sw.js", { redirect: "manual" }).then(async (r) => {
+    const h = (k) => r.headers.get(k) || "";
+    const bad = [];
+    if (r.status !== 200) bad.push("status " + r.status);
+    if (!/javascript/.test(h("content-type"))) bad.push("content-type " + h("content-type"));
+    if (h("service-worker-allowed") !== "/") bad.push("service-worker-allowed " + h("service-worker-allowed"));
+    if (!/no-store/.test(h("cache-control"))) bad.push("cache-control " + h("cache-control"));
+    const t = await r.text();
+    if (!/addEventListener\(.push./.test(t)) bad.push("no push handler");
+    if (/addEventListener\(.fetch./.test(t)) bad.push("has a fetch handler (it must not cache)");
+    console.log(bad.length ? bad.join("; ") : "ok");
+  });
+' "$BASE" 2>/dev/null)
+[ "$swh" = "ok" ] && ok "sw.js served pre-auth: javascript, no-store, Service-Worker-Allowed: /" \
+                  || bad "sw.js: ${swh}"
 
 # The code field must invite the right keyboard and the OS autofill path.
 attrs=$(ev "(() => { const i = document.querySelector('#code');
@@ -337,6 +357,23 @@ dev=$(ev "document.querySelector('#settings-devices')?.innerText.replace(/\s+/g,
 mods=$(ev "document.querySelectorAll('#settings-modules tr').length")
 [ "$mods" = "2" ] && ok "module table lists both modules including the dead one" \
                   || bad "module table has ${mods} rows, expected 2"
+
+# Web Push: the console registers its service worker (127.0.0.1 is a secure
+# context), and Settings → Notifications offers push on this device and lists
+# the push devices.
+agent-browser open "$BASE/#/settings/notifications" >/dev/null 2>&1
+agent-browser wait 2000 >/dev/null 2>&1
+swreg=$(ev "navigator.serviceWorker.getRegistration('/').then(r => r ? (r.active || r.waiting || r.installing).scriptURL.replace(location.origin, '') + ' ' + r.scope.replace(location.origin, '') : 'none')")
+[ "$swreg" = "/sw.js /" ] && ok "service worker registered (scope /)" \
+                          || bad "service worker: ${swreg}"
+pushui=$(ev "(() => { const p = document.querySelector('#nt-push'); const l = document.querySelector('#nt-pushdevs');
+  if (!p || !l) return 'missing ' + (!p ? '#nt-push ' : '') + (!l ? '#nt-pushdevs' : '');
+  const btn = [...p.querySelectorAll('button')].find(b => /Enable notifications on this device/.test(b.textContent));
+  const label = p.querySelector('#nt-plabel')?.value || '';
+  return btn && label ? 'ok' : 'no enable button or label (' + p.innerText.replace(/\\s+/g, ' ').slice(0, 80) + ')';
+})()")
+[ "$pushui" = "ok" ] && ok "notifications: 'Enable notifications on this device' offered, push devices listed" \
+                     || bad "notifications push UI: ${pushui}"
 
 printf '\n================================================================\n'
 printf '  %d passed, %d failed\n' "$pass" "$fail"
