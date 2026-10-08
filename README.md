@@ -218,6 +218,37 @@ so a module that never emits `notify` never notifies and costs nothing.
 Only modules that declare `"sse"` in `capabilities` are subscribed to. In a
 browser this does nothing at all — see [`native/`](native/).
 
+## Notifications
+
+One page for every notification any module can send: **Settings → Notifications**
+(`#/settings/notifications`). Modules decide *when*; the console decides *where*.
+
+- A module lists what it can say in `module.json` — `notifications: [{ id: '<module>.<kind>',
+  label, description, severity: info|warn|critical, defaultChannels: ['app','discord'], view,
+  cooldownMin, params: [{ key, label, type: time|number|weekday|weekdays, default }],
+  discordBy?: 'module', source?: 'alerts' }]` — and capability `notify`.
+- It says it as an SSE event on its own `/api/events`: `event: notify` with
+  `{ id, title, body, tag, severity, view, at }`. The console keeps one server-side
+  subscription per notify module (`?router=1&since=<ms>`, so a reconnect replays what it missed).
+- Modules without the contract are still covered: their overview alerts (`alerts` in
+  `/api/summary`) become notifications of type `<module>.alert` when an alert appears and is
+  still there a minute later (an alert may name its type with `notify` and a stable `key`).
+- The console routes each event with the person's settings (`DATA_DIR/notifications.json`, 0600):
+  per type **App** and/or **Discord**, a cooldown per type+tag, quiet hours (default 23:00–07:00
+  in `TIMEZONE`, critical optionally let through), and a Discord webhook per module.
+- **App** = every open console over `/api/notify/stream`: the phone app shows a local
+  notification (tap opens the route), the desktop app and browsers a system notification when
+  in the background (a toast when you are looking). A fully closed phone app cannot be reached
+  (no push service on a sideloaded build) — Discord is for that; on reopening it shows what was
+  missed in the last 2 hours.
+- **Discord** webhooks come from the environment (`NOTIFY_DISCORD_WEBHOOK`,
+  `NOTIFY_DISCORD_WEBHOOK_<NAME>`) or are added on the page. The page only ever sees a name and the
+  last four characters; URLs are never logged.
+- Settings flow back down: each notify module is POSTed its effective settings
+  (`/api/notify/prefs`) — Health reads its morning time and work hours from there; the Claude
+  runners apply them to the Discord pings they still send themselves (`discordBy: 'module'`).
+- Each channel has a test (App: every open console; Discord: per webhook; a module's own sender).
+
 ## The phone app
 
 [`native/`](native/) wraps this same shell as a Capacitor app pointed at your

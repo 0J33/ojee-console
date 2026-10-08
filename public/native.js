@@ -17,11 +17,18 @@
                     third-party OwnTracks app. The hub's endpoint
                     does not change at all.
 
-   Design note on notifications: the shell must not know what any
-   module's events MEAN. A module opts in by emitting an SSE event
-   named `notify` with {title, body, tag}. That keeps the contract
-   one-directional — the console never parses module state, and a
-   module that never emits `notify` simply never notifies.
+   Design note on notifications: the shell does not decide what is
+   worth notifying, or whether. Modules emit `notify` events; the
+   console server routes them (Settings -> Notifications: per type,
+   quiet hours, cooldowns) and sends the ones meant for the app over
+   /api/notify/stream. public/notify.js listens and calls notify()
+   here, which is only "show this as a local notification".
+
+   What a local notification cannot do: arrive while the app is fully
+   closed. There is no push service behind a sideloaded build (no
+   APNs, no FCM), so a closed app hears nothing; Discord is the
+   channel for that, and the stream replays what was missed when the
+   app comes back.
    ============================================================ */
 
 const native = window.Capacitor?.isNativePlatform?.() === true;
@@ -33,108 +40,89 @@ export const isNative = native;
 
 /* ── notifications ────────────────────────────────────────────────────── */
 
-let notifyId = 1;
-const recent = new Map();          // tag → last time we notified for it
-const QUIET_MS = 5 * 60 * 1000;
+const platform = () => window.Capacitor?.getPlatform?.() || 'web';
+let nextId = (Date.now() % 1_000_000) * 100;
+let channelsReady = null;
 
-async function ensurePermission() {
-  const LocalNotifications = plugin('LocalNotifications');
-  if (!LocalNotifications) return false;
-  let status = await LocalNotifications.checkPermissions();
-  if (status.display === 'prompt' || status.display === 'prompt-with-rationale') {
-    status = await LocalNotifications.requestPermissions();
-  }
-  return status.display === 'granted';
+/** Android 8+ files every notification under a channel the person can tune
+    in system settings. Two: warnings that should interrupt, and the rest. */
+function ensureChannels() {
+  if (channelsReady) return channelsReady;
+  const LN = plugin('LocalNotifications');
+  channelsReady = (async () => {
+    if (!LN || platform() !== 'android') return;
+    try {
+      await LN.createChannel({ id: 'ojee-alerts', name: 'Alerts', description: 'Problems and warnings: a machine in trouble, an illness warning, a session that needs you.', importance: 4, visibility: 1, vibration: true, lights: true, lightColor: '#FFFFFF' });
+      await LN.createChannel({ id: 'ojee-updates', name: 'Updates', description: 'Summaries and nudges: morning readiness, the weekly check-in, a finished task.', importance: 3, visibility: 1, vibration: false });
+    } catch { /* older Android: no channels */ }
+  })();
+  return channelsReady;
 }
 
-export async function notify(title, body, tag = title) {
+/** 'granted' | 'denied' | 'prompt' | 'unavailable' — inside the app only. */
+export async function notificationStatus() {
+  const LN = plugin('LocalNotifications');
+  if (!native || !LN) return 'unavailable';
+  try {
+    const s = await LN.checkPermissions();
+    return s.display === 'granted' ? 'granted' : s.display === 'denied' ? 'denied' : 'prompt';
+  } catch { return 'unavailable'; }
+}
+
+/** Ask once. On Android 13+ this is the POST_NOTIFICATIONS runtime dialog;
+    on iOS the system prompt. A "denied" can only be undone in system settings. */
+export async function requestNotifications() {
+  const LN = plugin('LocalNotifications');
+  if (!native || !LN) return 'unavailable';
+  try {
+    const s = await LN.requestPermissions();
+    await ensureChannels();
+    return s.display === 'granted' ? 'granted' : s.display === 'denied' ? 'denied' : 'prompt';
+  } catch { return 'unavailable'; }
+}
+
+/**
+ * Show one local notification.
+ * @param {string} title
+ * @param {string} body
+ * @param {object} o { route: '#/health/today', severity, tag }
+ */
+export async function notify(title, body, { route = null, severity = 'info', tag = null } = {}) {
   if (!native) return false;
-
-  // The same condition re-firing every second is the fastest way to make
-  // someone turn notifications off for good. One per tag per five minutes.
-  const last = recent.get(tag) ?? 0;
-  if (Date.now() - last < QUIET_MS) return false;
-  recent.set(tag, Date.now());
-
-  const LocalNotifications = plugin('LocalNotifications');
-  if (!LocalNotifications || !(await ensurePermission())) return false;
-
-  await LocalNotifications.schedule({
+  const LN = plugin('LocalNotifications');
+  if (!LN) return false;
+  let status = await notificationStatus();
+  if (status === 'prompt') status = await requestNotifications();
+  if (status !== 'granted') return false;
+  await ensureChannels();
+  nextId = (nextId + 1) % 2_000_000_000;
+  await LN.schedule({
     notifications: [{
-      id: notifyId++,
+      id: nextId,
       title,
       body,
-      // Tapping it should land on the thing it is about, not the home screen.
-      extra: { tag },
+      largeBody: body,
+      // Tapping it lands on the screen it is about (see onNotificationTap).
+      extra: { route, tag },
       smallIcon: 'ic_stat_icon',
+      iconColor: '#FFFFFF',
+      channelId: severity === 'info' ? 'ojee-updates' : 'ojee-alerts',
+      threadIdentifier: tag ? String(tag).split(':')[0] : undefined,
     }],
   });
   return true;
 }
 
-/**
- * Subscribe to one module's event stream and forward its `notify` events.
- *
- * Deliberately tolerant: a module that is down, has no /api/events, or never
- * emits `notify` costs one failed EventSource and nothing else.
- */
-export function watchModules(modules) {
-  const stops = modules
-    .filter((m) => m.enabled && m.status === 'ready'
-                && (m.capabilities || []).includes('sse'))
-    .map((m) => watchModule(m.id));
-  return () => stops.forEach((fn) => fn());
-}
-
-export function watchModule(moduleId) {
-  if (!native) return () => {};
-
-  let source = null;
-  let stopped = false;
-  let attempt = 0;
-
-  const connect = () => {
-    if (stopped) return;
-    source = new EventSource(`/${moduleId}/api/events`);
-    source.addEventListener('open', () => { attempt = 0; });
-    source.addEventListener('notify', (e) => {
-      try {
-        const d = JSON.parse(e.data);
-        if (d?.title) notify(d.title, d.body || '', d.tag || `${moduleId}:${d.title}`);
-      } catch { /* a module sending malformed json is not worth a crash */ }
-    });
-    source.addEventListener('error', () => {
-      source.close();
-      if (stopped) return;
-      const wait = Math.min(1000 * 2 ** attempt, 60000);
-      attempt += 1;
-      setTimeout(connect, wait);
-    });
-  };
-
-  connect();
-  return () => { stopped = true; source?.close(); };
-}
-
-/**
- * Notify when a module's health flips. The shell already polls /api/modules
- * every 20s for the nav, so this rides along rather than adding traffic.
- */
-const health = new Map();
-
-export function noteModuleHealth(modules) {
-  if (!native) return;
-  for (const m of modules) {
-    if (!m.enabled) continue;
-    const was = health.get(m.id);
-    const now = m.status === 'ready';
-    health.set(m.id, now);
-    // The first sweep establishes a baseline; notifying on it would fire for
-    // every module every time the app cold-starts.
-    if (was === undefined || was === now) continue;
-    if (now) notify(`${m.name} is back`, 'The module is responding again.', `health:${m.id}`);
-    else notify(`${m.name} is unreachable`, m.reason || 'The module stopped responding.', `health:${m.id}`);
-  }
+/** Call `fn(route)` when a notification is tapped (the app opens or comes forward). */
+export function onNotificationTap(fn) {
+  const LN = plugin('LocalNotifications');
+  if (!native || !LN) return () => {};
+  let handle = null;
+  LN.addListener('localNotificationActionPerformed', (a) => {
+    const route = a?.notification?.extra?.route;
+    if (typeof route === 'string' && route.startsWith('#/')) fn(route);
+  }).then((h) => { handle = h; }).catch(() => {});
+  return () => handle?.remove?.();
 }
 
 /* ── location ─────────────────────────────────────────────────────────── */

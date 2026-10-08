@@ -29,6 +29,9 @@ import * as timesync from '/timesync.js';
 // The native bridge. Every export is a no-op in a browser, so the shell has
 // one code path rather than a web build and an app build.
 import * as nativeBridge from '/native.js';
+// App notifications on this device, routed by the server (Settings → Notifications).
+import * as notifyClient from '/notify.js';
+import * as notifyView from '/notifyview.js';
 import * as movement from '/movement/stage.js';
 import * as watch from '/watch.js';
 import { mount as mountWatchView } from '/watchview.js';
@@ -79,7 +82,7 @@ function brandName() {
 function setTitle() {
   const { module, view } = state.active;
   const parts = [brandName()];
-  if (module === 'settings') parts.push('settings');
+  if (module === 'settings') parts.push(view === 'notifications' ? 'notifications' : 'settings');
   else if (module === 'idle') parts.push('clock');
   else if (module) {
     const m = state.modules.find((x) => x.id === module);
@@ -558,6 +561,8 @@ function paletteItems() {
              href: '#/idle', icon: 'i-monitor' });
   out.push({ group: 'Console', label: 'Settings', hint: 'devices, session',
              href: '#/settings', icon: 'i-cog' });
+  out.push({ group: 'Console', label: 'Notifications', hint: 'every module · app and Discord',
+             href: '#/settings/notifications', icon: 'i-bell' });
   return out;
 }
 
@@ -1896,10 +1901,22 @@ function renderIdle() {
   paintCrowns();
 }
 
-async function renderSettings() {
+const settingsTabs = (which) => `<div class="tabs set-tabs" role="tablist" aria-label="Settings">
+    <a class="tab${which === 'general' ? ' active' : ''}" role="tab" aria-selected="${which === 'general'}" href="#/settings">${icon('i-cog')} General</a>
+    <a class="tab${which === 'notifications' ? ' active' : ''}" role="tab" aria-selected="${which === 'notifications'}" href="#/settings/notifications">${icon('i-bell')} Notifications</a>
+  </div>`;
+
+async function renderSettings(view = null) {
   await host.unmount();
+  notifyView.unmount();
   const el = $('#view');
+  if (view === 'notifications') {
+    el.innerHTML = `<div class="stack-lg">${settingsTabs('notifications')}<div class="stack-lg" id="settings-notify"></div></div>`;
+    await notifyView.mount($('#settings-notify'), { esc, icon, toast, modal, relTime });
+    return;
+  }
   el.innerHTML = `<div class="stack-lg">
+    ${settingsTabs('general')}
     <div class="panel">
       <div class="panel-head"><span class="label">Session</span></div>
       <div class="stack" id="settings-session"></div>
@@ -2105,6 +2122,8 @@ async function route() {
   if (routing) return;
   routing = true;
   try {
+    // Leaving Settings → Notifications saves anything still pending.
+    if (parseHash().b !== 'notifications') notifyView.unmount();
     // parseHash is generic ({a, b}); here the two levels are module and view.
     const { a: module, b: view } = parseHash();
 
@@ -2170,12 +2189,12 @@ async function route() {
     teardownHome();
 
     if (module === 'settings') {
-      state.active = { module: 'settings', view: null };
+      state.active = { module: 'settings', view: view === 'notifications' ? 'notifications' : null };
       renderNav();
       setTitle();
       clearModuleHead();
       teardownStage();
-      await renderSettings();
+      await renderSettings(state.active.view);
       return;
     }
 
@@ -2256,9 +2275,6 @@ async function boot() {
     await refreshModules();
     renderNav();
     renderChrome();
-    // Rides along with the poll the nav already needs, rather than adding
-    // a second timer that asks the same question.
-    nativeBridge.noteModuleHealth(state.modules);
   }, 20000);
 
   // The hud clock reads the same reference as the home page, so two clocks on
@@ -2274,12 +2290,13 @@ async function boot() {
   wirePalette();
   $('#nav-jump')?.addEventListener('click', openPalette);
 
-  // Inside the app only: dismiss the splash, forward module `notify` events
-  // as local notifications, and post location to the home hub.
+  // Notifications the server routes to "the app" — phone app, desktop app or
+  // browser alike. A module going down is one of them now (server side).
+  notifyClient.start({ toast });
+
+  // Inside the app only: dismiss the splash and post location to the home hub.
   if (nativeBridge.isNative) {
     await nativeBridge.ready();
-    nativeBridge.noteModuleHealth(state.modules);   // baseline, notifies nothing
-    nativeBridge.watchModules(state.modules);
     if (state.modules.some((m) => m.id === 'home' && m.enabled)) {
       nativeBridge.startLocation({ moduleId: 'home' });
     }

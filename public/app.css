@@ -1522,3 +1522,78 @@ html.qc-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .qc, .qc-backdrop { transition: none; }
 }
+
+/* ── Settings: tabs, and Settings → Notifications (.nt-*) ─────────────── */
+.set-tabs .tab { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.set-tabs .tab .ic { width: 16px; height: 16px; }
+@media (max-width: 520px) { .set-tabs .tab { flex: 1 1 0; justify-content: center; padding: 10px 8px; } }
+
+.nt .nt-top { align-items: start; }
+.nt .nt-desc { margin: 0; font-size: 0.7rem; line-height: 1.6; color: var(--dim); }
+.nt .nt-note { display: flex; gap: 8px; align-items: flex-start; color: var(--ink-2); }
+.nt .nt-note .ic { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--warn); }
+.nt .nt-btns { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.nt .nt-devtog { grid-template-columns: minmax(0, 1fr); }
+.nt .nt-params { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: flex-end; }
+.nt .nt-param { min-width: 0; }
+.nt .nt-param .input, .nt .nt-param .select { min-height: 38px; padding: 7px 10px; }
+.nt .nt-param input[type="time"] { width: 10em; }
+.nt .nt-num { display: inline-flex; align-items: center; gap: 8px; }
+.nt .nt-num .input { width: 6.5em; }
+.nt .nt-days { grid-auto-columns: 34px; }
+.nt .nt-days button { min-height: 34px; padding: 4px 0; }
+
+/* Discord */
+.nt .nt-hookrow { justify-content: space-between; gap: var(--s-2); flex-wrap: wrap; padding: var(--s-2) 0; border-bottom: 1px dotted var(--line); }
+.nt .nt-hookname { gap: 2px; align-items: flex-start; min-width: 0; }
+.nt .nt-hookname .meta { overflow-wrap: anywhere; }
+.nt .nt-addhook { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr) auto; gap: var(--s-2); align-items: end; }
+@media (max-width: 720px) { .nt .nt-addhook { grid-template-columns: minmax(0, 1fr); } }
+
+/* One module */
+.nt .nt-modhead { flex-wrap: wrap; }
+.nt .nt-modname { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.nt .nt-modname .ic { width: 18px; height: 18px; color: var(--ink-2); }
+.nt .nt-modtools { display: inline-flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.nt .nt-hook { min-height: 34px; padding: 6px 10px; max-width: 20em; }
+.nt .nt-types { display: flex; flex-direction: column; }
+.nt .nt-type {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4);
+  padding: var(--s-3) 0; border-top: 1px solid var(--line-2);
+}
+.nt .nt-type:first-child { border-top: 0; padding-top: 0; }
+.nt .nt-type--off .nt-name b, .nt .nt-type--off .nt-desc { color: var(--dim); }
+.nt .nt-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.nt .nt-name { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; }
+.nt .nt-name b { color: var(--ink); font-weight: 400; }
+.nt .nt-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-2); }
+.nt .nt-ch { grid-auto-columns: 92px; }
+.nt .nt-ch button { min-height: 36px; padding: 6px 8px; }
+.nt .nt-cd { display: inline-flex; align-items: center; gap: 6px; }
+.nt .nt-cdin { width: 4.8em; min-height: 32px; padding: 4px 8px; text-align: right; }
+.nt .nt-foot { margin: var(--s-2) 0 0; }
+@media (max-width: 720px) {
+  .nt .nt-type { grid-template-columns: minmax(0, 1fr); }
+  .nt .nt-side { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+  .nt .nt-ch { grid-auto-columns: minmax(84px, 1fr); }
+  .nt .nt-hook { max-width: 100%; }
+}
+
+/* Recent */
+.nt .nt-hist td { vertical-align: top; }
+.nt .nt-hist .meta { font-size: 0.66rem; }
+.nt .nt-when { white-space: nowrap; color: var(--dim); }
+.nt .nt-res { white-space: nowrap; font-size: 0.7rem; }
+.nt .nt-res--ok { color: var(--ink); }
+.nt .nt-res--no { color: var(--dim); }
+.nt .nt-res--err { color: var(--err); }
+@media (max-width: 720px) {
+  .nt .nt-hist thead { display: none; }
+  .nt .nt-hist tr { display: grid; grid-template-columns: auto 1fr 1fr; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+  .nt .nt-hist td { display: block; padding: 0; border: 0; }
+  .nt .nt-hist td:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
+  .nt .nt-hist td:nth-child(1) { grid-column: 1; grid-row: 2; }
+  .nt .nt-hist td:nth-child(3)::before { content: 'app '; color: var(--dim); }
+  .nt .nt-hist td:nth-child(4)::before { content: 'discord '; color: var(--dim); }
+  .nt .table-wrap .nt-hist { min-width: 0; }
+}

@@ -32,6 +32,8 @@ import { SessionCodec, parseCookies, cookieHeader } from './auth/session.js';
 import { ModuleRegistry } from './modules/registry.js';
 import { createModuleProxy, proxyUpgrade } from './modules/proxy.js';
 import { TimeReference } from './time.js';
+import { PrefsStore } from './notify/prefs.js';
+import { NotifyCenter } from './notify/center.js';
 
 const cfg = loadConfig();
 
@@ -56,6 +58,13 @@ const registry = new ModuleRegistry({ configured: cfg.modules });
 // Measures this host's offset from UTC over NTP, so the home page's clock can
 // state its own accuracy instead of assuming it. Off in tests (no network).
 const timeRef = new TimeReference({ historyFile: join(cfg.dataDir, 'time-history.json') });
+const notifyPrefs = new PrefsStore({ file: join(cfg.dataDir, 'notifications.json') });
+const notify = new NotifyCenter({
+  registry,
+  prefs: notifyPrefs,
+  identitySecret: cfg.secrets.identitySecret,
+  publicOrigin: cfg.publicOrigin,
+});
 if (process.env.NTP_PROBE !== 'off') timeRef.start();
 
 const app = express();
@@ -340,6 +349,85 @@ app.post('/api/modules/refresh', requireAuth, async (req, res) => {
   res.json({ modules: await registry.refreshAll() });
 });
 
+/* ── notifications (see src/notify/center.js) ────────────────────────── */
+
+/** Every open console listening for app notifications. */
+const notifyClients = new Set();
+notify.on('app', (ev) => {
+  const frame = `event: notify\ndata: ${JSON.stringify(ev)}\n\n`;
+  for (const res of notifyClients) { try { res.write(frame); } catch { /* closed */ } }
+});
+notify.on('history', (rec) => {
+  const frame = `event: history\ndata: ${JSON.stringify(rec)}\n\n`;
+  for (const res of notifyClients) { try { res.write(frame); } catch { /* closed */ } }
+});
+
+const notifyView = () => ({
+  catalogue: notify.catalogue(),
+  prefs: notifyPrefs.publicView(),
+  links: notify.linkStatus(),
+  tz: notify.tz || null,
+  clients: notifyClients.size,
+  history: notify.history.slice(0, 30),
+});
+
+app.get('/api/notify', requireAuth, (req, res) => res.json(notifyView()));
+
+app.put('/api/notify/prefs', requireAuth, (req, res) => {
+  notifyPrefs.patch(req.body || {});
+  notify.pushPrefs().catch(() => {});
+  res.json(notifyView());
+});
+
+app.post('/api/notify/webhooks', requireAuth, (req, res) => {
+  try {
+    notifyPrefs.addWebhook(req.body || {});
+    res.json(notifyView());
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/notify/webhooks/:id', requireAuth, (req, res) => {
+  if (!notifyPrefs.removeWebhook(req.params.id)) return res.status(404).json({ error: 'No such webhook (ones from the environment are removed there).' });
+  res.json(notifyView());
+});
+
+app.post('/api/notify/test', requireAuth, async (req, res) => {
+  const b = req.body || {};
+  if (b.channel === 'app') {
+    notify.testApp(notifyClients.size);
+    return res.json({ ok: true, clients: notifyClients.size });
+  }
+  if (b.channel === 'discord' && b.module) return res.json(await notify.testModule(String(b.module), 'discord'));
+  if (b.channel === 'discord') {
+    const r = await notify.testDiscord(String(b.webhook || ''));
+    return res.status(r.ok ? 200 : 502).json(r);
+  }
+  res.status(400).json({ error: 'channel must be app or discord' });
+});
+
+/**
+ * App notifications, to every open console. A client that reconnects (the
+ * phone app coming back from the background) passes `since` and gets what it
+ * missed from the last two hours, at most five.
+ */
+app.get('/api/notify/stream', requireAuth, (req, res) => {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-store',
+    connection: 'keep-alive',
+    'x-accel-buffering': 'no',
+  });
+  res.socket?.setNoDelay(true);
+  res.write(': connected\n\n');
+  const since = Number(req.query.since);
+  if (since > 0) for (const ev of notify.missedSince(since)) res.write(`event: notify\ndata: ${JSON.stringify({ ...ev, missed: true })}\n\n`);
+  notifyClients.add(res);
+  const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* closed */ } }, 25_000);
+  res.on('close', () => { clearInterval(ping); notifyClients.delete(res); });
+});
+
 app.get('/api/devices', requireAuth, (req, res) => {
   res.json({
     devices: devices.list(),
@@ -457,6 +545,7 @@ server.on('upgrade', async (req, socket, head) => {
 });
 
 registry.start();
+if (process.env.NOTIFY !== 'off') notify.start();
 
 server.listen(cfg.port, cfg.host, () => {
   console.log(`ojee-console on http://${cfg.host}:${cfg.port}`);
@@ -467,10 +556,14 @@ server.listen(cfg.port, cfg.host, () => {
   for (const m of registry.list()) {
     console.log(`  module ${m.id.padEnd(10)} ${m.enabled ? m.origin || '(no origin)' : '(disabled)'}`);
   }
+  // Names only — a webhook URL is a credential and never goes in a log.
+  const hooks = notifyPrefs.webhooks();
+  console.log(`  notifications ${hooks.length ? `Discord via ${hooks.map((w) => w.id).join(', ')}` : 'no Discord webhook'} · quiet ${notifyPrefs.get().quiet.on ? `${notifyPrefs.get().quiet.from}–${notifyPrefs.get().quiet.to}` : 'off'} · tz ${notify.tz || 'system'}`);
 });
 
 const shutdown = () => {
   registry.stop();
+  notify.stop();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 };
