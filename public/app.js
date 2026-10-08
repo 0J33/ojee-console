@@ -239,8 +239,10 @@ function openModuleSheet() {
   el.innerHTML = `
     <div class="msheet" role="dialog" aria-modal="true" aria-label="Modules">
       <div class="msheet-grip" aria-hidden="true"></div>
-      <div class="msheet-list"></div>
-      <a class="msheet-foot" href="#/idle">${icon('i-full', 'ic')}<span>Idle display</span></a>
+      <div class="msheet-scroll">
+        <div class="msheet-list"></div>
+        <a class="msheet-foot" href="#/idle">${icon('i-full', 'ic')}<span>Idle display</span></a>
+      </div>
     </div>`;
   document.body.appendChild(el);
   moduleSheetEl = el;
@@ -250,8 +252,60 @@ function openModuleSheet() {
   // A tap on the dim area, not on the sheet, dismisses it.
   el.addEventListener('click', (e) => { if (e.target === el) closeModuleSheet(); });
   el.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeModuleSheet(); } });
+  dragToClose(el, el.querySelector('.msheet'), el.querySelector('.msheet-scroll'));
   (el.querySelector('.msheet-row.is-on') || el.querySelector('.msheet-row'))?.focus();
   el._opener = opener;
+}
+
+/* Drag the sheet down to close it — from the grip, or from anywhere once the
+   list is scrolled to its top. Mid-list, a drag is a scroll as usual. The
+   list's own rubber-band is off (CSS), so a pull at the top moves the SHEET
+   rather than bouncing the rows inside it. */
+function dragToClose(backdrop, sheet, scroller) {
+  let y0 = 0; let t0 = 0; let dy = 0; let dragging = false; let decided = false;
+  const reset = () => { sheet.style.transform = ''; sheet.style.transition = ''; backdrop.style.background = ''; };
+  sheet.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    y0 = e.touches[0].clientY; t0 = performance.now(); dy = 0; dragging = false; decided = false;
+  }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    const d = e.touches[0].clientY - y0;
+    if (!decided) {
+      if (Math.abs(d) < 6) return;
+      decided = true;
+      const onGrip = !scroller.contains(e.target);
+      dragging = d > 0 && (onGrip || scroller.scrollTop <= 0);
+      if (dragging) sheet.style.transition = 'none';
+    }
+    if (!dragging) {
+      // At the top of the list, an upward-then-downward pull must not bounce.
+      if (scroller.scrollTop <= 0 && d > 0) e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    dy = Math.max(0, d);
+    sheet.style.transform = `translateY(${dy}px)`;
+    backdrop.style.background = `rgba(0, 0, 0, ${Math.max(0, 0.55 * (1 - dy / (sheet.offsetHeight || 1)))})`;
+  }, { passive: false });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    const v = dy / Math.max(1, performance.now() - t0);          // px per ms
+    if (dy > Math.min(120, sheet.offsetHeight * 0.3) || v > 0.6) {
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+      backdrop.style.background = '';
+      closeModuleSheet();
+    } else {
+      sheet.style.transition = '';
+      requestAnimationFrame(reset);
+    }
+  };
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+  // Nothing behind the sheet scrolls while it is open.
+  backdrop.addEventListener('touchmove', (e) => { if (!sheet.contains(e.target)) e.preventDefault(); }, { passive: false });
 }
 
 function closeModuleSheet() {

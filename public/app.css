@@ -1142,7 +1142,7 @@ body.is-idle {
 .msheet {
   position: absolute; left: 0; right: 0;
   bottom: calc(57px + env(safe-area-inset-bottom));
-  max-height: min(72dvh, 600px); overflow-y: auto; overscroll-behavior: contain;
+  max-height: min(72dvh, 600px); display: flex; flex-direction: column;
   background: var(--chrome-3); border-top: 1px solid var(--line-strong);
   transform: translateY(calc(100% + 60px));
   transition: transform var(--dur-2) cubic-bezier(.2, .8, .2, 1);
@@ -1151,7 +1151,10 @@ body.is-idle {
 @media (prefers-reduced-motion: reduce) {
   .msheet, .msheet-backdrop { transition: none; }
 }
-.msheet-grip { width: 36px; height: 3px; background: var(--line-strong); margin: 8px auto 2px; }
+.msheet-grip { flex: none; width: 36px; height: 3px; background: var(--line-strong); margin: 8px auto 2px; box-sizing: content-box; padding: 10px 40%; background-clip: content-box; touch-action: none; }
+/* The list scrolls on its own, without the rubber-band: a pull at the top
+   drags the sheet (app.js dragToClose) instead of bouncing the rows. */
+.msheet-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch; }
 
 .msheet-row, .msheet-foot {
   display: grid; grid-template-columns: 22px minmax(0, 1fr) 8px; column-gap: 14px; align-items: center;
