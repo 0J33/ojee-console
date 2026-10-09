@@ -35,6 +35,7 @@ import { TimeReference } from './time.js';
 import { PrefsStore } from './notify/prefs.js';
 import { NotifyCenter } from './notify/center.js';
 import { PushStore, loadVapid, PUSH_HOSTS } from './notify/push.js';
+import { WidgetKeys, WidgetData, widgetAuth } from './widgets.js';
 
 const cfg = loadConfig();
 
@@ -79,6 +80,9 @@ const notify = new NotifyCenter({
   push,
 });
 if (process.env.NTP_PROBE !== 'off') timeRef.start();
+// Phone widgets (src/widgets.js): their own keys, made on the Settings page.
+const widgetKeys = new WidgetKeys({ file: join(cfg.dataDir, 'widget-keys.json') });
+const widgetData = new WidgetData({ registry, identitySecret: cfg.secrets.identitySecret });
 
 const app = express();
 app.disable('x-powered-by');
@@ -341,6 +345,27 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+/* ── phone widgets: a widget key instead of a session ────────────────────── */
+// Still behind the tailnet gate. The key opens these two routes and nothing
+// else; it is not a session and never becomes one.
+const requireWidgetKey = widgetAuth(widgetKeys);
+
+app.get('/api/widget', requireWidgetKey, async (req, res) => {
+  res.set('cache-control', 'no-store');
+  try {
+    res.json(await widgetData.get({ fresh: req.query.fresh === '1' }));
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e).slice(0, 200) });
+  }
+});
+
+app.post('/api/widget/ac', requireWidgetKey, async (req, res) => {
+  const p = req.body?.power;
+  if (!(p === true || p === false || p === 'toggle')) return res.status(400).json({ error: 'power must be true, false or "toggle"' });
+  const r = await widgetData.setAc(p);
+  res.status(r.ok ? 200 : 502).json(r);
+});
+
 /* ── authenticated routes ───────────────────────────────────────────────── */
 
 app.get('/api/session', requireAuth, (req, res) => {
@@ -516,6 +541,19 @@ app.post('/api/devices/revoke-all', requireAuth, (req, res) => {
   setCookie(res, DEVICE_COOKIE, '', 0);
   setCookie(res, SESSION_COOKIE, '', 0);
   res.json({ ok: true, revoked: n });
+});
+
+/* Widget keys, managed from Settings. The key itself is returned once. */
+app.get('/api/widget-keys', requireAuth, (req, res) => res.json({ keys: widgetKeys.list() }));
+
+app.post('/api/widget-keys', requireAuth, (req, res) => {
+  const k = widgetKeys.create(req.body?.label);
+  res.json({ ok: true, ...k, keys: widgetKeys.list() });
+});
+
+app.delete('/api/widget-keys/:id', requireAuth, (req, res) => {
+  if (!widgetKeys.remove(req.params.id)) return res.status(404).json({ error: 'No such key' });
+  res.json({ ok: true, keys: widgetKeys.list() });
 });
 
 app.get('/api/health', (req, res) => {

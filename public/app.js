@@ -1927,6 +1927,11 @@ async function renderSettings(view = null) {
       <div id="settings-devices"></div>
     </div>
     <div class="panel">
+      <div class="panel-head"><span class="label">Phone widgets</span>
+        <button class="btn btn--sm" id="widget-key-new">New key</button></div>
+      <div id="settings-widget-keys"></div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><span class="label">Modules</span>
         <button class="btn btn--sm btn--ghost" id="refresh-modules">Re-check</button></div>
       <div class="table-wrap"><table class="table set-mods">
@@ -1983,6 +1988,64 @@ async function renderSettings(view = null) {
     }));
   };
   await paintDevices();
+
+  // Phone widgets (Scriptable): a key that can read the widget data and turn
+  // the AC on or off, nothing else. Shown once, when it is made.
+  const paintWidgetKeys = async (list) => {
+    const keys = list || (await (await fetch('/api/widget-keys')).json()).keys;
+    const box = $('#settings-widget-keys');
+    if (!keys.length) {
+      box.innerHTML = `<div class="empty">${icon('i-lock', 'ic ic--xl')}<b>No widget keys</b>
+        <p>Make one to use the console's widgets in Scriptable on your phone. A key can read what the widgets show and turn the AC on or off, nothing else.</p></div>`;
+      return;
+    }
+    box.innerHTML = keys.map((k) => `
+      <div class="row set-dev">
+        <span class="stack" style="gap:2px;align-items:flex-start">
+          <b style="color:var(--ink)">${esc(k.label)}</b>
+          <span class="meta">made ${esc(relTime(k.createdAt))} · ${k.lastUsedAt ? `last used ${esc(relTime(k.lastUsedAt))}` : 'never used'}</span>
+        </span>
+        <button class="btn btn--sm btn--danger" data-wk-revoke="${esc(k.id)}">Revoke</button>
+      </div>`).join('');
+    box.querySelectorAll('[data-wk-revoke]').forEach((b) => b.addEventListener('click', async () => {
+      const go = await modal({
+        title: 'Revoke widget key',
+        body: '<p style="color:var(--ink-2);font-size:0.78rem">Widgets using this key stop updating until you give them a new one.</p>',
+        actions: [
+          { label: 'Cancel', value: false, variant: 'ghost' },
+          { label: 'Revoke', value: true, variant: 'danger' },
+        ],
+      });
+      if (!go) return;
+      const r = await (await fetch(`/api/widget-keys/${encodeURIComponent(b.dataset.wkRevoke)}`, { method: 'DELETE' })).json();
+      toast('ok', 'Key revoked');
+      paintWidgetKeys(r.keys);
+    }));
+  };
+  await paintWidgetKeys();
+
+  $('#widget-key-new').addEventListener('click', async () => {
+    const r = await fetch('/api/widget-keys', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label: 'Scriptable widgets' }),
+    });
+    if (!r.ok) return toast('err', 'Could not make a key', `HTTP ${r.status}`);
+    const k = await r.json();
+    paintWidgetKeys(k.keys);
+    const body = document.createElement('div');
+    body.className = 'stack';
+    body.innerHTML = `<p style="color:var(--ink-2);font-size:0.78rem">Copy it now and paste it into Scriptable when a widget asks for it. It is not shown again.</p>
+      <input class="input" readonly spellcheck="false" autocomplete="off" style="font-family:var(--font-mono, monospace);width:100%">
+      <button class="btn btn--sm" type="button">Copy key</button>`;
+    const input = body.querySelector('input');
+    input.value = k.key;
+    const copy = body.querySelector('button');
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(k.key); copy.textContent = 'Copied'; }
+      catch { input.focus(); input.select(); copy.textContent = 'Selected, copy it'; }
+    });
+    input.addEventListener('focus', () => input.select());
+    await modal({ title: 'Widget key', body, actions: [{ label: 'Done', value: true }] });
+  });
 
   $('#revoke-all').addEventListener('click', async () => {
     const go = await modal({
