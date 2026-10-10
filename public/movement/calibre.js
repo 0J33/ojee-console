@@ -115,7 +115,7 @@ const INNER = {
 
    Each is subset to the glyphs its pane can contain — A-Z for the day,
    0-9 for the date — which is why they are kilobytes. */
-const FACE_V = 4;
+const FACE_V = 5;
 const WHEEL_DAY = "'Wheel Day', system-ui, sans-serif";
 const WHEEL_NUM = "'Wheel Num', 'Wheel Day', system-ui, sans-serif";
 const WHEEL_AR = "'Wheel Arabic', 'Wheel Day', system-ui, sans-serif";
@@ -142,18 +142,35 @@ let fontsReady = false;
      one no matter what the file on disk says. Bump this when a face
      changes. */
   const at = (f) => `${new URL(`./fonts/${f}`, import.meta.url)}?v=${FACE_V}`;
+  /* Two files per Latin face. The first is the licensed face the wheel was
+     drawn for (Sweet Sans Pro, Engravers' Gothic): commercial, so it is NOT
+     in the repository — it sits in this folder only on the owner's own
+     machines (.gitignore). The second is an open stand-in (Montserrat, SIL
+     OFL, subset the same way) that ships with the code. Whichever loads is
+     registered under the same family name, so nothing else needs to know;
+     the fitter measures ink, so the wheel is set correctly in either.
+     Amiri is open and has only the one file. */
   const faces = [
-    new FontFace('Wheel Day', `url(${at('wheel-day.woff2')})`, { weight: '500' }),
-    new FontFace('Wheel Num', `url(${at('wheel-num.woff2')})`, { weight: '700' }),
-    new FontFace('Wheel Arabic', `url(${at('wheel-arabic.woff2')})`, { weight: '400' }),
+    ['Wheel Day', '500', ['wheel-day.woff2', 'wheel-day-open.woff2']],
+    ['Wheel Num', '700', ['wheel-num.woff2', 'wheel-num-open.woff2']],
+    ['Wheel Arabic', '400', ['wheel-arabic.woff2']],
   ];
-  Promise.all(faces.map((f) => f.load().then((l) => document.fonts.add(l))))
-    .then(() => {
-      fontsReady = true;
-      for (const fn of fontWaiters) { try { fn(); } catch { /* one disc is not the others' problem */ } }
-      fontWaiters.clear();
-    })
-    .catch(() => { /* the fallback is a grotesque too; it is just not the right one */ });
+  const load = async ([family, weight, files]) => {
+    for (const f of files) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        document.fonts.add(await new FontFace(family, `url(${at(f)})`, { weight }).load());
+        return;
+      } catch { /* not here (or not a font): try the next file */ }
+    }
+  };
+  // Each face by itself: one missing file must not leave the other two
+  // unannounced, and the discs redraw once whatever could load has loaded.
+  Promise.all(faces.map(load)).then(() => {
+    fontsReady = true;
+    for (const fn of fontWaiters) { try { fn(); } catch { /* one disc is not the others' problem */ } }
+    fontWaiters.clear();
+  });
 }());
 
 /* How big the printing sits in the window — measured off a macro

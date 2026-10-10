@@ -7,3 +7,10 @@ config/console.json
 
 # Impeccable capture packets — regenerated on demand, not source.
 .impeccable/review/
+
+# Commercial typefaces (Sweet Sans Pro, Engravers' Gothic) for the watch's
+# day-date wheel. Licensed to the owner only: they stay on the owner's
+# machines and are never committed. The open stand-ins beside them
+# (wheel-*-open.woff2) are what the repository ships.
+public/movement/fonts/wheel-day.woff2
+public/movement/fonts/wheel-num.woff2
