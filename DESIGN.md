@@ -318,19 +318,49 @@ its foot; the content column is `minmax(0, 1fr)` so one wide table can never wid
 the page. Under 860px the rail and the top-bar links go and a fixed tab bar takes the
 bottom edge.
 
-The status board is a two-column grid: content (`minmax(0, 1fr)`) and the object
-column (`clamp(96px, 13vw, 184px)`) holding the watch and, under it, the music player
-in a 10:7 box — the two things on the plate beside the time; neither is a row in the
-list. The content column stacks alerts (only when there are any — the slot takes no
-room and draws nothing otherwise) → clock → now playing → rate, caseline and controls
-→ module rows. Each module row is a grid of reading plus a
-`clamp(56px, 7vw, 96px)` object cell, separated from the next by a `{colors.line-2}`
-hairline, never boxed. Under 900px everything becomes one column and the watch and
-player drop under the clock, side by side.
+The home page is a status board that fills exactly one screen above 900px: `.ov`
+locks to `--view-h` with `overflow: hidden`, so it never scrolls. It stacks alerts
+(only when there are any — the slot takes no room and draws nothing otherwise) → the
+clock row with the watch beside it → one wrapping strip of rate, now playing,
+caseline and controls → then the tile grid. The grid is
+`repeat(auto-fit, minmax(220px, 1fr))` of `minmax(0, 1fr)` rows; each tile is the
+module's object at up to 168px, its name with a state dot, one headline line
+(ellipsis, no wrapping), and its quick-action buttons at the foot. The whole tile
+except the buttons is one stretched link (`.comp-hit`); the buttons sit beside it,
+never inside it. Under 900px the lock lifts: the tiles become rows — object at the
+left at `clamp(76px, 19vw, 116px)`, name and line beside it, actions under — and the
+page scrolls, because a phone scrolls and eight tiles cannot share one phone screen.
+A module with no object of its own gets a full-width text row (`data-obj="0"`).
 
 The idle display is two columns on one screen: clock, now playing and the watch with
 the player beside it on the left (`1.1fr`), module rows on the right (`0.9fr`). On a phone it is the clock and the
 watch only, centred; a row list nobody is close enough to read is removed, not shrunk.
+
+Three shell contracts ride the board:
+
+**Quick actions.** A module may declare `quickActions: [{ id, label, icon }]` in its
+manifest and report their state in `/api/summary.quick` as
+`{ [id]: { on: bool } }`. The tile (and the synthesized overview) renders one
+`.qa` button per action — bordered like the crown, `aria-pressed` from `quick` —
+and a press POSTs `/{module}/api/quick/{id}` through the proxy, then repaints
+from the module's own answer. Home carries the lead AC's power; Peripherals
+carries one button per mouse profile, built from the driver's own profile list.
+Nothing else crosses the line: ids are `[a-z0-9-]`, labels and icons are checked
+in `registry.publicList()` before the browser sees them.
+
+**The overview tab.** A module with more than one view and no `overview` view of
+its own opens on a shell-synthesized Overview at its bare URL: the object, the
+status dot, the headline, the readings, the quick actions, and a link into each
+view — the module's own screens are never mounted on it. The synthesized entry
+leads the tab strip, the view strip and the rail; modules that ship their own
+overview (Home, Fleet, Agent) are untouched. A single-view module has no strip
+at all: it opens straight on its one view.
+
+**Live status.** `GET /api/modules/events` streams the whole module list the
+moment any status or reason changes — the registry emits on every probe that
+changes one, and a failed proxied request says so at once. The client repaints
+whatever screen is up; the 20-second poll stays as the floor. A stopped
+container greys the nav without anyone reloading.
 
 Rhythm is the six-step 4/8/16/24/40/64 scale. Every control's hit area is 44px
 (`--hit`); small buttons and icon buttons keep their drawn size and grow an invisible
@@ -444,7 +474,10 @@ graduations, the select caret — never to shade or wash a surface.
 - **Don't** use glow, bloom, `text-shadow`, `backdrop-filter` blur, or a gradient wash.
 - **Don't** load a second typeface, or point `--pixel` / `--hud` at one.
 - **Don't** put a radius on a box.
-- **Don't** box the status board's module rows or turn them into a card grid.
+- **Don't** decorate a tile: no radius, no glow, no gradient — the object, the
+  words and the buttons are the whole tile.
+- **Don't** put a quick action inside the stretched link; buttons live in
+  `.comp-acts`, beside it, or a press navigates instead of firing.
 - **Don't** write a module stylesheet with `*` or bare design-system class names (`.panel`, `.btn`, `.label`) as selectors.
 - **Don't** edit `ojee-ui.css`; v1 is the archive and the fallback for unmigrated surfaces.
 - **Don't** let the 3D scene carry a fact the text does not also say.

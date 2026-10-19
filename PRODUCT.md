@@ -21,13 +21,16 @@ Local control, no cloud. It runs on the owner's own hardware, is reachable only 
 ## Operating Context
 
 - Glanced at across a room, from a desk, and on a phone; sometimes left open full-screen on a laptop's IPS display as an idle clock and status board.
-- The home page carries an NTP-referenced clock used to set a mechanical watch, so the time shown must be exact to the second and say how exact it is.
+- The home page carries an NTP-referenced clock used to set a mechanical watch, so the time shown must be exact to the second and say how exact it is; on a desktop the home page is one non-scrolling screen of status, and on a phone the same board as scrolling rows.
 - Modules: Home (air conditioner, temperature, presence, scenes, automations), Fleet (hosts and services on the owner's machines), Remote (remote desktop, shell and files for his devices), Agent (workflows, the Odysseus assistant, the service stack).
 
 ## Capabilities and Constraints
 
 - Tailnet-only, TOTP login, 30-day device trust.
 - The console owns chrome, routing and auth; modules own their own screens and CSS and report `/api/summary` (status, headline, facts, alerts).
+- The home page is one screenful of module tiles on a desktop — object, name, one line, quick actions — and scrolling rows on a phone. A module may declare quick actions in its manifest (`quickActions`) with their state on `/api/summary.quick`; the shell fires `POST /{module}/api/quick/{id}` and repaints from the module's answer.
+- A multi-view module without its own overview opens on a shell-synthesized Overview tab; a single-view module opens straight in.
+- Module status changes are pushed to every open console the moment they land — a stopped container greys the nav without a reload.
 - One design system, ojee-ui, copied into each consumer; themes redefine tokens and never rules.
 - Icons are one generated Material Symbols Outlined set; no emoji or glyphs standing in for icons.
 

@@ -180,10 +180,17 @@ canvases=$(ev "document.querySelectorAll('canvas').length")
 echo ""
 echo "=== module contract ================================================"
 
-# Into a module from the plate, the way a reader would.
+# Into a module from the plate, the way a reader would: the bare module URL
+# lands on the shell-synthesized Overview (the module has two views and no
+# overview of its own), and the module's own UI mounts one tab in.
 agent-browser open "$BASE/#/demo" >/dev/null 2>&1
 agent-browser wait 1200 >/dev/null 2>&1
 
+overview=$(ev "(() => { const s = document.querySelector('.mover'); return s ? (s.querySelector('.comp-head, .mover-line')?.textContent.trim() ? 'present' : 'empty') : 'absent'; })()")
+[ "$overview" = "present" ] && ok "bare module URL shows the shell-synthesized overview"                             || bad "synthesized overview is ${overview}"
+
+agent-browser open "$BASE/#/demo/status" >/dev/null 2>&1
+agent-browser wait 1200 >/dev/null 2>&1
 mounted=$(ev "!!document.querySelector('#demo-reading')")
 [ "$mounted" = "true" ] && ok "module UI mounted into the shell" || bad "demo module did not mount"
 

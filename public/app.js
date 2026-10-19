@@ -114,6 +114,12 @@ function navEntries() {
   for (const m of state.modules) {
     if (!m.enabled) continue;
     if (usable(m) && m.views.length) {
+      // More than one tab and no overview of its own: the shell synthesizes
+      // one at the bare module URL, so every multi-tab module opens on a
+      // page that says what it is before it says what it can do.
+      if (m.views.length > 1 && !m.views.some((v) => v.id === 'overview')) {
+        out.push({ moduleId: m.id, viewId: null, label: 'Overview', icon: 'i-grid', module: m, synth: true });
+      }
       for (const v of m.views) {
         out.push({ moduleId: m.id, viewId: v.id, label: v.label, icon: v.icon || 'i-grid', module: m });
       }
@@ -130,20 +136,20 @@ function renderNav() {
   renderSidenav();
   const entries = navEntries();
   const isActive = (e) =>
-    e.moduleId === state.active.module && (e.viewId === state.active.view || e.viewId === null);
+    e.moduleId === state.active.module && (e.synth ? state.active.view === null : e.viewId === state.active.view);
 
   // Only the ACTIVE module's views. Listing every module's views side by side
   // produced twelve undifferentiated links with no indication which app each
   // belonged to — and it grows with every module. Switching apps is the
   // launcher's job, or the palette's; this row is for moving inside one.
   const mine = state.active.module
-    ? entries.filter((e) => e.moduleId === state.active.module && e.viewId)
+    ? entries.filter((e) => e.moduleId === state.active.module && (e.viewId || e.synth))
     : [];
   const nav = $('#nav-links');
   nav.hidden = mine.length < 2;
   nav.innerHTML = mine.map((e) => `
     <a class="nav-link${isActive(e) ? ' active' : ''}${e.unavailable ? ' nav-link--down' : ''}"
-       href="#/${esc(e.moduleId)}/${esc(e.viewId)}"
+       href="${e.synth ? `#/${esc(e.moduleId)}` : `#/${esc(e.moduleId)}/${esc(e.viewId)}`}"
        ${e.unavailable ? `title="${esc(e.module.reason || 'unavailable')}"` : ''}
        >${esc(e.label)}</a>`).join('');
 
@@ -171,12 +177,15 @@ function renderNav() {
   // single-view module, where there is nothing to choose.
   const strip = $('#viewstrip');
   if (strip) {
-    const mine = entries.filter((e) => e.moduleId === state.active.module && e.viewId);
+    const mine = entries.filter((e) => e.moduleId === state.active.module && (e.viewId || e.synth));
     strip.dataset.single = mine.length > 1 ? '0' : '1';
-    strip.innerHTML = mine.map((e) => `
-      <a class="${e.viewId === state.active.view ? 'active' : ''}"
-         role="tab" aria-selected="${e.viewId === state.active.view}"
-         href="#/${esc(e.moduleId)}/${esc(e.viewId)}">${esc(e.label)}</a>`).join('');
+    strip.innerHTML = mine.map((e) => {
+      const on = e.synth ? state.active.view === null : e.viewId === state.active.view;
+      return `
+      <a class="${on ? 'active' : ''}"
+         role="tab" aria-selected="${on}"
+         href="${e.synth ? `#/${esc(e.moduleId)}` : `#/${esc(e.moduleId)}/${esc(e.viewId)}`}">${esc(e.label)}</a>`;
+    }).join('');
     strip.querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 }
@@ -200,6 +209,10 @@ let moduleSheetEl = null;
 const usable = (m) => m.status === 'ready' || (m.status === 'degraded' && !!m.ui);
 function moduleHref(m) {
   const views = usable(m) ? (m.views || []) : [];
+  // Multi-view modules without their own overview get the shell's
+  // synthesized one at the bare module URL; single-view modules still land
+  // straight on their one view.
+  if (views.length > 1 && !views.some((v) => v.id === 'overview')) return `#/${esc(m.id)}`;
   return `#/${esc(m.id)}${views[0] ? `/${esc(views[0].id)}` : ''}`;
 }
 
@@ -399,6 +412,9 @@ function renderSidenav() {
         </a>
         ${active && views.length > 1 ? `
           <div class="sn-views">
+            ${views.some((v) => v.id === 'overview') ? '' : `
+              <a class="sn-view${state.active.view === null ? ' is-on' : ''}"
+                 href="#/${esc(m.id)}">Overview</a>`}
             ${views.map((v) => `
               <a class="sn-view${state.active.view === v.id ? ' is-on' : ''}"
                  href="#/${esc(m.id)}/${esc(v.id)}">${esc(v.label)}</a>`).join('')}
@@ -895,18 +911,30 @@ function complication(m, i, factCount = 2) {
     : (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok');
   const has = movement.has(m.id);
   // Clicking the OBJECT opens the module's own object up in place; clicking
-  // the row opens the module. Only reachable where there is a focus UI.
+  // anywhere else on the tile opens the module. Only reachable where there is
+  // a focus UI.
   const focus = has && ready && m.focus ? ` data-focus="${esc(m.id)}"` : '';
+  // Quick actions are buttons, so the tile cannot be an anchor around them:
+  // the anchor covers the object and the text, and the buttons sit beside it.
+  const qas = (ready && (m.quickActions || []).length)
+    ? `<div class="comp-acts">${m.quickActions.map((a) => {
+      const q = sum?.quick?.[a.id];
+      return `<button type="button" class="qa${q && q.on ? ' is-on' : ''}" data-qa="${esc(m.id)}:${esc(a.id)}" aria-pressed="${!!(q && q.on)}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${icon(a.icon || 'i-power')}</button>`;
+    }).join('')}</div>`
+    : '';
 
   return `
-    <a class="comp" href="${href}" data-state="${esc(st)}" data-obj="${has ? '1' : '0'}" style="--i:${i}">
-      <span class="comp-read">
-        <span class="comp-name"><i class="dot ${dot}"></i>${esc(m.name)}</span>
-        <span class="comp-head">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
-        ${facts ? `<dl class="comp-facts">${facts}</dl>` : ''}
-      </span>
-      ${has ? `<span class="comp-dial" data-dial="${esc(m.id)}"${focus} aria-hidden="true"></span>` : ''}
-    </a>`;
+    <div class="comp" data-state="${esc(st)}" data-obj="${has ? '1' : '0'}" style="--i:${i}">
+      <a class="comp-hit" href="${href}">
+        <span class="comp-read">
+          <span class="comp-name"><i class="dot ${dot}"></i>${esc(m.name)}</span>
+          <span class="comp-head">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+          ${facts ? `<dl class="comp-facts">${facts}</dl>` : ''}
+        </span>
+        ${has ? `<span class="comp-dial" data-dial="${esc(m.id)}"${focus} aria-hidden="true"></span>` : ''}
+      </a>
+      ${qas}
+    </div>`;
 }
 
 /* Something wrong rides the barrel: the mainspring is what everything in a
@@ -1024,10 +1052,13 @@ function renderLauncher() {
         <h1 class="sr-only">Overview</h1>
         <div class="ov-stage" id="ov-stage">
           <div class="ov-alert" id="ov-barrel"></div>
-          <div class="ov-clock" id="ov-clock"></div>
-          <div class="np-slot" id="ov-np"></div>
+          <div class="ov-top">
+            <div class="ov-clock" id="ov-clock"></div>
+            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+          </div>
           <div class="ov-meta">
             <div class="ov-regulator"><div id="ov-rate"></div></div>
+            <div class="np-slot" id="ov-np"></div>
             <div class="ov-caseline" id="ov-caseline"></div>
             <div class="ov-case">
               ${crownHTML()}
@@ -1038,10 +1069,6 @@ function renderLauncher() {
             </div>
           </div>
           <div class="ov-ring" id="ov-ring"></div>
-          <div class="ov-objs">
-            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
-            <div class="ov-pslot" id="ov-pslot"></div>
-          </div>
         </div>
         <footer class="ov-foot">
           <span class="meta ov-keys">
@@ -1054,12 +1081,9 @@ function renderLauncher() {
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
     fitBase = 0;
   }
-  // The player (music) sits with the watch in the top section, the way a
-  // player sits beside a watch on a desk; every other module is a row. Like
-  // the watch, it is not in the list.
-  const { companions, ring } = splitCompanions(mods);
-  $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 2)).join('');
-  paintCompanion('#ov-pslot', companions[0]);
+  // Every module is a tile — the player included; its object still opens the
+  // player in place from the tile.
+  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 0)).join('');
   paintNowPlaying();
   $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
   $('#ov-rate').innerHTML = rateHTML();
@@ -1067,6 +1091,49 @@ function renderLauncher() {
   watchRate();
   fitView();
   bindModels('launcher', mods.map((m) => m.id));
+  paintCrowns();
+}
+
+/* The shell-synthesized overview. What a module says about itself before it
+   shows any of its screens: its object, its status in words, its readings,
+   its quick actions, and a link into each view. Modules that ship their own
+   overview never come here; the ones that do not used to dump the reader
+   straight into whichever view their manifest happened to list first. */
+function renderModuleOverview(m) {
+  teardownHome();
+  const sum = state.summaries.get(m.id);
+  const ready = m.status === 'ready';
+  const views = usable(m) ? (m.views || []) : [];
+  const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
+    : (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok');
+  const facts = (sum?.facts || []).map((f) => `
+    <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
+  const qas = (ready && (m.quickActions || []).length)
+    ? `<div class="comp-acts mover-acts">${m.quickActions.map((a) => {
+      const q = sum?.quick?.[a.id];
+      return `<button type="button" class="qa${q && q.on ? ' is-on' : ''}" data-qa="${esc(m.id)}:${esc(a.id)}" aria-pressed="${!!(q && q.on)}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${icon(a.icon || 'i-power')}</button>`;
+    }).join('')}</div>`
+    : '';
+  $('#view').innerHTML = `
+    <section class="mover" aria-label="${esc(m.name)} overview">
+      <div class="mover-head">
+        <span class="comp-dial mover-dial" data-dial="${esc(m.id)}" aria-hidden="true"></span>
+        <div class="mover-title">
+          <div class="comp-name"><i class="dot ${dot}"></i>${esc(m.name)}</div>
+          <p class="mover-line">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</p>
+        </div>
+      </div>
+      ${facts ? `<dl class="comp-facts mover-facts">${facts}</dl>` : ''}
+      ${qas}
+      <div class="mover-views">
+        ${views.map((v) => `
+          <a class="mover-view" href="#/${esc(m.id)}/${esc(v.id)}">
+            ${icon(v.icon || 'i-grid')}<span>${esc(v.label)}</span>
+          </a>`).join('')}
+      </div>
+    </section>`;
+  fitView();
+  bindModels(`mod:${m.id}`, [m.id]);
   paintCrowns();
 }
 
@@ -2153,6 +2220,30 @@ function stopOverviewPoll() {
 
 window.addEventListener('resize', fitView);
 
+/* Quick actions fire a POST at the module and repaint from its summary —
+   the button's pressed state comes back with the data, not from hope. */
+document.addEventListener('click', async (e) => {
+  const qa = e.target.closest?.('[data-qa]');
+  if (!qa) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const [mod, id] = qa.dataset.qa.split(':');
+  qa.disabled = true;
+  try {
+    const res = await fetch(`/${mod}/api/quick/${id}`, { method: 'POST' });
+    if (!res.ok) throw new Error(String(res.status));
+  } catch (err) {
+    toast('err', 'Quick action', `${id} failed — ${err.message || err}`);
+  }
+  await refreshSummaries(mod);
+  const m = state.modules.find((x) => x.id === mod);
+  if (!state.active.module) renderLauncher();
+  else if (state.active.module === 'idle') renderIdle();
+  else if (m && state.active.view === null) renderModuleOverview(m);
+  else if (m) paintModuleHead(m);
+  pushModelStates();
+});
+
 document.addEventListener('click', (e) => {
   const opener = e.target.closest?.('[data-focus]');
   if (opener && !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
@@ -2280,6 +2371,23 @@ async function route() {
       return;
     }
 
+    // The shell-synthesized overview: a multi-view module with no overview
+    // view of its own, opened at its bare URL, lands here — and never for a
+    // module that is not answering, which falls through to the error path.
+    if (!view && (m.views?.length || 0) > 1
+      && !m.views.some((x) => x.id === 'overview') && m.status === 'ready') {
+      state.active = { module: m.id, view: null };
+      renderNav();
+      setTitle();
+      await host.unmount();
+      clearModuleHead();
+      renderModuleOverview(m);
+      refreshSummaries(m.id).then(() => {
+        if (state.active.module === m.id && state.active.view === null) renderModuleOverview(m);
+      });
+      return;
+    }
+
     const v = m.views?.some((x) => x.id === view) ? view : (m.views?.[0]?.id || null);
     const sameModule = state.active.module === m.id && host.mounted;
     state.active = { module: m.id, view: v };
@@ -2339,6 +2447,30 @@ async function boot() {
     renderNav();
     renderChrome();
   }, 20000);
+
+  // The server pushes when a module's status actually changes — a container
+  // stopped, a health check recovered — so the nav flips without waiting for
+  // the next poll and without a reload. The poll above stays as the floor.
+  try {
+    const modEvents = new EventSource('/api/modules/events');
+    modEvents.addEventListener('modules', (ev) => {
+      let list = [];
+      try { list = JSON.parse(ev.data).modules || []; } catch { return; }
+      state.modules = [...list.filter(isCompanion), ...list.filter((m) => !isCompanion(m))];
+      renderNav();
+      renderChrome();
+      if (!state.active.module) renderLauncher();
+      else if (state.active.module === 'idle') renderIdle();
+      else if (state.active.view === null) {
+        const cm = state.modules.find((x) => x.id === state.active.module);
+        if (cm) renderModuleOverview(cm);
+      } else {
+        const cm = state.modules.find((x) => x.id === state.active.module);
+        if (cm) paintModuleHead(cm);
+      }
+      pushModelStates();
+    });
+  } catch { /* no stream — the poll carries on */ }
 
   // The hud clock reads the same reference as the home page, so two clocks on
   // one screen never disagree about which second it is.

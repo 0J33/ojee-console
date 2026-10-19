@@ -51,6 +51,9 @@ export class ModuleRegistry {
     this.refreshMs = refreshMs;
     this.fetch = fetchImpl;
     this.timer = null;
+    // Who wants to hear when a module's status flips. The server streams
+    // these to every open console so the nav changes without a reload.
+    this.statusHooks = new Set();
 
     this.modules = new Map();
     for (const c of configured) {
@@ -115,8 +118,44 @@ export class ModuleRegistry {
         return f && ok(f.ui) ? { ui: f.ui, css: ok(f.css) ? f.css : null } : null;
       })(),
       capabilities: m.manifest?.capabilities || [],
+      // Quick actions the tile may fire: id, label, icon — nothing else
+      // crosses the line, and the shapes are checked before they do.
+      quickActions: Array.isArray(m.manifest?.quickActions)
+        ? m.manifest.quickActions
+          .filter((a) => a && typeof a.id === 'string' && /^[a-z0-9-]{1,32}$/.test(a.id))
+          .map((a) => ({
+            id: a.id,
+            label: typeof a.label === 'string' && a.label ? a.label.slice(0, 48) : a.id,
+            icon: typeof a.icon === 'string' && /^i-[a-z0-9-]{1,32}$/.test(a.icon) ? a.icon : null,
+          }))
+        : [],
       latencyMs: m.latencyMs,
     }));
+  }
+
+  /** Watch status and reason; fires only when either actually changes. */
+  onStatusChange(fn) {
+    this.statusHooks.add(fn);
+    return () => this.statusHooks.delete(fn);
+  }
+
+  #emit() {
+    for (const fn of this.statusHooks) {
+      try { fn(); } catch { /* one bad listener must not stop the probe */ }
+    }
+  }
+
+  /**
+   * A proxied request just failed to reach the module. Say so at once rather
+   * than waiting for the next sweep — and only when it is news.
+   */
+  noteUnreachable(id, reason) {
+    const m = this.modules.get(id);
+    if (!m) return;
+    if (m.status === 'unreachable' && m.reason === reason) return;
+    m.status = 'unreachable';
+    m.reason = reason;
+    this.#emit();
   }
 
   async #getJson(url, timeoutMs, token = '') {
@@ -144,7 +183,16 @@ export class ModuleRegistry {
   }
 
   /** Re-fetch one module's manifest and health. Never throws. */
-  async refreshOne(id, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  async refreshOne(id, opts) {
+    const m = this.modules.get(id);
+    if (!m) return null;
+    const was = `${m.status}\u0000${m.reason}`;
+    const out = await this.#refreshOneInner(id, opts);
+    if (out && `${out.status}\u0000${out.reason}` !== was) this.#emit();
+    return out;
+  }
+
+  async #refreshOneInner(id, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     const m = this.modules.get(id);
     if (!m) return null;
     if (!m.enabled) {

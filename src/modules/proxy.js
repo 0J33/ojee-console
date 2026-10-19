@@ -144,10 +144,9 @@ export function createModuleProxy({ registry, identitySecret }) {
     );
 
     upstream.on('error', (e) => {
-      // Mark it unreachable so the nav reflects reality on the next poll
-      // rather than waiting for the timer to notice.
-      mod.status = 'unreachable';
-      mod.reason = `${mod.origin} — ${e.code || e.message}`;
+      // Say so at once, so every open console hears it now rather than at
+      // the next poll.
+      registry.noteUnreachable(mod.id, `${mod.origin} — ${e.code || e.message}`);
       if (res.headersSent) return res.destroy();
       res.status(502).json({ error: 'module_unreachable', module: mod.id, detail: e.code || e.message });
     });

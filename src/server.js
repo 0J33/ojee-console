@@ -406,6 +406,33 @@ app.post('/api/modules/refresh', requireAuth, async (req, res) => {
   res.json({ modules: await registry.refreshAll() });
 });
 
+/**
+ * Module status, pushed. The registry re-probes on its own clock; this
+ * carries every change to every open console the moment it lands, so a
+ * stopped container greys the nav without anyone reloading. One frame, the
+ * whole list — the list is a dozen entries and the frame is a change, not a
+ * heartbeat.
+ */
+const statusClients = new Set();
+registry.onStatusChange(() => {
+  const frame = `event: modules\ndata: ${JSON.stringify({ modules: registry.publicList() })}\n\n`;
+  for (const res of statusClients) { try { res.write(frame); } catch { /* closed */ } }
+});
+
+app.get('/api/modules/events', requireAuth, (req, res) => {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-store',
+    'x-accel-buffering': 'no',
+  });
+  // First frame: the list as it is now, so a client that connects after a
+  // change still starts from the truth rather than from nothing.
+  res.write(`event: modules\ndata: ${JSON.stringify({ modules: registry.publicList() })}\n\n`);
+  statusClients.add(res);
+  const ka = setInterval(() => { try { res.write(': ka\n\n'); } catch { /* closed */ } }, 25000);
+  req.on('close', () => { clearInterval(ka); statusClients.delete(res); });
+});
+
 /* ── notifications (see src/notify/center.js) ────────────────────────── */
 
 /** Every open console listening for app notifications. */
