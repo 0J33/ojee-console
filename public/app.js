@@ -1054,11 +1054,16 @@ function renderLauncher() {
           <div class="ov-alert" id="ov-barrel"></div>
           <div class="ov-top">
             <div class="ov-clock" id="ov-clock"></div>
-            <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+            <!-- The watch and the player: the two objects that live beside
+                 the time, as they did before the grid — not tiles in it. -->
+            <div class="ov-objs">
+              <div class="ov-cal" id="ov-cal" data-mv-grab aria-hidden="true"></div>
+              <div class="ov-pslot" id="ov-pslot"></div>
+            </div>
           </div>
+          <div class="np-slot" id="ov-np"></div>
           <div class="ov-meta">
             <div class="ov-regulator"><div id="ov-rate"></div></div>
-            <div class="np-slot" id="ov-np"></div>
             <div class="ov-caseline" id="ov-caseline"></div>
             <div class="ov-case">
               ${crownHTML()}
@@ -1081,9 +1086,12 @@ function renderLauncher() {
     homeChrono = mountChrono($('#ov-clock'), { variant: 'home' });
     fitBase = 0;
   }
-  // Every module is a tile — the player included; its object still opens the
-  // player in place from the tile.
-  $('#ov-ring').innerHTML = mods.map((m, i) => complication(m, i, 0)).join('');
+  // The player sits with the watch beside the time — the way a player sits
+  // beside a watch on a desk — and is not a tile in the grid. Every other
+  // module is a row.
+  const { companions, ring } = splitCompanions(mods);
+  $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 0)).join('');
+  paintCompanion('#ov-pslot', companions[0]);
   paintNowPlaying();
   $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
   $('#ov-rate').innerHTML = rateHTML();
