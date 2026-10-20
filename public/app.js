@@ -900,6 +900,23 @@ function paintNowPlaying() {
     two or three readings worth knowing before you open it. The name is
     printed on the object's dial the way a register's is printed on a watch,
     so the headline never wears a label above it. */
+/* One quick action's face: a profile button shows its number — the same
+   "1" the module's own profile picker shows — and anything else shows the
+   icon the module declared. The group is prefixed with the module's glyph,
+   so a glance says whose hands are on. */
+const qaFace = (a) => {
+  const n = /^profile-(\d+)$/.exec(a.id);
+  return n ? `<b class="qa-n">${n[1]}</b>` : icon(a.icon || 'i-power');
+};
+const qaGroup = (m, sum) => {
+  const list = m.quickActions || [];
+  if (!list.length) return '';
+  return `<div class="comp-acts">${icon(moduleIcon(m), 'ic qa-who')}${list.map((a) => {
+    const q = sum?.quick?.[a.id];
+    return `<button type="button" class="qa${q && q.on ? ' is-on' : ''}" data-qa="${esc(m.id)}:${esc(a.id)}" aria-pressed="${!!(q && q.on)}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${qaFace(a)}</button>`;
+  }).join('')}</div>`;
+};
+
 function complication(m, i, factCount = 2) {
   const sum = state.summaries.get(m.id);
   const ready = m.status === 'ready';
@@ -916,12 +933,7 @@ function complication(m, i, factCount = 2) {
   const focus = has && ready && m.focus ? ` data-focus="${esc(m.id)}"` : '';
   // Quick actions are buttons, so the tile cannot be an anchor around them:
   // the anchor covers the object and the text, and the buttons sit beside it.
-  const qas = (ready && (m.quickActions || []).length)
-    ? `<div class="comp-acts">${m.quickActions.map((a) => {
-      const q = sum?.quick?.[a.id];
-      return `<button type="button" class="qa${q && q.on ? ' is-on' : ''}" data-qa="${esc(m.id)}:${esc(a.id)}" aria-pressed="${!!(q && q.on)}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${icon(a.icon || 'i-power')}</button>`;
-    }).join('')}</div>`
-    : '';
+  const qas = ready ? qaGroup(m, sum) : '';
 
   return `
     <div class="comp" data-state="${esc(st)}" data-obj="${has ? '1' : '0'}" style="--i:${i}">
@@ -1116,12 +1128,7 @@ function renderModuleOverview(m) {
     : (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok');
   const facts = (sum?.facts || []).map((f) => `
     <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
-  const qas = (ready && (m.quickActions || []).length)
-    ? `<div class="comp-acts mover-acts">${m.quickActions.map((a) => {
-      const q = sum?.quick?.[a.id];
-      return `<button type="button" class="qa${q && q.on ? ' is-on' : ''}" data-qa="${esc(m.id)}:${esc(a.id)}" aria-pressed="${!!(q && q.on)}" title="${esc(a.label)}" aria-label="${esc(a.label)}">${icon(a.icon || 'i-power')}</button>`;
-    }).join('')}</div>`
-    : '';
+  const qas = ready ? `<div class="mover-acts">${qaGroup(m, sum)}</div>` : '';
   $('#view').innerHTML = `
     <section class="mover" aria-label="${esc(m.name)} overview">
       <div class="mover-head">
@@ -1322,7 +1329,7 @@ function bindModels(screen, ids) {
     // (CSS keeps it at 10:7). The stage fits a model to the box's SHORT side,
     // and the player is wider than it is tall, so it is scaled past 1 to fill
     // the box's width rather than its height.
-    const fillFor = (id) => (!screen.startsWith('mod:') && isCompanion(state.modules.find((x) => x.id === id)) ? 1.55 : fill);
+    const fillFor = (id) => (!screen.startsWith('mod:') && isCompanion(state.modules.find((x) => x.id === id)) ? 1.05 : fill);
     const binds = ids.map((id) => st.bind(id, `[data-dial="${id}"]`, { fill: fillFor(id) }));
     // Once now, for anything already in the scene, and once more when the
     // models that were still loading have landed. The stage holds state for

@@ -726,17 +726,19 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 .ov-objs {
   flex: 0 1 auto;
   display: flex; align-items: center;
-  gap: var(--s-3);
+  /* The objects draw on the shared canvas past their own boxes: give the
+     pair room so a leaning player never reaches the watch. */
+  gap: clamp(16px, 2.4vw, 44px);
   min-width: 0;
 }
 .ov-objs .ov-cal {
   flex: 0 0 auto;
-  width: clamp(76px, 9vw, 116px);
+  width: clamp(84px, 10vw, 132px);
   aspect-ratio: 1;
 }
 .ov-objs .ov-pslot {
   flex: 0 1 auto;
-  width: clamp(92px, 11vw, 154px);
+  width: clamp(112px, 13vw, 184px);
   min-width: 0;
 }
 .ov-pslot:empty { display: none; }
@@ -955,6 +957,14 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   cursor: pointer; transition: var(--t);
 }
 .qa .ic { width: 15px; height: 15px; }
+/* Whose buttons these are: the module's glyph, quiet, ahead of the row. */
+.qa-who { width: 15px; height: 15px; color: var(--dim); flex: none; }
+/* Profile buttons show their number, the way the module's own picker does. */
+.qa-n {
+  font-family: var(--mono); font-weight: 700;
+  font-size: 0.82rem; line-height: 1;
+  min-width: 1ch; text-align: center;
+}
 .qa:hover { color: var(--ink); border-color: var(--line-hover); }
 .qa[aria-pressed="true"] {
   color: var(--accent); border-color: var(--accent); background: var(--accent-08);
@@ -1019,8 +1029,8 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   .ov .comp-hit .comp-read { order: 2; justify-items: center; gap: 4px; }
   .ov .comp-hit .comp-dial {
     order: 1;
-    width: min(62%, 168px);
-    height: min(100%, 168px);
+    width: min(60%, 152px);
+    height: min(100%, 152px);
     aspect-ratio: 1;
     align-self: center;
   }
@@ -1192,7 +1202,8 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   transform: translateX(-0.5px);
   transition: left var(--dur) cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-.rate-value { color: var(--ink); font-variant-numeric: tabular-nums; }
+.rate-value { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rate { white-space: nowrap; }
 
 /* ---------- jewels ---------- */
 /* The bullet of this world. A ruby in a gold chaton, at 7px, used
