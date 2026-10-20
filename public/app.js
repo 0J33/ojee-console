@@ -2246,7 +2246,13 @@ document.addEventListener('click', async (e) => {
   qa.disabled = true;
   try {
     const res = await fetch(`/${mod}/api/quick/${id}`, { method: 'POST' });
-    if (!res.ok) throw new Error(String(res.status));
+    if (!res.ok) {
+      // The module's own reason when it has one ("the mouse is asleep or
+      // off") — a bare status code says nothing the person can act on.
+      let detail = String(res.status);
+      try { const j = await res.json(); detail = j.error || detail; } catch { /* body was not JSON */ }
+      throw new Error(detail);
+    }
   } catch (err) {
     toast('err', 'Quick action', `${id} failed — ${err.message || err}`);
   }

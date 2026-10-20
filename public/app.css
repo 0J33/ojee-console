@@ -720,7 +720,11 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   gap: clamp(12px, 2.5vw, 36px);
   min-width: 0;
 }
-.ov-top .ov-clock { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+/* Basis 0, not auto: with basis auto the clock's own content width pushed
+   the object pair until the player's box shrank to93px and the model drew
+   clipped inside it. The clock takes what is left and clips its own text
+   before anything else moves. */
+.ov-top .ov-clock { flex: 1 1 0; min-width: 0; overflow: hidden; }
 /* The watch and the player, side by side beside the time — the two things
    on the desk beside the clock. They shrink before anything overlaps. */
 .ov-objs {
@@ -1309,9 +1313,12 @@ body.is-idle {
   .ov .comp-head { white-space: normal; }
   .ov .comp-acts { justify-content: flex-start; padding-top: 0; }
   .idle { height: auto; min-height: 100dvh; }
-  /* The launcher's clock row wraps: the two objects flow under the time
-     rather than into the grid's implicit rows. */
+  /* The launcher's clock row wraps: the time gets its own full-width line
+     and the two objects the line under it — basis 0 would otherwise crush
+     the clock to nothing once the objects claim their width. */
   .ov-top { flex-wrap: wrap; }
+  .ov-top .ov-clock { flex: 1 1 100%; overflow: visible; }
+  .ov-top .ov-objs { flex: 1 1 100%; }
   .ov-objs .ov-cal { width: clamp(76px, 22vw, 140px); }
   .ov-objs .ov-pslot { width: clamp(96px, 26vw, 160px); }
   /* The idle display keeps its own object column. */
