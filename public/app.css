@@ -994,10 +994,17 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
     padding-block: var(--s-2) var(--s-2);
   }
   .ov-stage {
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    /* One row per named area — alert, top, np, meta, ring. With one row
+       short the ring fell into an implicit auto row, grew past the locked
+       viewport, and collided with the strip above and the footer below. */
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
     gap: var(--s-2);
     min-height: 0;
     align-content: start;
+    /* Stretch, not start: with align-items:start the ring sized to its
+       content and blew past its own 1fr track — and the viewport — however
+       the rows were declared. */
+    align-items: stretch;
   }
   .ov-ring {
     grid-auto-rows: minmax(0, 1fr);
@@ -1033,8 +1040,8 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   .ov .comp-hit .comp-read { order: 2; justify-items: center; gap: 4px; }
   .ov .comp-hit .comp-dial {
     order: 1;
-    width: min(60%, 152px);
-    height: min(100%, 152px);
+    width: min(56%, 132px);
+    height: min(100%, 132px);
     aspect-ratio: 1;
     align-self: center;
   }
