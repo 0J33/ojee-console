@@ -2204,6 +2204,7 @@ async function refreshModules({ force = false } = {}) {
 }
 
 let routing = false;
+let routeAgain = false;   // a hash change arrived mid-route (route())
 let overviewTimer = null;
 
 function startOverviewPoll() {
@@ -2294,8 +2295,13 @@ document.addEventListener('keydown', (e) => {
 async function route() {
   closeModuleSheet();
   closeFocus({ keepHash: true });
-  if (routing) return;
+  // A hash change while a route is still in flight (a module importing, the
+  // host unmounting) is not dropped: it is remembered and routed as soon as
+  // this one finishes. Dropping it left the address on the new module and the
+  // page on the old one, until a second click.
+  if (routing) { routeAgain = true; return; }
   routing = true;
+  routeAgain = false;
   try {
     // Leaving Settings → Notifications saves anything still pending.
     if (parseHash().b !== 'notifications') notifyView.unmount();
@@ -2425,6 +2431,7 @@ async function route() {
     await mountModule(m, v);
   } finally {
     routing = false;
+    if (routeAgain) { routeAgain = false; route(); }
   }
 }
 

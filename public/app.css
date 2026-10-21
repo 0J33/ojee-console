@@ -961,8 +961,11 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
   cursor: pointer; transition: var(--t);
 }
 .qa .ic { width: 15px; height: 15px; }
-/* Whose buttons these are: the module's glyph, quiet, ahead of the row. */
+/* Whose buttons these are: the module's glyph. Only where the buttons are
+   away from their module's name (the shell-synthesized module overview has
+   its own title); on the overview the tile already says whose they are. */
 .qa-who { width: 15px; height: 15px; color: var(--dim); flex: none; }
+.ov .qa-who { display: none; }
 /* Profile buttons show their number, the way the module's own picker does. */
 .qa-n {
   font-family: var(--mono); font-weight: 700;
@@ -1016,8 +1019,9 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
      under it; actions at the foot. The whole tile except the buttons is
      one link. */
   .ov .comp {
+    position: relative;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     align-items: center; justify-items: center;
     gap: var(--s-2);
     border: 1px solid var(--line-2);
@@ -1051,11 +1055,18 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
     max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* The actions take no height from the tile: they stand in a column in its
+     top corner, beside the object, so a tile with buttons draws its object
+     as large as one without. */
   .ov .comp-acts {
-    justify-content: center;
-    padding: 0;
-    margin: 0;
+    position: absolute;
+    top: var(--s-2); right: var(--s-2);
+    flex-direction: column; flex-wrap: nowrap;
+    gap: 4px;
+    padding: 0; margin: 0;
+    z-index: 1;
   }
+  .ov .comp-acts .qa { min-width: 32px; padding: 0 8px; }
   .ov .comp[data-state="warn"], .ov .comp[data-state="err"] { padding: var(--s-3); }
 }
 
@@ -1318,7 +1329,23 @@ body.is-idle {
   .ov .comp-hit .comp-read { order: 0; justify-items: start; text-align: left; }
   .ov .comp-name { justify-content: flex-start; }
   .ov .comp-head { white-space: normal; }
-  .ov .comp-acts { justify-content: flex-start; padding-top: 0; }
+  /* Under the headline, in the text's column: the buttons read as part of
+     the row they act on, not as a strip under the object. */
+  .ov .comp {
+    --col: clamp(76px, 19vw, 116px);
+    --colgap: var(--s-3);
+    position: static;
+  }
+  .ov .comp-acts {
+    position: static;
+    flex-direction: row; flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 0 0 var(--s-3) calc(var(--col) + var(--colgap));
+    margin-top: calc(-1 * var(--s-2));
+  }
+  .ov .comp[data-obj="0"] .comp-acts { padding-left: 0; }
+  .ov .comp-acts .qa { min-height: 40px; min-width: 40px; }
   .idle { height: auto; min-height: 100dvh; }
   /* The launcher's clock row wraps: the time gets its own full-width line
      and the two objects the line under it — basis 0 would otherwise crush
@@ -1362,6 +1389,7 @@ body.is-idle {
 @media (max-width: 640px) {
   .ov-stage { --dial: clamp(52px, 14vw, 100px); }
   .ov-stage .comp-hit { gap: var(--s-2); }
+  .ov-stage .comp { --colgap: var(--s-2); }
   .ov-stage .comp-read { gap: 5px; }
   .ov-stage .comp-name { font-size: 0.62rem; letter-spacing: 0.18em; }
   .ov-stage .comp-head { font-size: 0.92rem; }
