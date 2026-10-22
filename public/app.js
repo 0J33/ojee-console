@@ -398,8 +398,12 @@ function renderSidenav() {
       const views = usable(m) ? (m.views || []) : [];
       const href = moduleHref(m);
       const sum = state.summaries.get(m.id);
-      const dot = m.status === 'ready'
-        ? (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok')
+      // The same state the overview tile shows: its alerts count, not only
+      // whether the module answers.
+      const al = sum?.alerts || [];
+      const sev = sum?.status === 'err' || al.some((a) => a.severity === 'err') ? 'err'
+        : sum?.status === 'warn' || al.length ? 'warn' : 'ok';
+      const dot = m.status === 'ready' ? `dot--${sev}`
         : m.status === 'degraded' ? 'dot--warn' : 'dot--err';
       return `
       <div class="sn-group${active ? ' is-open' : ''}">
@@ -923,9 +927,16 @@ function complication(m, i, factCount = 2) {
   const href = moduleHref(m);
   const facts = (sum?.facts || []).slice(0, factCount).map((f) => `
     <div class="comp-fact"><dt>${esc(f.k)}</dt><span class="lead"></span><dd>${esc(String(f.v))}</dd></div>`).join('');
-  const st = !ready ? 'down' : (sum?.status || 'ok');
+  // What is wrong with this module is said on its own tile, in the line its
+  // headline already holds, so an alert never takes room from anything else.
+  const mine = ready ? (state.summaries.get(m.id)?.alerts || []) : [];
+  const worstMine = mine.some((a) => a.severity === 'err') ? 'err' : mine.length ? 'warn' : null;
+  const st = !ready ? 'down' : (sum?.status === 'err' || worstMine === 'err' ? 'err'
+    : sum?.status === 'warn' || worstMine === 'warn' ? 'warn' : (sum?.status || 'ok'));
+  const headText = mine.length ? mine[0].text + (mine.length > 1 ? ` · +${mine.length - 1} more` : '')
+    : (sum?.headline || (ready ? 'running' : m.reason || 'unavailable'));
   const dot = !ready ? (m.status === 'degraded' ? 'dot--warn' : 'dot--err')
-    : (sum?.status === 'err' ? 'dot--err' : sum?.status === 'warn' ? 'dot--warn' : 'dot--ok');
+    : (st === 'err' ? 'dot--err' : st === 'warn' ? 'dot--warn' : 'dot--ok');
   const has = movement.has(m.id);
   // Clicking the OBJECT opens the module's own object up in place; clicking
   // anywhere else on the tile opens the module. Only reachable where there is
@@ -940,7 +951,7 @@ function complication(m, i, factCount = 2) {
       <a class="comp-hit" href="${href}">
         <span class="comp-read">
           <span class="comp-name"><i class="dot ${dot}"></i>${esc(m.name)}</span>
-          <span class="comp-head">${esc(sum?.headline || (ready ? 'running' : m.reason || 'unavailable'))}</span>
+          <span class="comp-head" title="${esc(headText)}">${esc(headText)}</span>
           ${facts ? `<dl class="comp-facts">${facts}</dl>` : ''}
         </span>
         ${has ? `<span class="comp-dial" data-dial="${esc(m.id)}"${focus} aria-hidden="true"></span>` : ''}
@@ -948,6 +959,53 @@ function complication(m, i, factCount = 2) {
       ${qas}
     </div>`;
 }
+
+/* Everything wrong, as one chip in the controls row and a list that opens
+   over the page. It used to be a block above the clock, which on a desktop
+   (where the overview is exactly one screen tall) took its height from the
+   tiles: every alert squashed the page. Now nothing moves when something
+   breaks — the tile says it, and this says how many and lists them. */
+function alertChipHTML(alerts) {
+  if (!alerts.length) return '';
+  const worst = alerts.some((a) => a.severity === 'err') ? 'err' : 'warn';
+  return `
+    <div class="ov-alerts ov-alerts--${worst}">
+      <button class="ov-alerts-chip" type="button" data-alerts-toggle aria-expanded="false" aria-controls="ov-alerts-pop">
+        <i class="dot dot--${worst}"></i>${alerts.length} need${alerts.length > 1 ? '' : 's'} attention
+      </button>
+      <div class="ov-alerts-pop" id="ov-alerts-pop" hidden>
+        ${alerts.map((a) => `
+          <a class="ov-alerts-item" href="#/${esc(a.module.id)}${a.view ? `/${esc(a.view)}` : ''}">
+            <i class="dot dot--${a.severity === 'err' ? 'err' : 'warn'}"></i>
+            <span class="ov-alerts-mod">${esc(a.module.name)}</span>
+            <span class="ov-alerts-text">${esc(a.text)}</span>
+          </a>`).join('')}
+      </div>
+    </div>`;
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest?.('[data-alerts-toggle]');
+  const box = document.querySelector('.ov-alerts');
+  if (!box) return;
+  const pop = box.querySelector('.ov-alerts-pop');
+  const btn = box.querySelector('[data-alerts-toggle]');
+  if (t) {
+    const open = pop.hidden;
+    pop.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    return;
+  }
+  if (!pop.hidden && !e.target.closest('.ov-alerts-pop')) {
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const pop = document.querySelector('.ov-alerts-pop');
+  if (pop && !pop.hidden) { pop.hidden = true; document.querySelector('[data-alerts-toggle]')?.setAttribute('aria-expanded', 'false'); }
+});
 
 /* Something wrong rides the barrel: the mainspring is what everything in a
    movement depends on, so an alert is engraved beside it with a leader line
@@ -1078,6 +1136,7 @@ function renderLauncher() {
             <div class="ov-regulator"><div id="ov-rate"></div></div>
             <div class="ov-caseline" id="ov-caseline"></div>
             <div class="ov-case">
+              <span id="ov-alerts"></span>
               ${crownHTML()}
               ${displayHTML()}
               <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
@@ -1105,7 +1164,12 @@ function renderLauncher() {
   $('#ov-ring').innerHTML = ring.map((m, i) => complication(m, i, 0)).join('');
   paintCompanion('#ov-pslot', companions[0]);
   paintNowPlaying();
-  $('#ov-barrel').innerHTML = barrelAlertHTML(alerts);
+  // The chip keeps its list open across a repaint (summaries arrive every
+  // few seconds), so reading the list is not interrupted.
+  const wasOpen = !!document.querySelector('.ov-alerts-pop:not([hidden])');
+  $('#ov-alerts').innerHTML = alertChipHTML(alerts);
+  if (wasOpen) { const pop = document.querySelector('.ov-alerts-pop'); if (pop) { pop.hidden = false; document.querySelector('[data-alerts-toggle]')?.setAttribute('aria-expanded', 'true'); } }
+  $('#ov-barrel').innerHTML = '';
   $('#ov-rate').innerHTML = rateHTML();
   $('#ov-caseline').innerHTML = caselineHTML();
   watchRate();

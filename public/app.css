@@ -890,7 +890,8 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
 
 /* A row that needs attention: more room, and the head says it in words
    as well as colour. */
-.comp[data-state="warn"], .comp[data-state="err"] { padding-block: calc(var(--s-3) + 3px); }
+/* An alerting row keeps its size: the colour and the words say it, the
+   layout does not move. */
 .comp[data-state="warn"] .comp-head { color: var(--warn); }
 .comp[data-state="err"] .comp-head { color: var(--err); }
 .comp[data-state="down"] { opacity: 0.68; }
@@ -1067,7 +1068,8 @@ body.app ::-webkit-scrollbar { width: 0; height: 0; }
     z-index: 1;
   }
   .ov .comp-acts .qa { min-width: 32px; padding: 0 8px; }
-  .ov .comp[data-state="warn"], .ov .comp[data-state="err"] { padding: var(--s-3); }
+  .ov .comp[data-state="warn"] { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+  .ov .comp[data-state="err"] { border-color: color-mix(in srgb, var(--err) 60%, transparent); }
 }
 
 /* ── the alert block ─────────────────────────────────────────────────────
@@ -1877,3 +1879,41 @@ html.qc-open { overflow: hidden; }
   .nt .nt-hist td:nth-child(4)::before { content: 'discord '; color: var(--dim); }
   .nt .table-wrap .nt-hist { min-width: 0; }
 }
+
+/* ── alerts: a chip in the controls row, a list over the page ─────────────
+   Takes no room in the layout: the chip is one control among the others,
+   and its list floats. */
+#ov-alerts:empty { display: none; }
+.ov-alerts { position: relative; display: inline-flex; }
+/* The 3D objects are one canvas over the page at z-index 3, and the controls
+   row sat at 2, so the list drew under the objects. The row goes above the
+   canvas; its own box overlaps no object, only the list does. */
+.ov-case:has(.ov-alerts) { position: relative; z-index: 5; }
+.ov-alerts-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 32px; padding: 0 12px;
+  background: none; border: 1px solid var(--line-strong); color: var(--ink);
+  font-family: var(--hud); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
+  cursor: pointer; transition: var(--t);
+}
+.ov-alerts--warn .ov-alerts-chip { border-color: var(--warn); color: var(--warn); }
+.ov-alerts--err .ov-alerts-chip { border-color: var(--err); color: var(--err); }
+.ov-alerts-chip:hover, .ov-alerts-chip[aria-expanded="true"] { background: var(--accent-08); }
+.ov-alerts-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ov-alerts-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: min(440px, calc(100vw - 32px)); max-height: min(60vh, 420px); overflow: auto;
+  display: grid; gap: 0; padding: 4px 0;
+  background: var(--bg-2, #0a0a0a); border: 1px solid var(--line-strong);
+}
+.ov-alerts-pop[hidden] { display: none; }
+.ov-alerts-item {
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 10px;
+  padding: 10px 14px; text-decoration: none; color: var(--ink);
+  border-top: 1px solid var(--line-2);
+}
+.ov-alerts-item:first-child { border-top: 0; }
+.ov-alerts-item:hover { background: var(--accent-03, rgba(255,255,255,0.03)); }
+.ov-alerts-item .dot { align-self: center; }
+.ov-alerts-mod { font-family: var(--hud); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+.ov-alerts-text { font-size: 0.86rem; line-height: 1.35; overflow-wrap: anywhere; }
