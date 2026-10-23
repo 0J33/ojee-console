@@ -17,6 +17,16 @@
  *     token is both rejected and reported. It cannot say WHICH party was the
  *     thief, so the device is revoked outright — the safe direction.
  *
+ *   - Rotation has a 30-second grace for the SAME peer. A page whose session
+ *     lapses fires its pending requests together, all carrying the one device
+ *     cookie; the first rotates it and every other one used to arrive "stale"
+ *     and burn the device — an app left open in the tray lost its trust every
+ *     12 hours. Inside the window, the token just replaced, presented by the
+ *     exact tailnet user and node it was replaced for, gets the SAME successor
+ *     back (never a fresh one, so this cannot fork a second lineage). Any other
+ *     peer, or anyone after the window, still trips clone detection. The
+ *     successor is held in memory only, for those 30 seconds.
+ *
  *   - Trust is BOUND to the tailnet peer that created it. A cookie exfiltrated
  *     to a machine outside the tailnet is useless twice over: gate 1 rejects
  *     it, and the binding would reject it anyway.
@@ -31,6 +41,7 @@ import { dirname, join } from 'node:path';
 
 const TOKEN_BYTES = 32;
 const ID_BYTES = 9;
+const GRACE_MS = 30_000;
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
@@ -49,11 +60,17 @@ export class DeviceStore {
    * @param {object} opts
    * @param {string} opts.file      path to the JSON store
    * @param {number} opts.trustDays how long a trusted device lasts
+   * @param {number} [opts.graceMs]  same-peer grace after a rotation
+   * @param {() => number} [opts.clock]
    */
-  constructor({ file, trustDays = 30 }) {
+  constructor({ file, trustDays = 30, graceMs = GRACE_MS, clock = Date.now }) {
     this.file = file;
     this.trustMs = trustDays * 24 * 60 * 60 * 1000;
+    this.graceMs = graceMs;
+    this.clock = clock;
     this.devices = new Map();
+    /** id → the rotation just made: {prevHash, cookie, login, nodeId, until}. Memory only. */
+    this.rotated = new Map();
     /**
      * Bumped by revokeAll(). Sessions carry the epoch they were issued under
      * and are rejected once it moves.
@@ -95,7 +112,7 @@ export class DeviceStore {
   }
 
   #prune() {
-    const now = Date.now();
+    const now = this.clock();
     let changed = false;
     for (const [id, d] of this.devices) {
       if (d.expiresAt <= now) { this.devices.delete(id); changed = true; }
@@ -111,7 +128,7 @@ export class DeviceStore {
   issue({ peer, label, userAgent = '' }) {
     const id = randomBytes(ID_BYTES).toString('base64url');
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
-    const now = Date.now();
+    const now = this.clock();
 
     const device = {
       id,
@@ -151,7 +168,7 @@ export class DeviceStore {
     const device = this.devices.get(id);
     if (!device) return { ok: false, reason: 'unknown' };
 
-    const now = Date.now();
+    const now = this.clock();
     if (device.expiresAt <= now) {
       this.devices.delete(id);
       this.#save();
@@ -159,6 +176,13 @@ export class DeviceStore {
     }
 
     if (!safeEqualHex(sha256(token), device.tokenHash)) {
+      const g = this.rotated.get(id);
+      if (g && now < g.until && safeEqualHex(sha256(token), g.prevHash)
+          && (peer?.login || '') === g.login && (peer?.nodeId || '') === g.nodeId) {
+        // A sibling request of the one that just rotated it: same successor.
+        return { ok: true, device: redact(device), cookie: g.cookie };
+      }
+      this.rotated.delete(id);
       // The id is real but the token is not the current one. Either the cookie
       // was copied and one copy has since rotated, or someone is guessing.
       // We cannot tell the honest party from the thief, so revoke: forcing one
@@ -180,6 +204,10 @@ export class DeviceStore {
 
     // Rotate.
     const next = randomBytes(TOKEN_BYTES).toString('base64url');
+    if (this.graceMs > 0) {
+      this.rotated.set(id, { prevHash: device.tokenHash, cookie: `${id}.${next}`,
+        login: peer?.login || '', nodeId: peer?.nodeId || '', until: now + this.graceMs });
+    }
     device.tokenHash = sha256(next);
     device.lastSeenAt = now;
     device.uses += 1;
@@ -201,7 +229,7 @@ export class DeviceStore {
   exists(id) {
     const d = this.devices.get(id);
     if (!d) return false;
-    if (d.expiresAt <= Date.now()) {
+    if (d.expiresAt <= this.clock()) {
       this.devices.delete(id);
       this.#save();
       return false;
@@ -217,6 +245,7 @@ export class DeviceStore {
   }
 
   revoke(id) {
+    this.rotated.delete(id);
     const had = this.devices.delete(id);
     if (had) this.#save();
     return had;
@@ -225,6 +254,7 @@ export class DeviceStore {
   revokeAll() {
     const n = this.devices.size;
     this.devices.clear();
+    this.rotated.clear();
     // Bumping the epoch is what kills sessions that name no device — the ones
     // created without ticking "trust this device". Clearing the map alone
     // left those alive for their full lifetime.
@@ -254,6 +284,7 @@ function describeAgent(ua = '') {
     /Windows/i.test(ua) ? 'Windows' :
     /Linux/i.test(ua) ? 'Linux' : 'Device';
   const browser =
+    /Electron\//i.test(ua) ? 'Console app' :
     /CriOS|Chrome\//i.test(ua) ? 'Chrome' :
     /FxiOS|Firefox\//i.test(ua) ? 'Firefox' :
     /Edg\//i.test(ua) ? 'Edge' :

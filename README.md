@@ -48,7 +48,9 @@ its SHA-256, and hands you a cookie. Three properties:
 - **The token rotates on every use.** A stolen cookie stops being a silent 30-day skeleton key and
   becomes self-detecting: the moment either copy is used, the other is stale. A stale token
   **revokes the device outright** — we cannot tell thief from owner, so one TOTP re-entry is the
-  cheap, safe direction.
+  cheap, safe direction. The one exception is a 30-second grace for the **same tailnet user and
+  node**: requests that raced the rotation (a page whose session just lapsed) get the same
+  successor back, never a new one. Anyone else, or anything later, still revokes.
 - **Trust is bound to the tailnet peer** that created it. A cookie exfiltrated off the tailnet
   fails twice over.
 

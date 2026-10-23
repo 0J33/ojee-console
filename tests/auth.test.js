@@ -204,11 +204,13 @@ describe('device trust', () => {
     // The theft-detection property: once rotated, the old copy is not just
     // refused, it burns the device — we cannot tell thief from owner, so the
     // safe move is to force one TOTP re-entry.
-    const s = new DeviceStore({ file });
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
     const { cookie } = s.issue({ peer });
     const rotated = s.redeem(cookie, peer);
     assert.equal(rotated.ok, true);
 
+    t += 31_000;                                  // past the same-peer grace
     const stale = s.redeem(cookie, peer);
     assert.equal(stale.ok, false);
     assert.equal(stale.reason, 'stale_token');
@@ -216,6 +218,45 @@ describe('device trust', () => {
     // ...and the freshly rotated one no longer works either.
     assert.equal(s.redeem(rotated.cookie, peer).ok, false);
     assert.equal(s.list().length, 0);
+  });
+
+  test('requests racing one rotation all get the same successor', () => {
+    // A page whose session lapsed sends its queued requests together, each
+    // with the same device cookie. Only the first may rotate; the rest must
+    // not read as a clone, or an app left open loses its trust every 12 h.
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
+    const { cookie } = s.issue({ peer });
+    const first = s.redeem(cookie, peer);
+    t += 2_000;
+    const sibling = s.redeem(cookie, peer);
+    assert.equal(sibling.ok, true);
+    assert.equal(sibling.cookie, first.cookie, 'one lineage: the sibling gets the same successor');
+    assert.equal(s.redeem(first.cookie, peer).ok, true, 'and that successor still works');
+  });
+
+  test('the grace is only for the same tailnet user and node', () => {
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
+    const { cookie } = s.issue({ peer });
+    s.redeem(cookie, peer);
+    const sameUserOtherNode = { ...peer, nodeId: '43' };
+    assert.equal(s.redeem(cookie, sameUserOtherNode).reason, 'stale_token');
+    assert.equal(s.list().length, 0, 'a copy on another machine still burns the device');
+  });
+
+  test('the grace ends, and a revoke ends it early', () => {
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
+    const a = s.issue({ peer });
+    s.redeem(a.cookie, peer);
+    t += 30_001;
+    assert.equal(s.redeem(a.cookie, peer).reason, 'stale_token');
+
+    const b = s.issue({ peer });
+    s.redeem(b.cookie, peer);
+    s.revoke(b.device.id);
+    assert.equal(s.redeem(b.cookie, peer).ok, false);
   });
 
   test('is bound to the peer that created it', () => {
@@ -298,9 +339,11 @@ describe('device trust', () => {
   });
 
   test('clone detection revokes, so exists() goes false for both copies', () => {
-    const s = new DeviceStore({ file });
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
     const { cookie, device } = s.issue({ peer });
     const rotated = s.redeem(cookie, peer);
+    t += 31_000;
     s.redeem(cookie, peer);                       // the clone, now stale
     assert.equal(s.exists(device.id), false, 'device must be gone');
     assert.equal(s.redeem(rotated.cookie, peer).ok, false, 'the honest copy dies too — the safe direction');
