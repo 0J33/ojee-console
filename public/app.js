@@ -1738,9 +1738,14 @@ function fitAssistant() {
   qc.wrap.style.setProperty('--qc-vvh', `${Math.round(h)}px`);
   qc.wrap.style.setProperty('--qc-vvtop', `${Math.round(vv ? vv.offsetTop : 0)}px`);
 }
-window.visualViewport?.addEventListener('resize', fitAssistant);
+// The keyboard's height arrives in steps on iOS (it animates, then the bar above it settles):
+// measured again over the next moments, so the first open sits as the second one does.
+let fitTimers = [];
+const settleAssistant = () => { fitTimers.forEach(clearTimeout); fitAssistant(); fitTimers = [80, 200, 380, 650, 1000].map((ms) => setTimeout(fitAssistant, ms)); };
+window.visualViewport?.addEventListener('resize', settleAssistant);
 window.visualViewport?.addEventListener('scroll', fitAssistant);
 window.addEventListener('resize', fitAssistant);
+document.addEventListener('focusin', () => { if (qc?.open) settleAssistant(); });
 
 // Escape closes before anything else hears it — the idle display spends
 // Escape on leaving, and closing the chat must not also leave the display.
