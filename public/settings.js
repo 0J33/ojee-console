@@ -102,10 +102,11 @@ function quietPanel() {
 function kindsTable() {
   const hasHook = (V.prefs.webhooks || []).length > 0;
   const groups = V.catalogue.filter((g) => g.types.length);
-  return `<div class="panel clip"><div class="scroll"><table class="t kinds">
-    <thead><tr><th>Alert</th><th>Delivery</th><th>Condition</th><th class="r">Discord</th></tr></thead>
+  const anyCond = groups.some((g) => g.types.some((t) => (t.params || []).length));
+  return `<div class="panel clip"><div class="scroll"><table class="t kinds${anyCond ? '' : ' nocond'}">
+    <thead><tr><th>Alert</th><th>Delivery</th>${anyCond ? '<th>Condition</th>' : ''}<th class="r">Discord</th></tr></thead>
     <tbody>${groups.map((g) => `
-      <tr class="grp"><td colspan="4"><span class="gname">${ic(g.icon || 'i-box', 's')}${esc(g.name)}</span>${g.status && g.status !== 'ready' ? `<span class="tag">${g.quietOffline ? 'offline' : esc(g.status)}</span>` : ''}</td></tr>
+      <tr class="grp"><td colspan="${anyCond ? 4 : 3}"><span class="gname">${ic(g.icon || 'i-box', 's')}${esc(g.name)}</span>${g.status && g.status !== 'ready' ? `<span class="tag">${g.quietOffline ? 'offline' : esc(g.status)}</span>` : ''}</td></tr>
       ${g.types.map((t) => {
         const e = effective(t);
         const params = (t.params || []).map((p) => paramInput(t, p, e.params[p.key])).filter(Boolean).join('');
@@ -113,7 +114,7 @@ function kindsTable() {
         return `<tr data-row="${esc(t.id)}" class="${e.channel === 'off' ? 'is-off' : ''}">
           <td class="kname"><div class="t">${esc(t.label)}${t.blocking ? ` ${'<span class="tag err">Blocking</span>'}` : ''}</div>${t.description ? `<div class="d">${esc(t.description)}</div>` : ''}</td>
           <td>${seg(`ch:${t.id}`, e.channel, [['toast', 'Toast'], ['inbox', 'Inbox'], ['off', 'Off']], `${t.label} delivery`)}</td>
-          <td class="cc"><div class="conds">${params || '<span class="muted">—</span>'}</div></td>
+          ${anyCond ? `<td class="cc"><div class="conds">${params || '<span class="muted">—</span>'}</div></td>` : ''}
           <td class="r">${sw(e.discord, `data-discord="${esc(t.id)}"${!hasHook && !byModule ? ' disabled title="Add a Discord webhook under Delivery first"' : ''}`, `${t.label} to Discord`)}</td>
         </tr>`;
       }).join('')}`).join('')}

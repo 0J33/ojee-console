@@ -39,7 +39,8 @@ const MODULE_ICONS = {
   fleet: 'i-server', remote: 'i-monitor', agent: 'i-term', router: 'i-wifi', home: 'i-house',
   peripherals: 'i-mouse', health: 'i-heart', music: 'i-music', demo: 'i-box',
 };
-const moduleIcon = (m) => m?.icon || MODULE_ICONS[m?.id] || 'i-box';
+// The console's own modules keep the console's icons (Claude is a terminal, not a chip).
+const moduleIcon = (m) => MODULE_ICONS[m?.id] || m?.icon || 'i-box';
 const usable = (m) => m && (m.status === 'ready' || (m.status === 'degraded' && !!m.ui));
 const navModules = () => state.modules.filter((m) => m.enabled && m.nav !== false);
 const modById = (id) => state.modules.find((m) => m.id === id);
@@ -95,6 +96,7 @@ function moduleCounts() {
     const c = out.get(id) || { n: 0, err: false };
     c.n += 1;
     if (it.blocking || it.severity === 'critical') c.err = true;
+    if (it.severity === 'warn') c.warn = true;
     out.set(id, c);
   }
   return out;
@@ -127,14 +129,14 @@ function renderSide() {
       const s = navState(m);
       const c = counts.get(m.id);
       const title = s === 'down' ? ` title="${esc(m.reason || 'Not responding')}"` : s === 'offline' ? ' title="Offline"' : '';
-      return `<a class="nav${s === 'down' ? ' down' : ''}${s === 'offline' ? ' offline' : ''}" href="#/${esc(m.id)}" ${where === m.id ? 'aria-current="page"' : ''}${title}>${ic(s === 'down' ? 'i-warn' : moduleIcon(m))}<span>${esc(m.name)}</span>${c ? `<span class="cnt${c.err ? ' err' : ''}">${c.n}</span>` : s === 'offline' ? '<span class="off">offline</span>' : ''}</a>`;
+      return `<a class="nav${s === 'down' ? ' down' : ''}${s === 'offline' ? ' offline' : ''}" href="#/${esc(m.id)}" ${where === m.id ? 'aria-current="page"' : ''}${title}>${ic(s === 'down' ? 'i-warn' : moduleIcon(m))}<span>${esc(m.name)}</span>${c ? `<span class="cnt${c.err ? ' err' : c.warn ? ' warn' : ''}">${c.n}</span>` : s === 'offline' ? '<span class="off">offline</span>' : ''}</a>`;
     }).join('')}
     <div class="grow"></div>
-    <button class="nav" type="button" data-act="inbox" aria-expanded="${inbox.isOpen()}" aria-controls="inbox">${ic('inbox')}<span>Inbox</span>${nOpen ? `<span class="cnt${errOpen ? ' err' : ''}">${nOpen}</span>` : ''}</button>
+    <button class="nav" type="button" data-act="inbox" aria-expanded="${inbox.isOpen()}" aria-controls="inbox">${ic('inbox')}<span>Inbox</span>${nOpen ? `<span class="cnt${errOpen ? ' err' : ' warn'}">${nOpen}</span>` : ''}</button>
     <a class="nav" href="#/settings" ${where === 'settings' ? 'aria-current="page"' : ''}>${ic('sliders')}<span>Settings</span></a>
     <div class="side-foot">
-      <div class="row">${ic('moon', 's')}<span>${esc(quietLine())}</span></div>
-      ${user ? `<div class="row">${ic('user', 's')}<span>${esc(user)}</span></div>` : ''}
+      <div class="ln">${ic('moon')}<span>${esc(quietLine())}</span></div>
+      ${user ? `<div class="ln">${ic('user')}<span>${esc(user)}</span></div>` : ''}
     </div>`;
 }
 
@@ -212,7 +214,7 @@ function setMore(open) {
   el.setAttribute('aria-hidden', String(!open));
   $('#scrim').classList.toggle('on', open || inbox.isOpen());
   renderTabbar();
-  if (open) el.querySelector('[data-act="more-close"]')?.focus({ preventScroll: true });
+  if (open) el.querySelector('[data-act="more-close"]')?.focus({ preventScroll: true, focusVisible: false });
   else el.style.transform = '';
 }
 inbox.bindSheetDrag($('#more'), () => setMore(false));
@@ -259,20 +261,58 @@ export const itemIcon = (it) => {
   return sevOf(it) === 'n' ? 'i-info' : 'i-alert';
 };
 
+/* Several open items of one kind from one module are one row on the
+   Overview ("4 alerts from Machines" + what they are); the inbox keeps
+   them apart, which is where each one is acted on. */
+function groupNeeds(open) {
+  const by = new Map();
+  for (const it of open) {
+    const k = `${it.module}|${it.kind}|${sevOf(it)}`;
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(it);
+  }
+  const out = [];
+  for (const list of by.values()) {
+    if (list.length < 3 || list.some((x) => x.blocking)) { out.push(...list); continue; }
+    const first = list[0];
+    const generic = /\.(alert|other)$/.test(first.kind) || /module-down/.test(first.kind);
+    out.push({
+      ...first,
+      group: list.map((x) => x.key),
+      title: generic ? `${list.length} alerts from ${first.moduleName || first.module}` : `${list.length} × ${first.kindLabel || first.title}`,
+      body: list.map((x) => x.title).join(' · '),
+      count: 1,
+      raisedAt: Math.max(...list.map((x) => x.raisedAt || 0)),
+    });
+  }
+  return out;
+}
+
 function needRow(it) {
   const sev = sevOf(it);
   return `<li class="need" data-key="${esc(it.key)}">
     <span class="sev" style="--c:${col(sev)}">${ic(itemIcon(it))}</span>
-    <div class="b"><div class="t"><span>${esc(it.title)}</span>${it.blocking ? tag('Blocking', 'err') : ''}${it.count > 1 ? `<span class="tag m">×${it.count}</span>` : ''}</div>${it.body ? `<div class="d">${esc(it.body)}</div>` : ''}</div>
+    <div class="b"><div class="t"><span>${esc(it.title)}</span>${it.blocking ? tag('Blocking', 'err') : ''}${it.count > 1 ? `<span class="tag m">×${it.count}</span>` : ''}${it.group ? `<span class="tag m">×${it.group.length}</span>` : ''}</div>${it.body ? `<div class="d">${esc(it.body)}</div>` : ''}</div>
     <a class="mm m" href="#/${esc(it.module === 'console' ? '' : it.module)}">${esc(it.moduleName || it.module)} · ${esc(ago(it.raisedAt || it.lastAt))}</a>
-    <div class="a">${it.route ? `<a class="btn sm${it.blocking ? ' pri' : ''}" href="${esc(it.route)}">${esc(it.action || 'Open')}</a>` : ''}<button class="btn sm ghost" type="button" data-snooze="${esc(it.key)}">${ic('clock', 's')}Snooze</button></div>
+    <div class="a">${it.route ? `<a class="btn sm${it.blocking ? ' pri' : ''}" href="${esc(it.route)}">${esc(it.action || 'Open')}</a>` : ''}<button class="btn sm ghost" type="button" data-snooze="${esc((it.group || [it.key]).join('\n'))}">${ic('clock', 's')}Snooze${it.group ? ' all' : ''}</button></div>
   </li>`;
 }
 
 /* A number reads in tabular mono; a phrase ("off at the wall") reads as text. */
-const isFigure = (v) => /^[\s\d.,:%°/+\-−–—~<>×]*$/.test(String(v ?? '')) || /^[\d.,]+\s?[a-zA-Z%°/]{0,6}$/.test(String(v ?? ''));
+const isFigure = (v) => /^[\s\d.,:%°/+\-−–—~<>×]*$/.test(String(v ?? '')) || /^[\d.,]+\s?[a-zA-Z%°/]{0,3}$/.test(String(v ?? ''));
+/* "4 stopped of 43" → a mono figure and the words after it, small and dim,
+   so every value in a row shares one baseline rhythm. */
+function valueHTML(x) {
+  const v = x.value ?? '—';
+  const status = x.status && x.status !== 'ok' ? x.status : null;
+  if (isFigure(v)) return mv(v, x.unit || '', status);
+  const m = /^([−\-+]?[\d][\d.,:]*)\s*([a-zA-Z%°/]{0,4})\s+(.+)$/.exec(String(v)) || /^([−\-+]?[\d][\d.,:]*)\s*([a-zA-Z%°/]{0,4})$/.exec(String(v));
+  if (!m) return mv(v, '', status, 'txt');
+  const style = status ? ` style="--c:${col(status)}"` : '';
+  return `<div class="mv"${style} title="${esc(v)}">${esc(m[1])}${m[2] ? `<span class="u">${esc(m[2])}</span>` : ''}${m[3] ? `<span class="w">${esc(m[3])}</span>` : ''}</div>`;
+}
 function metricCells(list) {
-  return list.slice(0, 4).map((x) => `<div class="metric"><div class="ml">${esc(x.label)}</div>${mv(x.value ?? '—', x.unit || '', x.status && x.status !== 'ok' ? x.status : null, isFigure(x.value) ? '' : 'txt')}</div>`).join('')
+  return list.slice(0, 4).map((x) => `<div class="metric"><div class="ml">${esc(x.label)}</div>${valueHTML(x)}</div>`).join('')
     + Array.from({ length: Math.max(0, 2 - list.length) }, () => '<div></div>').join('');
 }
 
@@ -357,15 +397,15 @@ function renderOverview() {
   const snoozedN = (snap.snoozed || []).length;
   $('#view').innerHTML = `
     <section class="sec">
-      <div class="sh"><h2>Needs you</h2>${open.length ? `<span class="cnt${errCount ? ' err' : ''}">${open.length}</span>` : ''}
+      <div class="sh"><h2>Needs you</h2>${open.length ? `<span class="cnt${errCount ? ' err' : ' warn'}">${open.length}</span>` : ''}
         <div class="r"><button class="btn sm ghost" type="button" data-act="inbox">Open inbox${ic('chev', 's')}</button></div></div>
-      <ul class="panel needs">${open.length ? open.slice(0, 8).map(needRow).join('')
+      <ul class="panel needs">${open.length ? groupNeeds(open).slice(0, 8).map(needRow).join('')
         : `<li class="empty ok">${ic('check')}<div>Nothing needs you.${snoozedN ? ` ${snoozedN} snoozed ${snoozedN === 1 ? 'item returns' : 'items return'} on schedule.` : ''}</div></li>`}
-        ${open.length > 8 ? `<li class="need more"><button class="btn sm ghost" type="button" data-act="inbox">${open.length - 8} more in the inbox${ic('chev', 's')}</button></li>` : ''}</ul>
+        ${groupNeeds(open).length > 8 ? `<li class="need more"><button class="btn sm ghost" type="button" data-act="inbox">${groupNeeds(open).length - 8} more in the inbox${ic('chev', 's')}</button></li>` : ''}</ul>
     </section>
     <section class="sec">
       <div class="sh"><h2>Systems</h2><span class="note">${rows.length} tracked · live</span></div>
-      <div class="panel srows">${rows.join('') || `<div class="empty">${ic('box')}<b>No modules</b><p>Add one to config/console.json. See the README for the module contract.</p></div>`}</div>
+      <div class="panel srows${rows.some((r) => r.includes('class="sp')) ? '' : ' nospark'}">${rows.join('') || `<div class="empty">${ic('box')}<b>No modules</b><p>Add one to config/console.json. See the README for the module contract.</p></div>`}</div>
     </section>`;
 }
 
@@ -574,7 +614,9 @@ document.addEventListener('click', async (e) => {
   }
   if (a.dataset.snooze) {
     e.preventDefault();
-    await inbox.snooze(a.dataset.snooze, 60);
+    const keys = a.dataset.snooze.split('\n');
+    if (keys.length > 1) await inbox.snoozeMany(keys, 60);
+    else await inbox.snooze(keys[0], 60);
     return;
   }
   switch (a.dataset.act) {

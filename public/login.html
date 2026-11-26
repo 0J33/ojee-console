@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0a0a0a">
 <meta name="color-scheme" content="dark light">
 <title>sign in · ojee.console</title>
-<script>try{var t=localStorage.getItem('ojee.theme')||'dark';if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var t=localStorage.getItem('ojee.theme')||'dark';if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;var dk=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.querySelector('meta[name="theme-color"]').content=dk?'#0a0a0a':'#fafafa';}catch(e){}</script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">

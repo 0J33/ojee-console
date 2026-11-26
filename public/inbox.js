@@ -61,6 +61,14 @@ export async function snooze(key, minutes = 60) {
   } catch (e) { plainToast('err', 'Could not snooze', e.message); }
 }
 
+export async function snoozeMany(keys, minutes = 60) {
+  try {
+    let until = 0;
+    for (const key of keys) { const j = await post('/api/inbox/snooze', { key, minutes }); until = j.until; }
+    actionToast(`Snoozed ${keys.length} for 1 hour`, `Back at ${hm(until)}.`, 'Undo', async () => { for (const k of keys) await unsnooze(k); });
+  } catch (e) { plainToast('err', 'Could not snooze', e.message); }
+}
+
 async function unsnooze(key) {
   undo.delete(key);
   try { await post('/api/inbox/unsnooze', { key }); } catch (e) { plainToast('err', 'Could not undo', e.message); }
@@ -177,7 +185,7 @@ export function open() {
   el.setAttribute('aria-labelledby', 'inbox-title');
   $('#scrim').classList.add('on');
   $('#scrim').classList.toggle('light', true);
-  el.querySelector('[data-i="close"]')?.focus({ preventScroll: true });
+  el.querySelector('[data-i="close"]')?.focus({ preventScroll: true, focusVisible: false });
   onChange(snap);
 }
 
