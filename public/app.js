@@ -254,7 +254,8 @@ function setTitle() {
 
 /* ── overview ───────────────────────────────────────────────────────── */
 const sevOf = (it) => (it.blocking || it.severity === 'critical' || it.severity === 'err' ? 'err' : it.severity === 'warn' ? 'warn' : 'n');
-const KIND_ICONS = [[/question|ask|input|permission|needs/i, 'i-ask'], [/temp|heat|therm/i, 'i-temp'], [/login|auth|account/i, 'i-login'], [/data|plan|quota|pace|usage/i, 'i-gauge'], [/down|offline|unreach|respond/i, 'i-power'], [/disk|storage/i, 'i-archive'], [/battery/i, 'i-zap']];
+// Order matters: "claude-needs-login" is a login, not a question.
+const KIND_ICONS = [[/login|auth/i, 'i-login'], [/limited|all-limited/i, 'i-clock'], [/question|ask|input|permission|plan/i, 'i-ask'], [/temp|heat|therm/i, 'i-temp'], [/account/i, 'i-login'], [/data|plan|quota|pace|usage/i, 'i-gauge'], [/down|offline|unreach|respond/i, 'i-power'], [/disk|storage/i, 'i-archive'], [/battery/i, 'i-zap']];
 export const itemIcon = (it) => {
   const s = `${it.kind} ${it.kindLabel}`;
   for (const [re, name] of KIND_ICONS) if (re.test(s)) return name;
