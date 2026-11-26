@@ -43,8 +43,12 @@
 .toast.rich{grid-template-columns:28px minmax(0,1fr) auto}
 
 /* settings */
-.settabs{margin:-4px 0 24px;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
-@container app (min-width:700px){.settabs{-webkit-mask-image:none;mask-image:none}}
+.settabs-wrap{position:relative;margin:-4px 0 24px}
+/* The fade is an overlay beside the scroller, not a mask on it: iOS WebKit does
+   not pan an overflow scroller that carries a mask-image. */
+.settabs-wrap::after{content:"";position:absolute;top:0;right:0;bottom:0;width:28px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--page))}
+@container app (min-width:700px){.settabs-wrap::after{display:none}}
+.settabs{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding-right:24px}
 .settabs::-webkit-scrollbar{display:none}
 /* One scroller only: the strip. The segmented group inside it is otherwise a
    scroller of its own (ojee-ui3 .seg), and the nested pair does not pan on

@@ -213,7 +213,7 @@ function modulesSection() {
 /* ── render ─────────────────────────────────────────────────────────── */
 async function render() {
   const sec = SECTIONS.some(([id]) => id === H.section) ? H.section : 'notifications';
-  const tabs = `<div class="settabs"><div class="seg" data-seg="settings-tabs" role="tablist" aria-label="Settings sections"><span class="ind"></span>${SECTIONS.map(([id, l]) => `<a href="#/settings/${id}" role="tab" aria-selected="${id === sec}" ${id === sec ? 'aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</div></div>`;
+  const tabs = `<div class="settabs-wrap"><div class="settabs"><div class="seg" data-seg="settings-tabs" role="tablist" aria-label="Settings sections"><span class="ind"></span>${SECTIONS.map(([id, l]) => `<a href="#/settings/${id}" role="tab" aria-selected="${id === sec}" ${id === sec ? 'aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</div></div></div>`;
   let body = '';
   if (sec === 'notifications' || sec === 'delivery') {
     if (!V) V = await (await fetch('/api/notify')).json();
@@ -224,6 +224,8 @@ async function render() {
   if (!mounted) return;
   H.el.innerHTML = `<div class="settings" data-section="${sec}">${tabs}${body}</div>`;
   placeSegs(H.el);
+  // Phones: the chosen section is in view in the strip, not off to the right.
+  H.el.querySelector('.settabs [aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 export async function mount(el, helpers) {
