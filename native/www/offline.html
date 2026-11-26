@@ -1,69 +1,43 @@
 <!doctype html>
+<html lang="en" data-theme="dark" data-accent="cyan">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<title>console · not connected</title>
-<link rel="stylesheet" href="ojee-ui.css">
-
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0a0a">
+<title>ojee.console · not connected</title>
+<link rel="stylesheet" href="ojee-ui3.css">
+<script>try{var t=localStorage.getItem('ojee.theme');if(t==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
 <style>
   /* The one screen this wrapper owns. Everything past it is the console
      itself, served over the tailnet. */
-  .gate {
-    min-height: 100dvh;
-    display: grid;
-    place-items: center;
-    padding: max(var(--s-4), env(safe-area-inset-top))
-             max(var(--s-4), env(safe-area-inset-right))
-             max(var(--s-4), env(safe-area-inset-bottom))
-             max(var(--s-4), env(safe-area-inset-left));
-  }
-  .gate-box { width: min(440px, 100%); }
-  .gate-steps { counter-reset: step; display: flex; flex-direction: column; gap: 2px; margin-top: var(--s-3); }
-  .gate-step {
-    display: flex; gap: 12px; align-items: baseline;
-    padding: 11px 13px;
-    background: var(--panel); border: 1px solid var(--line-2);
-    font-size: 0.7rem; color: var(--ink-2);
-  }
-  .gate-step::before {
-    counter-increment: step; content: counter(step);
-    font-family: var(--mono); font-weight: 900; color: var(--accent);
-    flex: none; min-width: 1.5ch;
-  }
-  .gate-origin {
-    margin-top: var(--s-3);
-    font-family: var(--mono); font-size: 0.62rem;
-    color: var(--dim); word-break: break-all;
-  }
-  .gate-box .btn { width: 100%; justify-content: center; margin-top: var(--s-4); }
+  .gate{min-height:100dvh;display:grid;place-items:center;
+    padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .gate-box{width:min(400px,100%)}
+  .gate .wm{font-size:20px;display:flex;justify-content:center;margin-bottom:24px}
+  .gate .panel{padding:20px}
+  .gate h1{font-size:18px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .gate .lead{color:var(--fg-2);font-size:13.5px;margin-top:6px}
+  .gate ol{margin:16px 0 0;padding:0;list-style:none;counter-reset:s;display:grid;gap:8px}
+  .gate li{display:flex;gap:12px;align-items:baseline;font-size:13.5px;color:var(--fg-2)}
+  .gate li::before{counter-increment:s;content:counter(s);font:500 12px var(--font-mono);color:var(--acc);min-width:1.5ch}
+  .gate .origin{margin-top:14px;font:400 12px var(--font-mono);color:var(--fg-3);word-break:break-all}
+  .gate .btn{margin-top:18px}
 </style>
-
+<body>
 <div class="gate">
-  <main class="gate-box panel panel--glowtop stack">
-    <div class="titleblock">
-      <h1 class="h2">console</h1>
-      <p class="meta">not connected</p>
+  <main class="gate-box">
+    <div class="wm">ojee<b>.</b><span>console</span></div>
+    <div class="panel">
+      <h1><span class="dot" style="--c:var(--warn);width:9px;height:9px"></span>Tailscale is not connected</h1>
+      <p class="lead">The console is only reachable over your tailnet.</p>
+      <ol>
+        <li>Open Tailscale and make sure it is connected.</li>
+        <li>Check this phone is signed in to the same tailnet as the console.</li>
+        <li>Come back here — it retries by itself.</li>
+      </ol>
+      <p class="origin" id="origin"></p>
+      <button class="btn pri lg block" id="retry" type="button">Retry</button>
     </div>
-
-    <!-- This is the whole reason the wrapper ships a page of its own. A
-         tailnet-only console is unreachable whenever Tailscale is off, which
-         is most of the time on a phone — and the platform's own failure page
-         says "could not connect to server", which sends people looking for a
-         server problem that does not exist. -->
-    <div class="alert alert--info" role="status">
-      This console lives on your tailnet. It is not on the public internet, so
-      it is unreachable until Tailscale is connected.
-    </div>
-
-    <div class="gate-steps">
-      <div class="gate-step">Open Tailscale and make sure it is connected.</div>
-      <div class="gate-step">Check this device is signed in to the same tailnet as the console.</div>
-      <div class="gate-step">Come back here and retry.</div>
-    </div>
-
-    <p class="gate-origin" id="origin"></p>
-
-    <button class="btn" id="retry" type="button">RETRY</button>
   </main>
 </div>
 
@@ -79,15 +53,17 @@
 
   btn.addEventListener('click', () => {
     btn.disabled = true;
-    btn.textContent = 'RETRYING…';
+    btn.textContent = 'Retrying…';
     if (target) location.replace(target);
     else location.reload();
     // If the origin is still unreachable the wrapper lands back here, so the
     // button has to come back rather than staying disabled forever.
-    setTimeout(() => { btn.disabled = false; btn.textContent = 'RETRY'; }, 4000);
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Retry'; }, 4000);
   });
 
   // Retry by itself when the device regains a network — coming out of a
   // tunnel or turning Tailscale on should not need a tap.
   window.addEventListener('online', () => btn.click());
 </script>
+</body>
+</html>

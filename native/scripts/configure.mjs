@@ -75,11 +75,11 @@ const config = {
   plugins: {
     SplashScreen: {
       launchAutoHide: false,
-      backgroundColor: '#08080e',
+      backgroundColor: '#0a0a0a',
     },
     LocalNotifications: {
       smallIcon: 'ic_stat_icon',
-      iconColor: '#00ffff',
+      iconColor: '#2fd8ee',
     },
   },
 };

@@ -1,22 +1,20 @@
 <!doctype html>
+<html lang="en" data-theme="dark">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>console</title>
+<title>ojee.console</title>
 <!--
   Only reached if capacitor.config.json has no server.url — i.e. someone built
   the app without running `npm run configure`. Saying so beats a blank screen.
 -->
-<link rel="stylesheet" href="ojee-ui.css">
+<link rel="stylesheet" href="ojee-ui3.css">
+<body>
 <div style="min-height:100dvh;display:grid;place-items:center;padding:24px">
-  <main class="panel stack" style="max-width:420px">
-    <h1 class="h2">console</h1>
-    <div class="alert alert--warn" role="alert">
-      This build has no origin configured.
-    </div>
-    <p class="meta">
-      Run <code class="kbd">npm run configure</code> in <code class="kbd">native/</code>
-      with <code class="kbd">NATIVE_ORIGIN</code> set to the address your phone
-      uses to reach the console, then <code class="kbd">npx cap sync</code>.
-    </p>
+  <main class="panel pad" style="max-width:420px;display:grid;gap:12px">
+    <div class="wm">ojee<b>.</b><span>console</span></div>
+    <p><span class="tag warn">Not configured</span> This build has no origin.</p>
+    <p class="muted">Run <kbd>npm run configure</kbd> with <kbd>NATIVE_ORIGIN</kbd> set to the address your phone uses to reach the console, then <kbd>npx cap sync</kbd>.</p>
   </main>
 </div>
+</body>
+</html>
