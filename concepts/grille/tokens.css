@@ -1,0 +1,63 @@
+/* ojee.console — "The Grille" tokens (ojee-ui v3 draft)
+   1960s German hi-fi, made in black: a black body, graphite keys, cream legends set in
+   lowercase, and colour that means a function, never a module.
+   Dark only, by design: the ground is true #000 so an OLED switches those pixels off. */
+:root {
+  color-scheme: dark;
+
+  /* Body */
+  --body: #000000;            /* the page: OLED off */
+  --unit: #0C0C0D;            /* a unit's faceplate */
+  --unit-2: #141415;          /* recessed well inside a unit (grille bed, list) */
+  --key: #222224;             /* a key at rest */
+  --key-hi: #2C2C2F;          /* a key under the finger */
+  --key-lo: #18181A;          /* a key pressed in */
+  --seam: #232325;            /* the 1px seam where two parts meet */
+  --hole: #1B1B1D;            /* an unlit grille hole */
+
+  /* Legends */
+  --cream: #ECE6D8;           /* primary legend, numbers */
+  --cream-2: #BDB7AA;         /* secondary legend */
+  --grey: #8C8A86;            /* tertiary legend, 6.3:1 on black */
+  --grey-2: #5E5C59;          /* disabled, scale marks only */
+  --on-key: #0A0A0A;          /* legend on a cream or yellow key */
+
+  /* Function colours: each means exactly one thing */
+  --go: #F2C230;              /* the one main key on a screen; the clock's second hand */
+  --go-hi: #FFD24A;
+  --run: #63C26F;             /* running / on / ok */
+  --hold: #F2C230;            /* waiting: the same yellow, never alone (always a word) */
+  --stop: #F0592E;            /* needs you / failed / destructive */
+  --stop-bed: #2A0E06;        /* a needs-you unit's faceplate */
+  --lamp-glow: 0 0 6px;       /* lamps only — the one place a glow is allowed */
+
+  /* Type */
+  --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;   /* terminals, logs */
+
+  /* Scale (fixed rem, product UI, ratio about 1.2) */
+  --t-display: 300 2.75rem/1.02 var(--sans);   /* the status sentence */
+  --t-title: 500 1.75rem/1.1 var(--sans);      /* page title */
+  --t-section: 600 1rem/1.25 var(--sans);
+  --t-label: 500 0.9375rem/1.3 var(--sans);
+  --t-body: 400 0.9375rem/1.45 var(--sans);
+  --t-legend: 500 0.75rem/1.2 var(--sans);     /* lowercase key legends */
+  --t-meta: 400 0.8125rem/1.35 var(--sans);
+  --t-scale: 500 0.6875rem/1 var(--sans);      /* dial and chart scale marks */
+
+  /* Space: 4 to 48 */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 48px;
+
+  /* Corners: the unit is softer than its keys */
+  --r-key: 9px; --r-well: 12px; --r-unit: 18px; --r-round: 50%;
+
+  /* Depth: parts are lit from above. A key has a top light and a bottom shade; nothing floats except sheets. */
+  --key-relief: inset 0 1px 0 rgb(255 255 255 / 0.07), inset 0 -1px 0 rgb(0 0 0 / 0.6), 0 1px 0 rgb(0 0 0 / 0.9);
+  --key-pressed: inset 0 2px 3px rgb(0 0 0 / 0.7), inset 0 0 0 1px rgb(255 255 255 / 0.03);
+  --unit-edge: inset 0 0 0 1px var(--seam), inset 0 1px 0 rgb(255 255 255 / 0.035);
+  --sheet-lift: 0 30px 80px -20px rgb(0 0 0 / 0.95), 0 0 0 1px var(--seam);
+
+  /* Motion: mechanical — keys travel 1px and stop; nothing bounces except the dial's detents */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --d-key: 90ms; --d: 180ms; --d-panel: 360ms;
+}

@@ -14,7 +14,7 @@
    per raise however many tabs are open (notify.js arbitrates).
    ============================================================ */
 import { esc, toast as plainToast } from '/chrome.js';
-import { ic, col, ago, tag } from '/ojee-ui3.js';
+import { ic, col, ago, tag, sheetGestures, lockScroll } from '/ojee-ui3.js';
 import * as notifyClient from '/notify.js';
 
 const $ = (s) => document.querySelector(s);
@@ -170,6 +170,7 @@ function paintIfOpen() { if (isOpenNow) paint(); }
 
 /* ── open / close ───────────────────────────────────────────────────── */
 let opener = null;
+let inboxLocked = false;
 export function open() {
   if (isOpenNow) return;
   isOpenNow = true;
@@ -185,6 +186,7 @@ export function open() {
   el.setAttribute('aria-labelledby', 'inbox-title');
   $('#scrim').classList.add('on');
   $('#scrim').classList.toggle('light', true);
+  if (!matchMedia('(min-width: 1200px)').matches && !inboxLocked) { inboxLocked = true; lockScroll(true); }
   el.querySelector('[data-i="close"]')?.focus({ preventScroll: true, focusVisible: false });
   onChange(snap);
 }
@@ -196,6 +198,7 @@ export function close() {
   el.classList.remove('open');
   el.style.transform = '';
   el.setAttribute('aria-hidden', 'true');
+  if (inboxLocked) { inboxLocked = false; lockScroll(false); }
   if (!document.querySelector('#more.open')) $('#scrim').classList.remove('on');
   onChange(snap);
   if (opener && document.contains(opener)) opener.focus?.({ preventScroll: true });
@@ -205,30 +208,8 @@ export function toggle() { if (isOpenNow) close(); else open(); }
 
 /* Drag-to-dismiss for the phone sheet: 1:1 tracking, velocity flick, rubber-band upward. */
 export function bindSheetDrag(el, dismiss) {
-  let y0 = 0; let t0 = 0; let dy = 0; let drag = false;
-  el.addEventListener('pointerdown', (e) => {
-    const h = e.target.closest('[data-grab]');
-    if (!h || matchMedia('(min-width: 1200px)').matches) return;
-    drag = true; y0 = e.clientY; t0 = performance.now(); dy = 0;
-    h.setPointerCapture(e.pointerId);
-    el.style.transition = 'none';
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    dy = e.clientY - y0;
-    const d = dy < 0 ? -(Math.abs(dy) * 60) / (60 + Math.abs(dy)) : dy;
-    el.style.transform = `translateY(${d}px)`;
-  });
-  const end = () => {
-    if (!drag) return;
-    drag = false;
-    const v = dy / Math.max(1, performance.now() - t0);
-    el.style.transition = '';
-    el.style.transform = '';
-    if (dy > el.offsetHeight * 0.3 || v > 0.11) dismiss();
-  };
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
+  // Handle and header drag; the list drags only from its top (ojee-ui3).
+  sheetGestures(el, { dismiss, wide: 1200 });
 }
 
 /* ── blocking toasts ────────────────────────────────────────────────── */

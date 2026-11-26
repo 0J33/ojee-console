@@ -17,7 +17,7 @@
    command palette. The bell opens the one inbox (inbox.js).
    ============================================================ */
 import { esc, icon, toast, modal, relTime, ModuleHost, parseHash, makeApi } from '/chrome.js';
-import { ic, mv, tag, spark, placeSegs, col, ago, openSheet } from '/ojee-ui3.js';
+import { ic, mv, tag, spark, placeSegs, col, ago, openSheet, lockScroll } from '/ojee-ui3.js';
 import * as nativeBridge from '/native.js';
 import * as inbox from '/inbox.js';
 import * as settingsPage from '/settings.js';
@@ -143,6 +143,11 @@ function renderSide() {
 /** Bottom tabs: five at most. With more destinations, the rest go under More. */
 function tabPlan() {
   const mods = navModules();
+  const pick = state.branding?.phoneTabs;
+  if (Array.isArray(pick) && pick.length) {
+    const tabs = pick.map((id) => mods.find((m) => m.id === id)).filter(Boolean).slice(0, 3);
+    return { tabs, more: mods.filter((m) => !tabs.includes(m)), settingsTab: false };
+  }
   if (mods.length + 2 <= 5) return { tabs: mods, more: [], settingsTab: true };
   return { tabs: mods.slice(0, 3), more: mods.slice(3), settingsTab: false };
 }
@@ -212,6 +217,7 @@ function setMore(open) {
   if (open) { paintMore(); void el.offsetWidth; }
   el.classList.toggle('open', open);
   el.setAttribute('aria-hidden', String(!open));
+  lockScroll(open);
   $('#scrim').classList.toggle('on', open || inbox.isOpen());
   renderTabbar();
   if (open) el.querySelector('[data-act="more-close"]')?.focus({ preventScroll: true, focusVisible: false });

@@ -107,6 +107,13 @@ export function loadConfig() {
       ? raw.overviewOrder.filter((x) => typeof x === 'string' && x).map((x) => x.slice(0, 64)).slice(0, 64)
       : DEFAULT_OVERVIEW_ORDER,
 
+    // Which modules get their own tab in the phone/portrait bottom bar (at most
+    // three, after Overview); every other module and Settings go under More.
+    // Unset: the first three modules in nav order, as before.
+    phoneTabs: Array.isArray(raw.phoneTabs)
+      ? raw.phoneTabs.filter((x) => typeof x === 'string' && x).map((x) => x.slice(0, 64)).slice(0, 3)
+      : null,
+
     auth: {
       sessionHours: envInt('SESSION_HOURS', 12),
       trustDays: envInt('DEVICE_TRUST_DAYS', 30),

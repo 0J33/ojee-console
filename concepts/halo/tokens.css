@@ -1,0 +1,85 @@
+/* ojee.console — "Halo" tokens (ojee-ui v3 draft, after the Health app's 07 Halo / 09 Halo 2)
+   AMOLED black tiles; colour arrives only as a grainy glow rising from one corner of a
+   tile, one hue per module; readings in a dot-matrix face; the 3D object sits in the
+   glow like an emblem. Grain is masked to the glow and never reaches text or an icon. */
+
+@font-face { font-family: "Wheel Day"; src: url("fonts/wheel-day.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Wheel Num"; src: url("fonts/wheel-num.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Wheel Arabic"; src: url("fonts/wheel-arabic.woff2") format("woff2"); font-display: block; }
+
+:root {
+  color-scheme: dark;
+
+  /* ground and tiles */
+  --ground: #000000;
+  --panel: #0B0B0C;
+  --panel-2: #121214;
+  --panel-3: #1A1A1D;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-2: rgba(255, 255, 255, 0.13);
+  --line-hi: rgba(255, 255, 255, 0.28);
+
+  /* text: warm white, like paper under a lamp */
+  --text: #F2F0EB;
+  --text-2: #B9B5AE;
+  --dim: #8F8B85;            /* 5.9:1 on black */
+  --faint: #55524E;
+
+  /* the primary action is warm white, not a hue: hues belong to modules */
+  --key: #F2F0EB;
+  --on-key: #0B0B0C;
+  --accent: #F2F0EB;
+  --accent-08: rgba(242, 240, 235, 0.07);
+  --accent-16: rgba(242, 240, 235, 0.14);
+  --accent-40: rgba(242, 240, 235, 0.36);
+  --lume: #5FE6EC;           /* the watch's lume: the live second */
+
+  /* state: always beside a word */
+  --ok: #3DDC97;
+  --warn: #F5B841;
+  --err: #FF5A5F;
+  --warn-08: rgba(245, 184, 65, 0.08);
+  --err-08: rgba(255, 90, 95, 0.08);
+  --err-30: rgba(255, 90, 95, 0.3);
+
+  /* module hues (r,g,b): read before words, used only as a corner glow, a dot or an icon */
+  --f-clock: 95, 230, 236;
+  --f-home: 255, 150, 64;
+  --f-net: 92, 164, 255;
+  --f-fleet: 56, 214, 160;
+  --f-remote: 150, 124, 255;
+  --f-agent: 255, 112, 92;
+  --f-desk: 196, 232, 92;
+  --f-music: 255, 74, 140;
+  --f-me: 226, 190, 146;
+
+  /* the watch's day wheel */
+  --wheel: #F2F1EC; --wheel-ink: #141414; --wheel-sun: #D0202A; --wheel-sat: #1F4FA8;
+
+  /* type: four faces, each with one job */
+  --sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;   /* words */
+  --serif: "Newsreader", Georgia, serif;                                                        /* the spoken status */
+  --dotf: "Doto", "Geist", ui-monospace, monospace;                                             /* readings, dot-matrix */
+  --geist: "Geist", "Instrument Sans", system-ui, sans-serif;                                   /* readings, plain; data */
+  --mono: var(--geist);
+  --read: var(--dotf);       /* swapped by the concept switch */
+
+  --t-display: 400 2.375rem/1.12 var(--serif);
+  --t-title: 600 1.875rem/1.1 var(--sans);
+  --t-section: 600 0.9375rem/1.3 var(--sans);
+  --t-label: 600 0.9375rem/1.3 var(--sans);
+  --t-body: 400 0.9375rem/1.5 var(--sans);
+  --t-meta: 400 0.8125rem/1.4 var(--sans);
+  --t-data: 500 0.75rem/1.3 var(--geist);
+  --t-tab: 500 0.6875rem/1 var(--sans);
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 48px;
+  --r-s: 8px; --r-m: 12px; --r-l: 22px; --r-xl: 28px; --r-full: 999px;
+
+  --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='1.6 0 0 0 -.3  1.6 0 0 0 -.3  1.6 0 0 0 -.3  0 0 0 0 1'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+
+  --float: 0 18px 50px -14px rgb(0 0 0 / 0.95), 0 0 0 1px var(--line-2);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --d-fast: 140ms; --d: 200ms; --d-panel: 380ms;
+}
+html[data-num="geist"] { --read: var(--geist); }

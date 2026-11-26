@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Grille · ojee.console design system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,200..700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="console.css">
+<style>
+  .ds { max-width: 1240px; margin: 0 auto; padding: 48px max(20px, env(safe-area-inset-right)) 96px max(20px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 56px; }
+  .ds-hero { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; align-items: center; }
+  .ds-hero h1 { margin: 0 0 14px; font: 300 4.5rem/0.95 var(--sans); letter-spacing: -0.045em; }
+  .ds-hero p { margin: 0; font: var(--t-body); color: var(--cream-2); max-width: 58ch; font-size: 1.0625rem; line-height: 1.55; }
+  .ds-hero .tile-obj { height: 300px; }
+  .ds-sec { display: flex; flex-direction: column; gap: 16px; }
+  .ds-sec > h2 { margin: 0; font: var(--t-section); text-transform: lowercase; color: var(--cream-2); display: flex; gap: 12px; align-items: baseline; }
+  .ds-sec > h2 small { font: var(--t-meta); color: var(--grey); text-transform: none; }
+  .ds-sec > p { margin: -6px 0 0; color: var(--grey); max-width: 70ch; }
+  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .sw div { border-radius: var(--r-well); box-shadow: inset 0 0 0 1px var(--seam); overflow: hidden; background: var(--unit); }
+  .sw i { display: block; height: 64px; }
+  .sw b { display: block; padding: 10px 12px 2px; font: var(--t-label); }
+  .sw span { display: block; padding: 0 12px 10px; font: var(--t-meta); color: var(--grey); }
+  .type-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; align-items: baseline; padding: 14px 0; box-shadow: 0 1px 0 var(--seam); }
+  .type-row > span { font: var(--t-meta); color: var(--grey); }
+  .specimen { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 22px; border-radius: var(--r-unit); background: var(--unit); box-shadow: var(--unit-edge); }
+  .objs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .objs figure { margin: 0; border-radius: var(--r-unit); background: var(--unit); box-shadow: var(--unit-edge); padding: 10px 12px 12px; }
+  .objs figure > div { position: relative; height: 170px; }
+  .objs figcaption { font: var(--t-legend); text-transform: lowercase; color: var(--cream-2); display: flex; justify-content: space-between; gap: 8px; }
+  .objs figcaption span { color: var(--grey); text-transform: none; }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .rules div { padding: 16px 18px; border-radius: var(--r-unit); background: var(--unit); box-shadow: var(--unit-edge); }
+  .rules b { display: block; font: var(--t-label); margin-bottom: 6px; }
+  .rules p { margin: 0; font: var(--t-meta); color: var(--grey); }
+  @media (max-width: 820px) { .ds-hero, .two { grid-template-columns: 1fr; } .ds-hero h1 { font-size: 3rem; } .ds-hero .tile-obj { height: 220px; } .type-row { grid-template-columns: 1fr; gap: 4px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-now" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15V15h-6v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+    <symbol id="i-machines" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01M12 7.5h4M12 16.5h4"/></symbol>
+    <symbol id="i-agent" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+    <symbol id="i-me" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/><rect x="14" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 6v12l8.5-6z" fill="currentColor"/><path d="M17.5 6v12"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 6v12l-8.5-6z" fill="currentColor"/><path d="M6.5 6v12"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8"/><path d="M7.2 6.6a7 7 0 1 0 9.6 0"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4"/></symbol>
+    <symbol id="i-desktop" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4.5l2 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></symbol>
+    <symbol id="i-signal" viewBox="0 0 24 24"><path d="M5 19v-3M9.5 19v-6M14 19V9.5M18.5 19V5.5"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3.5 9.5a12 12 0 0 1 17 0M6.5 12.8a7.5 7.5 0 0 1 11 0M9.5 16a3.2 3.2 0 0 1 5 0"/><circle cx="12" cy="19" r=".6" fill="currentColor"/></symbol>
+    <symbol id="i-temp" viewBox="0 0 24 24"><path d="M10 13.5V5.5a2 2 0 0 1 4 0v8a4 4 0 1 1-4 0z"/><path d="M12 16.5v-6"/></symbol>
+    <symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C11 6 13 3.5 15.5 4.5s1 4.5-3.5 5.9zM13.6 12c4.4-1 6.9 1 5.9 3.5s-4.5 1-5.9-3.5zM12 13.6c1 4.4-1 6.9-3.5 5.9s-1-4.5 3.5-5.9zM10.4 12C6 13 3.5 11 4.5 8.5S9 7.5 10.4 12z"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 6l2.5-1.5M9.5 19.5 12 18l2.5 1.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5s6 6.4 6 10.5a6 6 0 0 1-12 0C6 9.9 12 3.5 12 3.5z"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/></symbol>
+    <symbol id="i-auto" viewBox="0 0 24 24"><path d="M6.5 18.5 11 5.5h2l4.5 13M8.3 13.5h7.4"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+    <symbol id="i-mouse" viewBox="0 0 24 24"><rect x="6.5" y="3.5" width="11" height="17" rx="5.5"/><path d="M12 7v3.5"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.3 10h.01M12.6 10h.01M15.9 10h.01M18 10h.01M7.5 14h9"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4.5 15v-3a7.5 7.5 0 0 1 15 0v3"/><rect x="3.5" y="14" width="4.5" height="6.5" rx="2"/><rect x="16" y="14" width="4.5" height="6.5" rx="2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-bellx" viewBox="0 0 24 24"><path d="M8.6 5.2A6 6 0 0 1 18 11v5.5M6 9.5v7l-1.5 2h12M10 20.5a2 2 0 0 0 4 0M4 4l16 16"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12 19.5 4.5 15 19.5l-3.5-6z"/><path d="m11.5 13.5 8-9"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17h.01"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="5" rx="1.5"/><rect x="15" y="4" width="6" height="5" rx="1.5"/><rect x="9" y="15" width="6" height="5" rx="1.5"/><path d="M6 9v2.5h12V9M12 11.5V15"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5.5h14A1.5 1.5 0 0 1 20.5 7v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3.5 20 8v8l-8 4.5L4 16V8z"/><path d="M4 8l8 4.5L20 8M12 12.5v8"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-sms" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19.5h16"/><path d="m5 15 4.5-5 3.5 3 6-7"/></symbol>
+  </defs>
+</svg>
+<main id="main" class="ds">
+  <header class="ds-hero">
+    <div>
+      <p class="legend" style="margin-bottom:14px">ojee.console · design system · ojee-ui v3 draft</p>
+      <h1>The Grille</h1>
+      <p>The console made like 1960s German hi-fi, in black. One panel of keys and lamps, a perforated grille that doubles as the display, and cream objects on a black shelf. Colour means a function, never a module.</p>
+    </div>
+    <div class="tile-obj" data-obj="radio"></div>
+  </header>
+
+  <section class="ds-sec"><h2>rules</h2>
+    <div class="rules">
+      <div><b>The off pixel</b><p>The body is #000, so an OLED switches it off. Depth comes from unit and key steps and from key relief.</p></div>
+      <div><b>Function colour</b><p>Yellow is the one main key and the second hand. Green is running. Red-orange is needs you. Modules have no colours.</p></div>
+      <div><b>Lamp and word</b><p>A state colour never stands alone: a lamp always sits beside a word.</p></div>
+      <div><b>One yellow key</b><p>At most one per screen, and it is the thing the screen is for.</p></div>
+      <div><b>Lowercase legends</b><p>Anything printed on the panel is lowercase. Content keeps its own case.</p></div>
+      <div><b>Glow budget</b><p>Only lamps and lit grille holes glow. Nothing else casts colour.</p></div>
+    </div>
+  </section>
+
+  <section class="ds-sec"><h2>colour <small>tokens.css</small></h2>
+    <div class="sw" id="sw"></div>
+  </section>
+
+  <section class="ds-sec"><h2>type <small>Archivo, one family; numerals get lighter as they grow</small></h2>
+    <div>
+      <div class="type-row"><span>idle clock · 200</span><div class="num" style="font-size:7rem;font-weight:200;letter-spacing:-.05em;line-height:.9">6:53<span style="color:var(--go)">:56</span></div></div>
+      <div class="type-row"><span>display · 300 / 2.75rem</span><p class="spoken" style="margin:0"><span class="lamp stop"></span>Two things need you.</p></div>
+      <div class="type-row"><span>unit numeral · 400 / 3rem</span><div class="tile-num num">-92<span class="u">dbm</span></div></div>
+      <div class="type-row"><span>title · 500 / 1.75rem</span><div class="ptitle">machines</div></div>
+      <div class="type-row"><span>label · 500 / 0.9375rem</span><div style="font:var(--t-label)">terraria-api restarted twice in an hour</div></div>
+      <div class="type-row"><span>meta · 400 / 0.8125rem</span><div style="font:var(--t-meta);color:var(--grey)">disinteg · Fleet · held for 6 min</div></div>
+      <div class="type-row"><span>legend · 500 / 0.75rem</span><div class="legend">restart · mute 1 h · open · cooling · 5g nsa</div></div>
+      <div class="type-row"><span>terminal · mono</span><div class="term" style="min-height:0">ojee@disinteg:~$ systemctl restart terraria-api</div></div>
+    </div>
+  </section>
+
+  <section class="ds-sec"><h2>keys, selectors and switches</h2>
+    <div class="specimen">
+      <button class="btn go">open</button><button class="btn">restart</button><button class="btn ghost">sign out</button><button class="btn danger">revoke</button><button class="btn danger solid">restart router</button><button class="btn sm"><svg class="ic s"><use href="#i-terminal"/></svg>terminal</button><button class="btn busy sm"><svg class="ic s"><use href="#i-restart"/></svg>restarting</button>
+    </div>
+    <div class="specimen">
+      <div class="chips"><button class="chip" aria-pressed="true">machines</button><button class="chip" aria-pressed="false">services</button><button class="chip" aria-pressed="false">network</button></div>
+      <div class="seg"><button aria-pressed="true"><svg class="ic s"><use href="#i-snow"/></svg>cool</button><button aria-pressed="false"><svg class="ic s"><use href="#i-sun"/></svg>heat</button><button aria-pressed="false"><svg class="ic s"><use href="#i-drop"/></svg>dry</button></div>
+      <button class="toggle" role="switch" aria-checked="true" aria-label="on"></button><button class="toggle" role="switch" aria-checked="false" aria-label="off"></button>
+      <button class="round" aria-label="minus"><svg class="ic"><use href="#i-minus"/></svg></button><button class="round on" aria-label="power"><svg class="ic"><use href="#i-power"/></svg></button>
+      <span class="state"><span class="lamp"></span>running</span><span class="state"><span class="lamp hold"></span>waiting for you</span><span class="state"><span class="lamp stop"></span>needs you</span><span class="state"><span class="lamp off"></span>stopped</span><span class="badge">2</span>
+    </div>
+  </section>
+
+  <section class="ds-sec"><h2>the grille <small>signature · scrub any grille to read a column</small></h2>
+    <p>Each column is one reading; lit holes rise to its level. The top hole is full cream and the body under it sits at 34%, so the outline reads first. A column takes a function colour only when the reading means something.</p>
+    <div class="two" id="grilles"></div>
+  </section>
+
+  <section class="ds-sec"><h2>units and alerts</h2>
+    <div class="two">
+      <div class="tile">
+        <a class="tile-link" href="index.html#machines" aria-label="network"></a>
+        <div class="tile-label"><svg class="ic s"><use href="#i-signal"/></svg>network<span class="state"><span class="lamp"></span>5g nsa</span></div>
+        <div class="unit-body"><div class="tile-body"><span class="tile-num num">-92<span class="u">dbm</span></span><span class="tile-meta">good · ↓ 2.1 ↑ 0.4 Mb/s</span></div><div class="tile-obj" data-obj="radio"></div></div>
+        <div id="unit-grille"></div>
+      </div>
+      <div class="stack">
+        <div class="attn"><span class="attn-icon"></span><p class="attn-title">terraria-api restarted twice in an hour</p><p class="attn-meta">disinteg · Fleet · held for 6 min</p><div class="attn-actions"><button class="btn sm">restart</button><button class="btn sm go">open</button></div></div>
+        <div class="group">
+          <div class="row"><span class="row-icon ok"><svg class="ic s"><use href="#i-box"/></svg></span><span class="row-text"><span class="row-title">nginx</span><span class="row-sub">disinteg · systemd · up 41 d</span></span><span class="row-end">running<button class="btn sm ghost">restart</button></span></div>
+          <div class="row"><span class="row-icon"><svg class="ic s"><use href="#i-flow"/></svg></span><span class="row-text"><span class="row-title">Daily backup to NVME</span><span class="row-sub">Failed 03:00 today</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="Daily backup"></button></div>
+          <div class="confirm"><p>Restart now? Every device loses the internet for about 90 seconds.</p><button class="btn sm ghost">cancel</button><button class="btn sm danger solid">restart</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-sec"><h2>objects <small>cream, aluminium and graphite; each shows something true</small></h2>
+    <div class="objs">
+      <figure><div data-obj="clock"></div><figcaption>clock<span>NTP time, live</span></figcaption></figure>
+      <figure><div data-obj="dial" data-value="24"></div><figcaption>home<span>turns to the setpoint</span></figcaption></figure>
+      <figure><div data-obj="radio"></div><figcaption>network<span>router</span></figcaption></figure>
+      <figure><div data-obj="stack" data-led="stop"></div><figcaption>machines<span>lamp per machine</span></figcaption></figure>
+      <figure><div data-obj="tv"></div><figcaption>remote<span>desktop</span></figcaption></figure>
+      <figure><div data-obj="calc"></div><figcaption>agent<span>one yellow key</span></figcaption></figure>
+      <figure><div data-obj="turntable"></div><figcaption>music<span>spins while playing</span></figcaption></figure>
+      <figure><div data-obj="desk"></div><figcaption>desk<span>peripherals</span></figcaption></figure>
+      <figure><div data-obj="laptop"></div><figcaption>loq<span>laptop</span></figcaption></figure>
+      <figure><div data-obj="tower"></div><figcaption>ojee-hp-zorin<span>tower</span></figcaption></figure>
+      <figure><div data-obj="rack" data-led="stop"></div><figcaption>disinteg<span>rack</span></figcaption></figure>
+    </div>
+  </section>
+  <p class="legend">sample data · concepts/grille · open index.html for the clickable prototype</p>
+</main>
+<div id="idle" hidden></div><div id="palette" hidden></div><div id="sheet" hidden><div id="sheetbody"></div></div><div id="dock" style="display:none"><div class="miniplayer"></div></div>
+<canvas class="stage" id="stage" aria-hidden="true"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>window.MUSIC_PLAYING = true;</script>
+<script src="objects.js"></script>
+<script>
+(function () {
+  const T = ['body','unit','unit-2','key','key-hi','key-lo','seam','hole','cream','cream-2','grey','grey-2','go','run','stop','stop-bed'];
+  const cs = getComputedStyle(document.documentElement);
+  document.getElementById('sw').innerHTML = T.map(t => { const v = cs.getPropertyValue('--' + t).trim(); return `<div><i style="background:var(--${t})"></i><b>${t}</b><span>${v}</span></div>`; }).join('');
+  function grille(vals, o) {
+    if (vals.length < 24) { const k = Math.ceil(24 / vals.length); vals = vals.flatMap(v => Array(k).fill(v)); }
+    const rows = o.rows || 5, P = 10, R = 3.2, min = o.min, max = o.max; let g = '';
+    vals.forEach((v, c) => { const lvl = Math.max(1, Math.min(rows, Math.round((v - min) / (max - min) * (rows - 1)) + 1)), t = o.tone ? o.tone(v) : '';
+      let h = ''; for (let r = 0; r < rows; r++) h += `<circle class="${r < lvl ? (r === lvl - 1 ? 'on top ' : 'on body ') + t : 'h'}" cx="${c * P + 5}" cy="${(rows - 1 - r) * P + 5}" r="${R}"/>`; g += `<g data-i="${c}">${h}</g>`; });
+    const last = vals[vals.length - 1];
+    return `<div class="grille scrub" data-vals="${vals.join(',')}" data-unit="${o.unit}"><svg viewBox="0 0 ${vals.length * P} ${rows * P}">${g}</svg><div class="grille-foot"><span>${o.left}</span><b data-read>${last}${o.unit} now</b><span>now</span></div></div>`;
+  }
+  const sig = [-89,-90,-90,-92,-95,-101,-104,-98,-94,-92,-91,-90,-92,-93,-95,-97,-93,-92,-91,-92,-93,-92,-92,-92];
+  document.getElementById('grilles').innerHTML =
+    `<div class="group" style="padding:10px"><p class="legend" style="margin:2px 4px 8px">signal · 24 h · 8 rows · red below −100, yellow below −95</p>${grille(sig, { min: -108, max: -86, rows: 8, unit: ' dBm', left: '24 h ago', tone: v => v <= -100 ? 'stop' : v <= -95 ? 'hold' : '' })}</div>` +
+    `<div class="group" style="padding:10px"><p class="legend" style="margin:2px 4px 8px">inside temperature · today · red at 29° and over</p>${grille([26.1,25.8,25.6,25.4,25.2,25.1,25.3,25.9,26.8,27.6,28.4,29.1,29.6,29.9,30.1,29.8,29.2,28.4,26.9,25.9,25.6,25.5,25.5,25.5], { min: 24, max: 31, unit: '°', left: '00:00', tone: v => v >= 29 ? 'stop' : '' })}</div>`;
+  document.getElementById('unit-grille').innerHTML = grille(sig, { min: -108, max: -86, unit: ' dBm', left: '24 h ago', tone: v => v <= -100 ? 'stop' : '' });
+  document.addEventListener('pointermove', e => { const g = e.target.closest && e.target.closest('.grille[data-vals]'); if (!g) return;
+    const vals = g.dataset.vals.split(','), r = g.querySelector('svg').getBoundingClientRect(), i = Math.max(0, Math.min(vals.length - 1, Math.floor((e.clientX - r.left) / r.width * vals.length)));
+    g.querySelectorAll('g.col-hot').forEach(c => c.classList.remove('col-hot')); g.querySelector(`g[data-i="${i}"]`).classList.add('col-hot'); g.querySelector('[data-read]').textContent = vals[i] + g.dataset.unit; });
+})();
+</script>
+</body>
+</html>

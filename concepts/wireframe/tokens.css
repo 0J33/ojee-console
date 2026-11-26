@@ -1,0 +1,68 @@
+/* ojee.console — "Wireframe" tokens (ojee-ui v3 draft)
+   Modern and technical: true black, cool hairline panels, every object drawn as white
+   line art with its hidden lines removed, and one accent — the blue-cyan the owner's
+   SNXS79 lume glows. Dark only, by design: #000 ground switches OLED pixels off. */
+
+/* The watch's day-date wheel faces, from the console's own movement (Sweet Sans Pro
+   Medium, Engravers Gothic Bold and Amiri, subset). The user's choice; see calibre.js. */
+@font-face { font-family: "Wheel Day"; src: url("fonts/wheel-day.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Wheel Num"; src: url("fonts/wheel-num.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Wheel Arabic"; src: url("fonts/wheel-arabic.woff2") format("woff2"); font-display: block; }
+
+:root {
+  color-scheme: dark;
+
+  /* ground and panels: cool, barely lifted, separated by hairlines rather than fills */
+  --ground: #000000;
+  --panel: #060709;
+  --panel-2: #0C0E11;
+  --panel-3: #14171B;
+  --line: rgba(214, 228, 245, 0.085);
+  --line-2: rgba(214, 228, 245, 0.15);
+  --line-hi: rgba(214, 228, 245, 0.32);
+
+  /* text */
+  --text: #E9EEF3;
+  --text-2: #A9B2BC;
+  --dim: #75808B;            /* 5.0:1 on black */
+  --faint: #48505A;          /* disabled, scale marks */
+  --on-accent: #001214;
+
+  /* the one accent: SNXS79 lume */
+  --accent: #5FE6EC;
+  --accent-hi: #8CF0F3;
+  --accent-08: rgba(95, 230, 236, 0.08);
+  --accent-16: rgba(95, 230, 236, 0.16);
+  --accent-40: rgba(95, 230, 236, 0.4);
+
+  /* state: always beside a word */
+  --ok: #3DDC97;
+  --warn: #F5B841;
+  --err: #FF5A5F;
+  --warn-08: rgba(245, 184, 65, 0.08);
+  --err-08: rgba(255, 90, 95, 0.08);
+  --err-30: rgba(255, 90, 95, 0.3);
+
+  /* the watch's day wheel (real object colours) */
+  --wheel: #F2F1EC; --wheel-ink: #141414; --wheel-sun: #D0202A; --wheel-sat: #1F4FA8;
+
+  /* type */
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;  /* numbers, units, time, code */
+
+  --t-display: 300 2.75rem/1.04 var(--sans);
+  --t-title: 500 1.625rem/1.1 var(--sans);
+  --t-section: 500 0.9375rem/1.3 var(--sans);
+  --t-label: 500 0.9375rem/1.3 var(--sans);
+  --t-body: 400 0.9375rem/1.5 var(--sans);
+  --t-meta: 400 0.8125rem/1.4 var(--sans);
+  --t-data: 500 0.75rem/1.3 var(--mono);    /* small data: units, timestamps, scales */
+  --t-tab: 500 0.6875rem/1 var(--sans);
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 48px;
+  --r-s: 8px; --r-m: 10px; --r-l: 16px; --r-xl: 22px; --r-full: 999px;
+
+  --float: 0 12px 40px -12px rgb(0 0 0 / 0.9), 0 0 0 1px var(--line-2);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --d-fast: 120ms; --d: 200ms; --d-panel: 380ms;
+}
