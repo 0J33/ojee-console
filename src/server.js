@@ -244,7 +244,7 @@ app.get('/login', (req, res) => {
 
 /** Branding is needed to render the login page, so it sits before requireAuth. */
 app.get('/api/branding', (req, res) => {
-  res.json({ ...cfg.branding, peer: req.peer?.display || req.peer?.login || null });
+  res.json({ ...cfg.branding, features: cfg.features, peer: req.peer?.display || req.peer?.login || null });
 });
 
 app.post('/api/login', (req, res) => {

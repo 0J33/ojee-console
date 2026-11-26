@@ -17,6 +17,10 @@
     "theme": null,
     "favicon": "/favicon.svg"
   },
+  "features": {
+    "watch": false,
+    "idle": false
+  },
   "modules": [
     {
       "id": "home",

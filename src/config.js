@@ -87,6 +87,15 @@ export function loadConfig() {
 
     branding: { ...DEFAULT_BRANDING, ...(raw.branding || {}) },
 
+    // Shell features that are not modules. Off unless console.json turns them
+    // on: the Watch (stopwatch, timers, zones — #/watch) and the Idle display
+    // (#/idle) were switched off on 2026-11-26 ahead of a redesign. Restore
+    // with  "features": { "watch": true, "idle": true }  — no code change.
+    features: {
+      watch: raw.features?.watch === true,
+      idle: raw.features?.idle === true,
+    },
+
     auth: {
       sessionHours: envInt('SESSION_HOURS', 12),
       trustDays: envInt('DEVICE_TRUST_DAYS', 30),

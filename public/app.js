@@ -108,9 +108,12 @@ function renderBranding() {
   }
 }
 
+/* Shell features console.json can switch off (src/config.js → features). */
+const feature = (k) => !!state.branding?.features?.[k];
+
 /** Every view of every ready module, flattened into one nav. */
 function navEntries() {
-  const out = [{ moduleId: 'watch', viewId: null, label: 'Watch', icon: 'i-watch', module: WATCH_ENTRY }];
+  const out = feature('watch') ? [{ moduleId: 'watch', viewId: null, label: 'Watch', icon: 'i-watch', module: WATCH_ENTRY }] : [];
   for (const m of state.modules) {
     if (!m.enabled) continue;
     if (usable(m) && m.views.length) {
@@ -237,13 +240,13 @@ function moduleRow(m) {
 function paintModuleSheet() {
   if (!moduleSheetEl) return;
   const mods = state.modules.filter((m) => m.enabled);
-  moduleSheetEl.querySelector('.msheet-list').innerHTML = `
+  moduleSheetEl.querySelector('.msheet-list').innerHTML = `${feature('watch') ? `
     <a class="msheet-row${state.watchOpen ? ' is-on' : ''}" href="#/watch">
       ${icon('i-watch', 'ic msheet-ic')}
       <span class="msheet-name">Watch</span>
       <span class="dot dot--ok"></span>
       <span class="msheet-line">Stopwatch, timers, time zones, accuracy</span>
-    </a>${mods.map(moduleRow).join('')}`;
+    </a>` : ''}${mods.map(moduleRow).join('')}`;
 }
 
 function openModuleSheet() {
@@ -257,7 +260,7 @@ function openModuleSheet() {
       <div class="msheet-grip" aria-hidden="true"></div>
       <div class="msheet-scroll">
         <div class="msheet-list"></div>
-        <a class="msheet-foot" href="#/idle">${icon('i-full', 'ic')}<span>Idle display</span></a>
+        ${feature('idle') ? `<a class="msheet-foot" href="#/idle">${icon('i-full', 'ic')}<span>Idle display</span></a>` : ''}
       </div>
     </div>`;
   document.body.appendChild(el);
@@ -390,9 +393,9 @@ function renderSidenav() {
     <a class="sn-item sn-item--home${overviewActive && !state.watchOpen ? ' is-on' : ''}" href="#/">
       ${icon('i-grid', 'ic')}<span>Overview</span>
     </a>
-    <a class="sn-item${state.watchOpen ? ' is-on' : ''}" href="#/watch">
+    ${feature('watch') ? `<a class="sn-item${state.watchOpen ? ' is-on' : ''}" href="#/watch">
       ${icon('i-watch', 'ic')}<span>Watch</span>
-    </a>
+    </a>` : ''}
     ${mods.map((m) => {
       const active = state.active.module === m.id;
       const views = usable(m) ? (m.views || []) : [];
@@ -555,7 +558,7 @@ function clearModuleHead() {
 let paletteOpen = false;
 
 function paletteItems() {
-  const out = [{ group: 'Watch', label: 'Watch', hint: 'stopwatch, timers, zones', href: '#/watch', icon: 'i-watch' }];
+  const out = feature('watch') ? [{ group: 'Watch', label: 'Watch', hint: 'stopwatch, timers, zones', href: '#/watch', icon: 'i-watch' }] : [];
   for (const m of state.modules.filter((x) => x.enabled)) {
     const views = m.views || [];
     const down = m.status !== 'ready';
@@ -577,8 +580,10 @@ function paletteItems() {
     out.push({ group: 'Console', label: 'Ask the Assistant', hint: 'quick chat · A', action: openAssistant, icon: 'i-assistant' });
   }
   out.push({ group: 'Console', label: 'Home', hint: 'launcher', href: '#/', icon: 'i-grid' });
-  out.push({ group: 'Console', label: 'Idle display', hint: 'full-screen clock',
-             href: '#/idle', icon: 'i-monitor' });
+  if (feature('idle')) {
+    out.push({ group: 'Console', label: 'Idle display', hint: 'full-screen clock',
+               href: '#/idle', icon: 'i-monitor' });
+  }
   out.push({ group: 'Console', label: 'Settings', hint: 'devices, session',
              href: '#/settings', icon: 'i-cog' });
   out.push({ group: 'Console', label: 'Notifications', hint: 'every module · app and Discord',
@@ -1139,9 +1144,9 @@ function renderLauncher() {
               <span id="ov-alerts"></span>
               ${crownHTML()}
               ${displayHTML()}
-              <button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>
-              <a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>
-              <a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>
+              ${assistantModule() ? `<button class="iconbtn" type="button" data-openassistant aria-label="Talk to the Assistant" title="Talk to the Assistant">${icon('i-assistant')}</button>` : ''}
+              ${feature('watch') ? `<a class="iconbtn" href="#/watch" aria-label="Open the watch" title="Open the watch — stopwatch, timers, zones">${icon('i-watch')}</a>` : ''}
+              ${feature('idle') ? `<a class="iconbtn" href="#/idle" aria-label="Idle display" title="Idle display">${icon('i-full')}</a>` : ''}
             </div>
           </div>
           <div class="ov-ring" id="ov-ring"></div>
@@ -1792,7 +1797,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest?.('[data-openassistant]')) { openAssistant(); return; }
   if (e.target.closest?.('[data-openwatch]')) { openWatch(); return; }
   const cal = e.target.closest?.('.ov-cal');
-  if (!cal || !calDown || focusOpen) return;
+  if (!cal || !calDown || focusOpen || !feature('watch')) return;
   if (Math.hypot(e.clientX - calDown[0], e.clientY - calDown[1]) > 6) return;
   if (state.active.module === 'idle') openWatch();
   else location.hash = '#/watch';
@@ -2375,7 +2380,13 @@ async function route() {
     // Leaving Settings → Notifications saves anything still pending.
     if (parseHash().b !== 'notifications') notifyView.unmount();
     // parseHash is generic ({a, b}); here the two levels are module and view.
-    const { a: module, b: view } = parseHash();
+    let { a: module, b: view } = parseHash();
+    // A switched-off feature's address lands on the overview, not on a
+    // half-built screen (src/config.js → features).
+    if ((module === 'watch' && !feature('watch')) || (module === 'idle' && !feature('idle'))) {
+      history.replaceState(null, '', '#/');
+      module = null; view = null;
+    }
 
     // No module in the hash means the LAUNCHER, not "guess a module".
     // Diving straight into whichever module happened to be ready gave the app
