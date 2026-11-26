@@ -541,6 +541,11 @@ document.addEventListener('keydown', (e) => {
   const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
   if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (paletteOpen) return; openPalette(); return; }
   if (e.key === '/' && !typing && !paletteOpen && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); openPalette(); return; }
+  // `a` asks the Assistant from the Overview, when a module offers one.
+  if ((e.key === 'a' || e.key === 'A') && !typing && !paletteOpen && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.repeat && state.active.module === null && !document.querySelector('.modal-backdrop, .sheet')) {
+    const asst = state.modules.find((x) => x.enabled && x.status === 'ready' && x.assistant);
+    if (asst) { e.preventDefault(); openAssistant(asst); return; }
+  }
   if (e.key === 'Escape' && !paletteOpen && !document.querySelector('.modal-backdrop')) {
     if (inbox.isOpen()) { inbox.close(); return; }
     if (moreOpen) setMore(false);

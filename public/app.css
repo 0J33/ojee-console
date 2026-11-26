@@ -85,3 +85,5 @@ table.kinds td.r,table.t th.r,table.t td.r{text-align:right}
 .login .err{color:var(--err);font-size:12.5px;margin-top:8px}
 .login .gates{display:flex;justify-content:center;gap:14px;margin-top:18px;font-size:12px;color:var(--fg-3)}
 .login .gates span{display:inline-flex;align-items:center;gap:6px}
+@container app (max-width:520px){.settings .sh{flex-wrap:wrap}.settings .sh .note{flex-basis:100%;order:3}}
+.settings select.in{height:28px}

@@ -23,6 +23,7 @@ const SECTIONS = [
   ['modules', 'Modules'],
 ];
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 let H = null;        // { el, section, applyTheme, setTheme, currentTheme, modules, refreshModules, session }
 let V = null;        // /api/notify view
 let pending = null;
@@ -76,6 +77,11 @@ function paramInput(t, p, value) {
   if (p.type === 'number') input = `<input class="in num" type="number" inputmode="decimal" ${attrs} value="${esc(value ?? '')}"${p.min != null ? ` min="${p.min}"` : ''}${p.max != null ? ` max="${p.max}"` : ''}${p.step != null ? ` step="${p.step}"` : ''}>`;
   else if (p.type === 'time') input = `<input class="in" type="time" ${attrs} value="${esc(value ?? '')}">`;
   else if (p.type === 'boolean') input = sw(!!value, `data-type="${esc(t.id)}" data-param="${esc(p.key)}" data-bool="1"`, `${t.label}: ${p.label || p.key}`);
+  else if (p.type === 'weekday') input = `<select class="in select" ${attrs}>${DAYS.map((d, i) => `<option value="${i}"${Number(value) === i ? ' selected' : ''}>${d}</option>`).join('')}</select>`;
+  else if (p.type === 'weekdays') {
+    const on = new Set((Array.isArray(value) ? value : []).map(String));
+    input = `<span class="btns" role="group" aria-label="${esc(`${t.label}: ${p.label || p.key}`)}">${DAYS.map((d, i) => `<button type="button" class="chip" data-days="${esc(t.id)}|${esc(p.key)}" data-day="${i}" aria-pressed="${on.has(String(i)) || on.has(d.toLowerCase())}">${d.slice(0, 2)}</button>`).join('')}</span>`;
+  }
   else return '';
   return `<label class="cond" for="${id}"><span>${esc(p.label || p.key)}</span>${input}${p.unit ? `<span class="unit">${esc(p.unit)}</span>` : ''}</label>`;
 }
@@ -146,6 +152,10 @@ async function deliverySection() {
     <section class="sec"><div class="sh"><h2>Discord</h2><span class="note">only for the alerts you switch on in the table</span></div><div class="panel rows">
       ${hooks.map((w) => `<div class="row"><span class="sic">${ic('link')}</span><span class="grow"><span class="t">${esc(w.name)}${V.prefs.discord.default === w.id ? ' <span class="tag">default</span>' : ''}</span><span class="d m">${esc(w.hint)}${w.source === 'env' ? ' · from the environment' : ''}</span></span>
         <button class="btn sm ghost" type="button" data-act="hook-test" data-id="${esc(w.id)}">Test</button>${w.source === 'env' ? '' : `<button class="btn sm danger" type="button" data-act="hook-del" data-id="${esc(w.id)}">Remove</button>`}</div>`).join('')}
+      ${hooks.length > 1 || V.catalogue.some((g) => g.moduleTest?.length) ? V.catalogue.filter((g) => g.module !== 'console' && g.types.some((t) => effective(t).discord || t.discordBy === 'module')).map((g) => `
+        <div class="row"><span class="sic">${ic(g.icon || 'i-box')}</span><span class="grow"><span class="t">${esc(g.name)}</span><span class="d">sends to</span></span>
+          ${hooks.length ? `<select class="in select" data-hookfor="${esc(g.module)}" aria-label="${esc(g.name)} Discord webhook"><option value="">Default</option>${hooks.map((w) => `<option value="${esc(w.id)}"${V.prefs.discord.modules?.[g.module] === w.id ? ' selected' : ''}>${esc(w.name)}</option>`).join('')}</select>` : ''}
+          ${(g.moduleTest || []).includes('discord') ? `<button class="btn sm ghost" type="button" data-act="module-test" data-id="${esc(g.module)}">Test its own sender</button>` : ''}</div>`).join('') : ''}
       <form class="row hookform" data-form="hook">
         <input class="in" name="name" placeholder="Name" maxlength="40" aria-label="Webhook name" autocomplete="off">
         <input class="in grow" name="url" placeholder="https://discord.com/api/webhooks/…" aria-label="Webhook URL" autocomplete="off" spellcheck="false">
@@ -270,6 +280,15 @@ async function onClick(e) {
     else if (swEl.dataset.bool) queue({ types: { [swEl.dataset.type]: { params: { [swEl.dataset.param]: on } } } });
     return;
   }
+  const day = e.target.closest('[data-days]');
+  if (day) {
+    const on = day.getAttribute('aria-pressed') !== 'true';
+    day.setAttribute('aria-pressed', String(on));
+    const [tid, key] = day.dataset.days.split('|');
+    const all = [...day.parentElement.querySelectorAll('[data-day]')].filter((x) => x.getAttribute('aria-pressed') === 'true').map((x) => DAYS[Number(x.dataset.day)].toLowerCase().slice(0, 3));
+    queue({ types: { [tid]: { params: { [key]: all } } } });
+    return;
+  }
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const id = b.dataset.id;
@@ -314,6 +333,11 @@ async function onClick(e) {
       if (!(await confirmDanger('Remove webhook', 'Alerts set to Discord stop going there.', 'Remove'))) return;
       V = await fetch(`/api/notify/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' }).then((x) => x.json());
       render();
+      break;
+    }
+    case 'module-test': {
+      const r = await fetch('/api/notify/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel: 'discord', module: id }) }).then((x) => x.json()).catch(() => ({}));
+      toast(r.ok ? 'ok' : 'err', r.ok ? 'The module sent a test' : 'Module test failed', r.error || '');
       break;
     }
     case 'signout': await fetch('/api/logout', { method: 'POST' }); location.href = '/login'; break;
@@ -366,9 +390,10 @@ async function onClick(e) {
 
 function onChange(e) {
   const t = e.target;
+  if (t.dataset.hookfor) { queue({ discord: { modules: { [t.dataset.hookfor]: t.value || null } } }, { now: true }); return; }
   if (t.dataset.q && (t.dataset.q === 'from' || t.dataset.q === 'to')) { if (t.value) queue({ quiet: { [t.dataset.q]: t.value } }); return; }
   if (t.dataset.param && t.dataset.type) {
-    const v = t.type === 'number' ? Number(t.value) : t.value;
+    const v = t.type === 'number' || t.tagName === 'SELECT' ? Number(t.value) : t.value;
     if (t.type === 'number' && !Number.isFinite(v)) return;
     queue({ types: { [t.dataset.type]: { params: { [t.dataset.param]: v } } } });
   }

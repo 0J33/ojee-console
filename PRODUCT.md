@@ -12,7 +12,7 @@ One person: the owner of the machines it controls. He uses it alone, on a deskto
 
 ## Product Purpose
 
-console.ojee.net is a personal control console. It gathers independent modules (Home, Fleet, Remote, Agent) into one app: each module reports its own status and headline facts, and the console's home page answers "is everything all right, and what needs me" before anything else. Success is a glance: open it, know the state of every system, go straight to the one that needs attention.
+console.ojee.net is a personal control console. It gathers independent modules (Machines, Claude, Network, Home, Peripherals) into one app: each module reports its own status and numbers, and the console's home page answers "what needs me, and is everything else all right" before anything else. Success is a glance: open it, see the Needs-you list, then one dense row per system, go straight to the one that needs attention.
 
 ## Positioning
 
@@ -20,24 +20,24 @@ Local control, no cloud. It runs on the owner's own hardware, is reachable only 
 
 ## Operating Context
 
-- Glanced at across a room, from a desk, and on a phone; sometimes left open full-screen on a laptop's IPS display as an idle clock and status board.
-- The home page carries an NTP-referenced clock used to set a mechanical watch, so the time shown must be exact to the second and say how exact it is; on a desktop the home page is one non-scrolling screen of status, and on a phone the same board as scrolling rows.
-- Modules: Home (air conditioner, temperature, presence, scenes, automations), Fleet (hosts and services on the owner's machines), Remote (remote desktop, shell and files for his devices), Agent (workflows, the Odysseus assistant, the service stack).
+- Glanced at from a desk (1920×1080), a portrait monitor (1080×1920) and a phone (390 wide); dark is the usual setting, light is used in daylight.
+- Modules: Machines (LOQ, HP, disinteg — hosts, services, screen/shell/files), Claude (sessions, accounts), Network (5G router), Home (the AC), Peripherals (mouse, keyboard, headphones; served from the LOQ, so it is offline whenever the laptop sleeps).
 
 ## Capabilities and Constraints
 
 - Tailnet-only, TOTP login, 30-day device trust.
-- The console owns chrome, routing and auth; modules own their own screens and CSS and report `/api/summary` (status, headline, facts, alerts).
-- The home page is one screenful of module tiles on a desktop — object, name, one line, quick actions — and scrolling rows on a phone. A module may declare quick actions in its manifest (`quickActions`) with their state on `/api/summary.quick`; the shell fires `POST /{module}/api/quick/{id}` and repaints from the module's answer.
-- A multi-view module without its own overview opens on a shell-synthesized Overview tab; a single-view module opens straight in.
-- Module status changes are pushed to every open console the moment they land — a stopped container greys the nav without a reload.
-- One design system, ojee-ui, copied into each consumer; themes redefine tokens and never rules.
-- Icons are one generated Material Symbols Outlined set; no emoji or glyphs standing in for icons.
+- The console owns chrome, routing, auth and the one inbox; modules own their screens and report `/api/summary` (status, headline, metrics, spark, rows, alerts, quick-action state).
+- Overview = layout A: Needs-you (the inbox) first, then one row per system with up to four numbers and a 2-hour sparkline; quick actions are one tap on the row and in ⌘K.
+- Nav never disappears: a sidebar at ≥1200px, a top bar and five bottom tabs below (More holds the rest).
+- Notifications: one item per stable key, hold-to-raise and clear-to-resolve, toasts and push only for blocking items, everything else inbox and badge, quiet hours 23:00–07:30, every alert kind configurable in Settings.
+- One design system, ojee-ui v3, copied into each consumer; modules add only their own CSS.
+- No 3D, no clock/watch features.
 
 ## Brand Commitments
 
-- Name and wordmark: "ojee.console" (`ojee` + accent `.` + `console`), tagline "local control · no cloud".
-- The identity is monochrome: white on black, all Geist Mono, zero radius, colour reserved for status (ok, warn, err). The cyan identity is retired from the console; the ojee.net sites keep theirs.
+- Name and wordmark: "ojee.console" (`ojee` + accent `.` + `console`, Geist Mono).
+- Modern tech product (Vercel / Linear / Cloudflare grade): Geist for UI, Geist Mono tabular for numbers, IDs and times; neutral greys, hairlines, 6–8px radius; one electric-cyan accent; colour otherwise only for status (ok, warn, err). Dark is the hero.
+- Lucide-style line icons from one sprite; no emoji or glyphs standing in for icons.
 
 ## Evidence on Hand
 
