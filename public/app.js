@@ -355,32 +355,45 @@ function systemRow(m, r, { href, iconName, name, status, statusText, line, quick
 }
 
 function systemsRows() {
-  const out = [];
+  const out = []; // { key, html }: key is "module" or "module:row"
   for (const m of navModules()) {
     const s = navState(m);
     const sum = state.summaries.get(m.id);
     const base = { href: `#/${esc(m.id)}`, iconName: moduleIcon(m), name: m.name };
-    if (s === 'offline') { out.push(systemRow(m, null, { ...base, status: 'n', statusText: 'Offline', line: 'Asleep or off the network — it comes back by itself.' })); continue; }
-    if (s === 'down') { out.push(systemRow(m, null, { ...base, status: 'err', statusText: 'Not responding', line: m.reason || 'The module is not answering.' })); continue; }
-    if (!m.summary) { out.push(systemRow(m, null, { ...base, status: 'ok', statusText: 'Running', line: 'Open it for details.' })); continue; }
-    if (!sum) { out.push(systemRow(m, null, { ...base, status: 'n', statusText: 'Loading…', line: ' ' })); continue; }
+    const one = (html) => out.push({ key: m.id, html });
+    if (s === 'offline') { one(systemRow(m, null, { ...base, status: 'n', statusText: 'Offline', line: 'Asleep or off the network — it comes back by itself.' })); continue; }
+    if (s === 'down') { one(systemRow(m, null, { ...base, status: 'err', statusText: 'Not responding', line: m.reason || 'The module is not answering.' })); continue; }
+    if (!m.summary) { one(systemRow(m, null, { ...base, status: 'ok', statusText: 'Running', line: 'Open it for details.' })); continue; }
+    if (!sum) { one(systemRow(m, null, { ...base, status: 'n', statusText: 'Loading…', line: ' ' })); continue; }
     const status = sum.status === 'err' ? 'err' : sum.status === 'warn' ? 'warn' : 'ok';
     if (Array.isArray(sum.rows) && sum.rows.length) {
       for (const r of sum.rows.slice(0, 8)) {
         const rs = r.status === 'err' ? 'err' : r.status === 'warn' ? 'warn' : r.status === 'off' ? 'n' : 'ok';
-        out.push(systemRow(m, r, {
+        out.push({ key: r.id ? `${m.id}:${r.id}` : m.id, html: systemRow(m, r, {
           href: `#/${esc(m.id)}${r.view ? `/${esc(r.view)}` : ''}`,
           iconName: /^i-[a-z0-9-]+$/.test(r.icon || '') ? r.icon : base.iconName,
           name: r.name || m.name, status: rs, statusText: r.statusText || r.headline || '',
-        }));
+        }) });
       }
       const q = quickChips(m, sum);
-      if (q) out[out.length - 1] = out[out.length - 1].replace(/<\/div>$/, `${q}</div>`);
+      if (q) out[out.length - 1].html = out[out.length - 1].html.replace(/<\/div>$/, `${q}</div>`);
     } else {
-      out.push(systemRow(m, sum, { ...base, status, statusText: sum.statusText || sum.headline || (status === 'ok' ? 'Healthy' : ''), quick: quickChips(m, sum) }));
+      one(systemRow(m, sum, { ...base, status, statusText: sum.statusText || sum.headline || (status === 'ok' ? 'Healthy' : ''), quick: quickChips(m, sum) }));
     }
   }
-  return out;
+  return orderRows(out, state.branding?.overviewOrder).map((x) => x.html);
+}
+
+/**
+ * console.json's overviewOrder: "module" or "module:row" entries, in order.
+ * A row goes where its own "module:row" entry is, else where its module's
+ * entry is; rows named by neither follow, in the order they came.
+ */
+function orderRows(rows, order) {
+  if (!Array.isArray(order) || !order.length) return rows;
+  const pos = new Map(order.map((k, i) => [k, i]));
+  const rank = (key) => pos.get(key) ?? pos.get(key.split(':')[0]) ?? Infinity;
+  return rows.map((x, i) => ({ x, i, r: rank(x.key) })).sort((a, b) => (a.r - b.r) || (a.i - b.i)).map((y) => y.x);
 }
 
 function renderOverview() {
@@ -396,18 +409,51 @@ function renderOverview() {
   $('#phead').innerHTML = pageHeader('Overview', sub, `<span class="upd m">Updated ${esc(upd)}</span>`);
   const rows = systemsRows();
   const snoozedN = (snap.snoozed || []).length;
-  $('#view').innerHTML = `
-    <section class="sec">
-      <div class="sh"><h2>Needs you</h2>${open.length ? `<span class="cnt${errCount ? ' err' : ' warn'}">${open.length}</span>` : ''}
+  // Needs you: the full list only while something does; otherwise one quiet
+  // line. The change between the two animates (see animateNeeds).
+  const prev = $('#needs');
+  const prevH = prev ? prev.getBoundingClientRect().height : null;
+  const prevOpen = prev ? !prev.classList.contains('quiet') : null;
+  const groups = groupNeeds(open);
+  const needs = open.length ? `
+    <section class="sec needs-sec" id="needs">
+      <div class="sh"><h2>Needs you</h2><span class="cnt${errCount ? ' err' : ' warn'}">${open.length}</span>
         <div class="r"><button class="btn sm ghost" type="button" data-act="inbox">Open inbox${ic('chev', 's')}</button></div></div>
-      <ul class="panel needs">${open.length ? groupNeeds(open).slice(0, 8).map(needRow).join('')
-        : `<li class="empty ok">${ic('check')}<div>Nothing needs you.${snoozedN ? ` ${snoozedN} snoozed ${snoozedN === 1 ? 'item returns' : 'items return'} on schedule.` : ''}</div></li>`}
-        ${groupNeeds(open).length > 8 ? `<li class="need more"><button class="btn sm ghost" type="button" data-act="inbox">${groupNeeds(open).length - 8} more in the inbox${ic('chev', 's')}</button></li>` : ''}</ul>
-    </section>
+      <ul class="panel needs">${groups.slice(0, 8).map(needRow).join('')}
+        ${groups.length > 8 ? `<li class="need more"><button class="btn sm ghost" type="button" data-act="inbox">${groups.length - 8} more in the inbox${ic('chev', 's')}</button></li>` : ''}</ul>
+    </section>`
+    : `
+    <section class="sec needs-sec quiet" id="needs" aria-label="Needs you">
+      <div class="needs-quiet" role="status"><span class="ok">${ic('check', 's')}</span><span class="t">Nothing needs you</span>${snoozedN ? `<span class="x" title="${snoozedN} snoozed ${snoozedN === 1 ? 'item returns' : 'items return'} on schedule">· ${snoozedN} snoozed</span>` : ''}
+        <button class="btn sm ghost" type="button" data-act="inbox">Open inbox${ic('chev', 's')}</button></div>
+    </section>`;
+  $('#view').innerHTML = `${needs}
     <section class="sec">
       <div class="sh"><h2>Systems</h2><span class="note">${rows.length} tracked · live</span></div>
       <div class="panel srows${rows.some((r) => r.includes('class="sp')) ? '' : ' nospark'}">${rows.join('') || `<div class="empty">${ic('box')}<b>No modules</b><p>Add one to config/console.json. See the README for the module contract.</p></div>`}</div>
     </section>`;
+  if (prevOpen !== null && prevOpen !== !!open.length) animateNeeds($('#needs'), prevH);
+}
+
+/**
+ * Needs you grows from its quiet line into the list (and folds back) instead
+ * of jumping: height from where it was, the new content fading in, 240 ms on
+ * the strong ease-out. Rare, so it earns a real transition; with reduced
+ * motion only the fade is kept. Systems below move with the height.
+ */
+function animateNeeds(el, fromH) {
+  if (!el || fromH == null || !el.animate) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const toH = el.getBoundingClientRect().height;
+  const ease = 'cubic-bezier(.23,1,.32,1)';
+  if (!reduce && Math.abs(toH - fromH) > 1) {
+    el.style.overflow = 'hidden';
+    const a = el.animate([{ height: `${fromH}px` }, { height: `${toH}px` }], { duration: 240, easing: ease });
+    a.onfinish = a.oncancel = () => { el.style.overflow = ''; };
+  }
+  for (const c of el.children) {
+    c.animate(reduce ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: reduce ? 150 : 200, delay: reduce ? 0 : 40, easing: ease, fill: 'backwards' });
+  }
 }
 
 /* ── summaries ──────────────────────────────────────────────────────── */

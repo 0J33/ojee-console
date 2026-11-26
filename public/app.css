@@ -15,6 +15,14 @@
 #view{min-width:0}
 
 /* overview */
+/* Needs you with nothing in it: one quiet line, not an empty panel */
+.needs-quiet{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 2px 0 4px;font-size:13px;color:var(--fg-2);border-bottom:1px solid var(--line)}
+.needs-quiet .ok{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.needs-quiet .ok .i{width:12px;height:12px}
+.needs-quiet .t{font-weight:500;color:var(--fg);white-space:nowrap}
+.needs-quiet .ok{flex:none}
+.needs-quiet .x{color:var(--fg-3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.needs-quiet .btn{margin-left:auto;flex:none}
 .need.more{display:flex;justify-content:center;padding:8px}
 .need .mm{color:var(--fg-3);text-decoration:none;transition:color 120ms ease}
 @media (hover:hover) and (pointer:fine){.need a.mm:hover{color:var(--fg)}}
