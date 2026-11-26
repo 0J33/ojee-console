@@ -29,6 +29,7 @@ const state = {
   branding: null,
   session: null,
   summaries: new Map(),   // moduleId -> summary (+ _at)
+  sub: null,              // { module, text }: the header line a module set; wins over the summary headline
   active: { module: null, view: null },
   lastRoute: null,
   updatedAt: 0,
@@ -51,11 +52,13 @@ const host = new ModuleHost({
   base: '',
   onUnauthorized: () => location.reload(),
   // ctx.header: the page header the shell draws above a module.
-  //   ctx.header.setSub(text)   the line under the title (defaults to the summary headline)
+  //   ctx.header.setSub(text)   the line under the title; it stays until the module
+  //                             clears it (setSub('')) or the route changes, and the
+  //                             summary headline only shows while no line is set
   //   ctx.header.actions        an element in the header's right side, for the module's buttons
-  extendCtx: () => ({
+  extendCtx: (manifest) => ({
     header: {
-      setSub: (t) => { const p = $('#phead .ph p'); if (p) p.textContent = t || ''; },
+      setSub: (t) => setModuleSub(manifest?.id, t),
       get actions() { return $('#phead .acts'); },
     },
     // ctx.sheet({ title, sub, body, actions, width }) — side sheet on desktop,
@@ -230,10 +233,31 @@ function pageHeader(title, sub, acts = '') {
   return `<div class="ph"><div><h1>${esc(title)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</div><div class="acts">${acts}</div></div>`;
 }
 
+/** The line under a module's title: the module's own (ctx.header.setSub), else its summary headline. */
+const moduleSub = (m) => (state.sub?.module === m.id ? state.sub.text : state.summaries.get(m.id)?.headline || '');
+
 function renderModuleHeader(m) {
-  const sum = state.summaries.get(m.id);
   if (m.header === false) { $('#phead').innerHTML = ''; return; }
-  $('#phead').innerHTML = pageHeader(m.name, sum?.headline || '');
+  $('#phead').innerHTML = pageHeader(m.name, moduleSub(m));
+}
+
+/** Repaint just the sub-line of the active module's header (keeps its actions). */
+function paintSub() {
+  const m = modById(state.active.module);
+  const ttl = $('#phead .ph h1');
+  if (!m || !ttl) return;
+  const text = moduleSub(m);
+  let p = $('#phead .ph p');
+  if (!text) { p?.remove(); return; }
+  if (!p) { p = document.createElement('p'); ttl.after(p); }
+  if (p.textContent !== text) p.textContent = text;
+}
+
+function setModuleSub(id, t) {
+  if (!id || state.active.module !== id) return; // a module that is no longer on screen
+  const text = t == null ? '' : String(t);
+  state.sub = text ? { module: id, text } : null;
+  paintSub();
 }
 
 function renderVtabs(m) {
@@ -754,10 +778,7 @@ function startPoll() {
     if (mod === null) { await refreshSummaries(); renderOverview(); return; }
     if (mod && mod !== 'settings') {
       await refreshSummaries(mod);
-      const m = modById(mod);
-      const p = $('#phead .ph p');
-      const sum = state.summaries.get(mod);
-      if (m && p && sum?.headline && p.dataset.custom !== '1') p.textContent = sum.headline;
+      if (state.active.module === mod) paintSub();
     }
   }, 20_000);
 }
@@ -814,20 +835,18 @@ async function route({ force = false } = {}) {
     const views = m.views || [];
     const v = views.some((x) => x.id === view) ? view : (views[0]?.id || null);
     state.active = { module: m.id, view: v };
+    // A new route starts without the module's line; the module sets it again if it has one.
+    if (!sameModule || force || prev.view !== v) state.sub = null;
     renderChrome(); setTitle(); renderVtabs(m);
 
     if (sameModule && !force && host.mounted) {
-      if (host.mounted.setView) { await host.setView(v); return; }
+      if (host.mounted.setView) { await host.setView(v); paintSub(); return; }
     }
     if (!sameModule || force) enter();
     renderModuleHeader(m);
     await mountModule(m, v);
     if (!state.summaries.has(m.id) && m.summary && m.status === 'ready') {
-      refreshSummaries(m.id).then(() => {
-        const p = $('#phead .ph p');
-        const sum = state.summaries.get(m.id);
-        if (state.active.module === m.id && p && !p.textContent && sum?.headline) p.textContent = sum.headline;
-      });
+      refreshSummaries(m.id).then(() => { if (state.active.module === m.id) paintSub(); });
     }
   } finally {
     routing = false;
