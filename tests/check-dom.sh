@@ -92,10 +92,10 @@ url=$(agent-browser get url 2>/dev/null | tail -n 1)
 # that can only come from ojee-ui.css does.
 styled=$(ev "(() => {
   const cs = getComputedStyle(document.documentElement);
-  const bg = cs.getPropertyValue('--bg').trim();
+  const bg = cs.getPropertyValue('--page').trim();
   const font = getComputedStyle(document.body).fontFamily;
-  if (!bg) return 'no tokens — ojee-ui.css did not load';
-  if (!/mono/i.test(font)) return 'tokens loaded but body font is ' + font;
+  if (!bg) return 'no tokens — ojee-ui3.css did not load';
+  if (!/geist/i.test(font)) return 'tokens loaded but body font is ' + font;
   return 'ok';
 })()")
 [ "$styled" = "ok" ] && ok "login page is styled (design system loaded pre-auth)" \
@@ -105,8 +105,8 @@ styled=$(ev "(() => {
 # must stay behind the gate.
 leak=$(node -e '
   const base = process.argv[1];
-  const allowed = ["/ojee-ui.css", "/app.css", "/favicon.svg", "/manifest.webmanifest", "/themes/paper.css", "/sw.js", "/icon-192.png", "/icon-512.png"];
-  const denied  = ["/index.html", "/app.js", "/api/modules", "/themes/../app.js"];
+  const allowed = ["/ojee-ui3.css", "/fonts/Geist-Variable.woff2", "/fonts/GeistMono-Variable.woff2", "/app.css", "/favicon.svg", "/manifest.webmanifest", "/sw.js", "/icon-192.png", "/icon-512.png"];
+  const denied  = ["/index.html", "/app.js", "/settings.js", "/ojee-ui3.js", "/api/modules", "/api/inbox", "/fonts/../app.js"];
   (async () => {
     const bad = [];
     for (const p of allowed) {
@@ -355,30 +355,31 @@ sa_deep=$(agent-browser open "http://127.0.0.1:${DEMO_PORT}/#/log" >/dev/null 2>
 echo ""
 echo "=== settings ========================================================"
 
-agent-browser open "$BASE/#/settings" >/dev/null 2>&1
+agent-browser open "$BASE/#/settings/devices" >/dev/null 2>&1
 agent-browser wait 1200 >/dev/null 2>&1
-dev=$(ev "document.querySelector('#settings-devices')?.innerText.replace(/\s+/g,' ').trim().slice(0,80)")
+dev=$(ev "(document.querySelector('.settings[data-section=devices]')?.innerText || '').replace(/\s+/g,' ').trim().slice(0,80)")
 [ -n "$dev" ] && ok "devices screen renders (${dev})" || bad "devices screen is empty"
 
-mods=$(ev "document.querySelectorAll('#settings-modules tr').length")
+agent-browser open "$BASE/#/settings/modules" >/dev/null 2>&1
+agent-browser wait 1000 >/dev/null 2>&1
+mods=$(ev "document.querySelectorAll('.settings[data-section=modules] tbody tr').length")
 [ "$mods" = "2" ] && ok "module table lists both modules including the dead one" \
                   || bad "module table has ${mods} rows, expected 2"
 
 # Web Push: the console registers its service worker (127.0.0.1 is a secure
 # context), and Settings → Notifications offers push on this device and lists
 # the push devices.
-agent-browser open "$BASE/#/settings/notifications" >/dev/null 2>&1
+agent-browser open "$BASE/#/settings/delivery" >/dev/null 2>&1
 agent-browser wait 2000 >/dev/null 2>&1
 swreg=$(ev "navigator.serviceWorker.getRegistration('/').then(r => r ? (r.active || r.waiting || r.installing).scriptURL.replace(location.origin, '') + ' ' + r.scope.replace(location.origin, '') : 'none')")
 [ "$swreg" = "/sw.js /" ] && ok "service worker registered (scope /)" \
                           || bad "service worker: ${swreg}"
-pushui=$(ev "(() => { const p = document.querySelector('#nt-push'); const l = document.querySelector('#nt-pushdevs');
-  if (!p || !l) return 'missing ' + (!p ? '#nt-push ' : '') + (!l ? '#nt-pushdevs' : '');
-  const btn = [...p.querySelectorAll('button')].find(b => /Enable notifications on this device/.test(b.textContent));
-  const label = p.querySelector('#nt-plabel')?.value || '';
-  return btn && label ? 'ok' : 'no enable button or label (' + p.innerText.replace(/\\s+/g, ' ').slice(0, 80) + ')';
+pushui=$(ev "(() => { const p = document.querySelector('.settings[data-section=delivery]');
+  if (!p) return 'missing delivery section';
+  const btn = p.querySelector('[data-act=push-on]');
+  return btn ? 'ok' : 'no enable button (' + p.innerText.replace(/\\s+/g, ' ').slice(0, 80) + ')';
 })()")
-[ "$pushui" = "ok" ] && ok "notifications: 'Enable notifications on this device' offered, push devices listed" \
+[ "$pushui" = "ok" ] && ok "delivery: push on this device is offered" \
                      || bad "notifications push UI: ${pushui}"
 
 printf '\n================================================================\n'
