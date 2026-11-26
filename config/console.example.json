@@ -21,6 +21,7 @@
     "watch": false,
     "idle": false
   },
+  "overviewOrder": ["home", "peripherals", "router", "agent", "fleet:loq", "fleet:hp", "fleet:disinteg"],
   "modules": [
     {
       "id": "home",

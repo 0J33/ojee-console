@@ -42,6 +42,9 @@ const DEFAULT_BRANDING = {
   favicon: '/favicon.svg',
 };
 
+/** Home, Peripherals, Network, Claude, then the machines one by one. */
+const DEFAULT_OVERVIEW_ORDER = ['home', 'peripherals', 'router', 'agent', 'fleet:loq', 'fleet:hp', 'fleet:disinteg'];
+
 export function loadConfig() {
   const file = env('CONSOLE_CONFIG', join(ROOT, 'config', 'console.json'));
 
@@ -96,6 +99,14 @@ export function loadConfig() {
       idle: raw.features?.idle === true,
     },
 
+    // The order of the overview's Systems rows. An entry is a module id
+    // ("home") or a module id and one of its summary rows ("fleet:loq", for a
+    // module that reports a row per thing). Rows not named keep their place
+    // after the named ones, so a new module still shows up.
+    overviewOrder: Array.isArray(raw.overviewOrder)
+      ? raw.overviewOrder.filter((x) => typeof x === 'string' && x).map((x) => x.slice(0, 64)).slice(0, 64)
+      : DEFAULT_OVERVIEW_ORDER,
+
     auth: {
       sessionHours: envInt('SESSION_HOURS', 12),
       trustDays: envInt('DEVICE_TRUST_DAYS', 30),
@@ -142,4 +153,4 @@ export function loadConfig() {
   };
 }
 
-export const _internals = { env, envInt, envBool, DEFAULT_BRANDING };
+export const _internals = { env, envInt, envBool, DEFAULT_BRANDING, DEFAULT_OVERVIEW_ORDER };

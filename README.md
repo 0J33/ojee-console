@@ -224,6 +224,12 @@ Per deployment, `config/console.json` may also set for a module:
 `"quietOffline": true` (a module on a machine that sleeps: offline is shown
 quietly and never raised as an alert).
 
+At the top level, `"overviewOrder"` sets the order of the overview's Systems
+rows: module ids, or `module:row` for a module that reports one row per thing
+(`"fleet:loq"`). Default: `["home", "peripherals", "router", "agent",
+"fleet:loq", "fleet:hp", "fleet:disinteg"]`. Rows it does not name follow, in
+nav order. The nav, ⌘K and the Settings alert table keep the `modules` order.
+
 ### Modules that guard their own API
 
 A module on the same host can trust `X-Console-Auth`. A module on a *different*
