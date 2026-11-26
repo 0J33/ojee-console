@@ -53,12 +53,12 @@ table.kinds{min-width:0}
   table.kinds td.cc:has(.muted){display:none}
 }
 table.kinds td{vertical-align:top;padding-top:12px;padding-bottom:12px}
-table.kinds .kname{width:40%;white-space:normal}
+table.kinds .kname{white-space:normal}
+@container app (min-width:900px){table.kinds .kname{width:40%}table.kinds td.cc{width:28%}}
 table.kinds .kname .t{font-weight:500;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 table.kinds .kname .d{font-size:12px;color:var(--fg-3);margin-top:2px;max-width:60ch}
 table.kinds tr.is-off .kname .t{color:var(--fg-3)}
 table.kinds tr.is-off .conds{opacity:.45}
-table.kinds td.cc{width:28%}
 table.kinds .gname{display:inline-flex;align-items:center;gap:6px;margin-right:8px}
 table.kinds td.r,table.t th.r,table.t td.r{text-align:right}
 .conds{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}

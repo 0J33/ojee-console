@@ -302,6 +302,7 @@ export class Inbox extends EventEmitter {
       count: it.count, countSince: it.countSince,
       snoozedUntil: it.snoozedUntil && it.snoozedUntil > now ? it.snoozedUntil : null,
       dismissed: !!it.dismissed,
+      source: it.source,
     };
   }
 

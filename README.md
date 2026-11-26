@@ -83,13 +83,14 @@ GET /module.json
 | `GET /module.json` | the manifest above |
 | `GET /ui/index.js` | ES module, default-exports `{ mount(el, ctx), setView?, unmount() }` |
 | `GET /api/health` | `{ ok: true }`, or `{ ok: false, reason }` to report itself degraded |
+| `GET /api/summary` | optional — what the Overview row shows (below) |
 | `/api/*` | everything else; the caller is already authenticated |
 
 `assistant` is optional and behaves like `ui`: a root-relative path to an ES module the shell can
 import **without** mounting the module first. The console's overview and idle screen use it to open
 a module's dialog straight from an icon. Anything else the manifest declares stays inside the
 module — the shell passes through a fixed list of fields (`id`, `name`, `version`, `status`,
-`views`, `ui`, `assistant`, `focus`, `capabilities`, `icon`).
+`views`, `ui`, `assistant`, `capabilities`, `icon`, `quickActions`, `header`, `viewTabs`, `nav`).
 
 **`examples/demo-module/`** is the reference implementation — ~150 lines, no dependencies, and it
 exercises every part of the contract including SSE. It is also what the test suite mounts, so the
@@ -153,30 +154,75 @@ draw the first view's icon — and since almost every module opens on an overvie
 everything is decoration, not navigation, so unknown modules now get a generic glyph instead of
 Overview's.
 
-Available symbols are in the sprite at the top of `public/index.html`; a module can append its own
-on mount.
+Available symbols are ojee-ui's `icons3.svg` (Lucide-style line icons; the
+old Material ids are kept as aliases), inlined into `public/index.html` by
+`scripts/sync-ui.sh`.
 
-### Overview facts (optional)
+### Overview: what a module says about itself (optional)
 
-The console's front page is a dashboard, not a launcher. It is built entirely
-out of what modules say about themselves, through one optional endpoint:
+The console's front page is Needs-you (the inbox) and then one dense row per
+system, built entirely out of what modules say about themselves through one
+optional endpoint (declare `"summary"` in `capabilities`):
 
-```
+```jsonc
 GET /{id}/api/summary
 {
   "status": "ok" | "warn" | "err",
-  "headline": "3 hosts \u00b7 1 needs attention",
-  "facts":  [ { "k": "disinteg", "v": "12% cpu" }, ... ],   // up to 4 are shown
-  "alerts": [ { "text": "loq is offline", "severity": "warn", "view": "hosts" } ]
+  "headline": "3 hosts · 1 needs attention",        // the row's status line and the page subtitle
+  "statusText": "Running hot",                        // optional: a shorter status line than the headline
+
+  // 2026-11 — the row's numbers. Up to 4 are shown; a number reads in
+  // tabular mono, a phrase in text. `status` colours the value (warn/err).
+  "metrics": [ { "label": "CPU temp", "value": 98, "unit": "°C", "status": "err" }, ... ],
+
+  // 2026-11 — the row's sparkline (about 2 h). Points oldest → newest;
+  // null is a gap. `threshold` draws a dashed line; `status` colours it.
+  "spark": { "label": "CPU °C · 2h", "points": [74, 76, 91, 98], "threshold": 90,
+             "status": "err", "min": 0, "max": 100, "unit": "°", "cap": "max 98" },
+
+  // 2026-11 — optional: one row per thing instead of one per module
+  // (Machines: LOQ, HP, disinteg). Each takes the same fields as above plus
+  // name, icon (i-*), tag, view (where the row links).
+  "rows": [ { "name": "LOQ", "icon": "i-laptop", "tag": "Linux", "status": "err",
+              "statusText": "Running hot", "view": "hosts", "metrics": [...], "spark": {...} } ],
+
+  "facts":  [ { "k": "disinteg", "v": "12% cpu" } ],  // still read when `metrics` is absent
+  "alerts": [ { "text": "loq is offline", "severity": "warn", "view": "hosts",
+                "key": "loq-offline", "notify": "fleet.host-down", "action": "Open" } ],
+  "quick":  { "<quick action id>": { "on": true } }    // state of the manifest's quickActions
 }
 ```
 
-A module opts in by declaring `"summary"` in `capabilities`. Alerts are
-clickable: the console opens that module at `view`, so the front page is a way
-into the thing that is wrong rather than a place that merely mentions it.
+Everything new is optional and additive: a module that still sends only
+`status/headline/facts/alerts` gets a row with its facts as the numbers.
+Alerts become inbox items (see Notifications) under a stable key — give
+them `key` (a subject that stays the same while the words change) and
+`notify` (one of your declared kinds) and they are deduplicated, held,
+grouped and configurable per kind.
 
-Modules that do not implement it get a plain card, which is the point of making
-it optional — the shell still knows nothing about what any module *means*.
+**Quick actions** (`quickActions` in the manifest: `[{ id, label, icon }]`)
+are one tap from the module's overview row and from ⌘K; the shell fires
+`POST /{id}/api/quick/{actionId}` and repaints from the summary's `quick`.
+
+### What the shell draws around a module
+
+- A page header: the module's name and its summary `headline` (live).
+  `ctx.header.setSub(text)` replaces the line; `ctx.header.actions` is an
+  element on the header's right for the module's own buttons. A module that
+  draws its own header sets `"header": false` in its manifest.
+- View tabs, for a module with more than one view (`"viewTabs": false` to
+  draw your own).
+- `ctx.sheet({ title, sub, body, actions, width })` — the shared sheet
+  (ojee-ui3): a side sheet on desktop, a bottom sheet with drag-to-dismiss on
+  phones. Returns `{ el, body, close, done }`.
+- Modules render inside `.page` and use ojee-ui3 classes; layout queries are
+  container queries on `app`.
+
+Per deployment, `config/console.json` may also set for a module:
+`"label"` (the nav name, e.g. `"Machines"` for fleet), `"nav": false`
+(routable but not in the nav — Remote's full-screen sessions), and
+`"quietOffline": true` (a module on a machine that sleeps: offline is shown
+quietly and never raised as an alert).
 
 ### Modules that guard their own API
 
@@ -204,52 +250,74 @@ properties are enforced and tested:
 
 ### Notifications (optional)
 
-A module can raise a notification on the phone by emitting an SSE event named
-`notify` on its existing `/api/events` stream:
-
-```
-event: notify
-data: {"title":"LOQ is throttling","body":"CPU held at 97°C for 30s","tag":"loq:thermal"}
-```
-
-The console forwards it to the native app as a local notification, dedupli-
-cated to one per `tag` per five minutes. This is deliberately one-directional:
-the console never parses module state or knows what a module's events *mean*,
-so a module that never emits `notify` never notifies and costs nothing.
-
-Only modules that declare `"sse"` in `capabilities` are subscribed to. In a
-browser this does nothing at all — see [`native/`](native/).
+A module raises and resolves inbox items by emitting `event: notify` on its
+`/api/events` stream, and lists its kinds in `module.json` — see
+[Notifications](#notifications). Only modules that declare `"sse"` and
+`"notify"` in `capabilities` are subscribed to.
 
 ## Notifications
 
-One page for every notification any module can send: **Settings → Notifications**
-(`#/settings/notifications`). Modules decide *when*; the console decides *where*.
+One inbox for every module, shared by every device (`src/notify/inbox.js`,
+persisted in `DATA_DIR/inbox.json`). Modules decide *when*; the console
+decides *where*, with the person's settings (`DATA_DIR/notifications.json`).
 
-- A module lists what it can say in `module.json` — `notifications: [{ id: '<module>.<kind>',
-  label, description, severity: info|warn|critical, defaultChannels: ['app','discord'], view,
-  cooldownMin, params: [{ key, label, type: time|number|weekday|weekdays, default }],
-  discordBy?: 'module', source?: 'alerts' }]` — and capability `notify`.
-- It says it as an SSE event on its own `/api/events`: `event: notify` with
-  `{ id, title, body, tag, severity, view, at }`. The console keeps one server-side
-  subscription per notify module (`?router=1&since=<ms>`, so a reconnect replays what it missed).
-- Modules without the contract are still covered: their overview alerts (`alerts` in
-  `/api/summary`) become notifications of type `<module>.alert` when an alert appears and is
-  still there a minute later (an alert may name its type with `notify` and a stable `key`).
-- The console routes each event with the person's settings (`DATA_DIR/notifications.json`, 0600):
-  per type **App** and/or **Discord**, a cooldown per type+tag, quiet hours (default 23:00–07:00
-  in `TIMEZONE`, critical optionally let through), and a Discord webhook per module.
-- **App** = every open console over `/api/notify/stream`: the phone app shows a local
-  notification (tap opens the route), the desktop app and browsers a system notification when
-  in the background (a toast when you are looking). A fully closed phone app cannot be reached
-  (no push service on a sideloaded build) — Discord is for that; on reopening it shows what was
-  missed in the last 2 hours.
-- **Discord** webhooks come from the environment (`NOTIFY_DISCORD_WEBHOOK`,
-  `NOTIFY_DISCORD_WEBHOOK_<NAME>`) or are added on the page. The page only ever sees a name and the
-  last four characters; URLs are never logged.
-- Settings flow back down: each notify module is POSTed its effective settings
-  (`/api/notify/prefs`) — Health reads its morning time and work hours from there; the Claude
-  runners apply them to the Discord pings they still send themselves (`discordBy: 'module'`).
-- Each channel has a test (App: every open console; Discord: per webhook; a module's own sender).
+**Items, not messages.** Every alert is one item with a stable key,
+`module:kind:subject`. Changing numbers update the same item. An alert stated
+on `/api/summary` must hold for `hold` checks (default 2, every 30 s) before
+it raises, and be clear for `clearMin` minutes (default 5) before it resolves —
+silently. A raise soon after resolving reopens the item as `×N since 16:38`.
+A console that restarts remembers what was open: no replay burst.
+
+**One event, one notification.** A raise is delivered once: to the inbox and
+badge always; as a toast + Web Push only for kinds whose channel is `toast`
+(blocking kinds by default — Claude asking, sustained critical heat, a host
+down); to Discord only for kinds the person switched on. Quiet hours
+(default 23:00–07:30) hold toasts back; blocking items break through.
+Non-blocking happenings (`severity: info`) fold into a digest line, "5 updates".
+
+**In the inbox:** primary action, Snooze 1h, Mute this kind (writes the
+kind's setting to Off), Done (event items), each with Undo.
+
+**Modules declare their kinds** in `module.json` (capability `notify` for
+events, `summary` for alerts) so every kind appears in Settings →
+Notifications, individually controllable — Toast / Inbox / Off, its
+condition, Discord:
+
+```jsonc
+"notifications": [{
+  "id": "fleet.cpu-temp",            // <module>.<kind>
+  "label": "CPU temperature",
+  "description": "Sustained heat on a host.",
+  "severity": "critical",            // info | warn | critical
+  "blocking": true,                  // toast + push by default, breaks quiet hours
+  "channel": "toast",                // default: toast | inbox | off (blocking → toast, else inbox)
+  "discord": false,                  // default Discord opt-in
+  "hold": 2, "clearMin": 5,          // debounce for summary alerts
+  "params": [                        // thresholds shown in Settings; the module applies them
+    { "key": "celsius", "label": "Above", "type": "number", "unit": "°C", "default": 95, "min": 60, "max": 110 },
+    { "key": "minutes", "label": "for", "type": "number", "unit": "min", "default": 5 }
+  ],
+  "view": "hosts",
+  "source": "alerts"                 // raised as summary alerts with notify:"fleet.cpu-temp"
+}]
+```
+
+The effective settings (channel, discord, params, quiet hours) are POSTed to
+each notify module at `/api/notify/prefs` whenever they change, so a module
+applies the thresholds itself.
+
+**Events** — `event: notify` on the module's `/api/events`:
+`{ id, key, state: "raise" | "resolve" | "update", title, body, severity, view|route, action }`.
+`raise` (default for warn/critical and blocking kinds) opens or updates the
+item `module:kind:key`; `resolve` closes it; `update` (default for info) goes
+to the digest. Re-sending a raise for an open item never notifies twice.
+
+Endpoints: `GET /api/inbox`, `POST /api/inbox/{snooze,unsnooze,dismiss,undismiss}`
+(`{ key }`), `POST /api/notify/{mute,unmute}` (`{ kind, prev }`),
+`/api/notify/stream` (`event: inbox` snapshot on connect and on every change;
+`event: notify` for toast-worthy raises). `NOTIFY=local` runs the checks
+read-only (no module subscriptions, no prefs pushed, no Discord or push) for
+development in front of live modules; `NOTIFY=off` runs nothing.
 
 ## The phone app
 
@@ -287,7 +355,7 @@ an environment change.
 ## Tests
 
 ```bash
-npm test          # 48 unit tests — node:test, no dependencies
+npm test          # 107 unit tests — node:test, no dependencies
 npm run test:dom  # 26 end-to-end checks — agent-browser
 ```
 
@@ -337,21 +405,18 @@ Persist `/data` — it holds the trusted-device store, and losing it makes every
 
 ## Design system
 
-The chrome is [ojee-ui](../ojee-ui) — `ojee-ui.css` for the visual language and `chrome.js` for
-the interactive parts (toast, focus-trapped modal, the scoped api/sse pair, `ModuleHost`). Both
-are vendored into `public/` rather than fetched at runtime: a design system that fails to load
-leaves an unstyled login form, which is exactly when you least want one. Refresh with
-`bash scripts/sync-ui.sh`.
+The chrome is [ojee-ui](../ojee-ui) v3 — `ojee-ui3.css` (tokens, type and every
+component), `ojee-ui3.js` (sparkline, segmented control, sheet helpers),
+`icons3.svg` and self-hosted Geist / Geist Mono in `fonts/` — plus `chrome.js`
+(toast, focus-trapped modal, the scoped api/sse pair, `ModuleHost`). All are
+vendored into `public/` rather than fetched at runtime: a design system that
+fails to load leaves an unstyled login form, which is exactly when you least
+want one. Refresh with `bash scripts/sync-ui.sh` (it also inlines the sprite).
 
-The shell and every module's standalone shell run the *same* `chrome.js`. That is what stops
-`ModuleHost` and the `ctx` object existing twice and drifting apart.
+Mounted modules get `/ojee-ui3.css`, `/ojee-ui3.js` and the fonts from the
+shell; they add only module CSS of their own.
 
-Icons regenerate from a single glyph with `python3 scripts/make-icons.py <glyph.svg>` — favicon,
-`.ico`, apple-touch and both PWA sizes, cyan on `#08080e`, centred at 55.6% with a 22.2% margin
-so iOS and Android masking never crops into it.
-
-Branding is `config/console.json` plus an optional theme file. See ojee-ui's
-`themes/_template.css`.
+Icons regenerate from a single glyph with `python3 scripts/make-icons.py <glyph.svg>`.
 
 ---
 

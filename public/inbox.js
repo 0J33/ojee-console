@@ -111,7 +111,7 @@ function itemHTML(it) {
         ${it.route ? `<a class="btn sm${it.blocking ? ' pri' : ''}" href="${esc(it.route)}" data-close>${esc(it.action || 'Open')}</a>` : ''}
         <button class="btn sm" type="button" data-i="snooze">${ic('clock', 's')}Snooze 1h</button>
         ${it.blocking ? '' : `<button class="btn sm ghost" type="button" data-i="mute">${ic('belloff', 's')}Mute this kind</button>`}
-        <button class="btn sm ghost" type="button" data-i="done" title="Mark done; it comes back if raised again">${ic('check', 's')}Done</button>
+        ${it.source === 'events' ? `<button class="btn sm ghost" type="button" data-i="done" title="Mark done; it comes back if raised again">${ic('check', 's')}Done</button>` : ''}
       </div>
     </div></div>`;
 }

@@ -109,6 +109,8 @@ export class ModuleRegistry {
       icon: /^i-[a-z0-9-]+$/.test(m.manifest?.icon || '') ? m.manifest.icon : null,
       views: m.manifest?.views || [],
       ui: m.manifest?.ui || null,
+      header: m.manifest?.header === false ? false : undefined,
+      viewTabs: m.manifest?.viewTabs === false ? false : undefined,
       // A second entry point, for a screen the console can open on its own —
       // the overview's assistant icon imports this without mounting the module
       // first, the same way `ui` is handled: a root-relative path, nothing
