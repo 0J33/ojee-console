@@ -78,6 +78,8 @@ const notify = new NotifyCenter({
   identitySecret: cfg.secrets.identitySecret,
   publicOrigin: cfg.publicOrigin,
   push,
+  inboxFile: join(cfg.dataDir, 'inbox.json'),
+  quietOffline: new Set(cfg.modules.filter((m) => m.quietOffline).map((m) => m.id)),
 });
 if (process.env.NTP_PROBE !== 'off') timeRef.start();
 // Phone widgets (src/widgets.js): their own keys, made on the Settings page.
@@ -300,9 +302,9 @@ app.post('/api/login', (req, res) => {
  * walked out of `public/`.
  */
 const PRE_AUTH_ASSETS = new Set([
-  '/ojee-ui.css',
-  '/ojee-ui2.css',
-  '/calibre.css',
+  '/ojee-ui3.css',
+  '/fonts/Geist-Variable.woff2',
+  '/fonts/GeistMono-Variable.woff2',
   '/app.css',
   '/chrome.js',
   '/favicon.svg',
@@ -441,10 +443,6 @@ notify.on('app', (ev) => {
   const frame = `event: notify\ndata: ${JSON.stringify(ev)}\n\n`;
   for (const res of notifyClients) { try { res.write(frame); } catch { /* closed */ } }
 });
-notify.on('history', (rec) => {
-  const frame = `event: history\ndata: ${JSON.stringify(rec)}\n\n`;
-  for (const res of notifyClients) { try { res.write(frame); } catch { /* closed */ } }
-});
 
 const notifyView = () => ({
   catalogue: notify.catalogue(),
@@ -458,8 +456,17 @@ const notifyView = () => ({
 
 app.get('/api/notify', requireAuth, (req, res) => res.json(notifyView()));
 
+/** Interface preferences that follow the person to every device (theme). */
+app.get('/api/ui', requireAuth, (req, res) => res.json({ theme: notifyPrefs.get().theme || 'dark' }));
+app.put('/api/ui', requireAuth, (req, res) => {
+  if (!['dark', 'light', 'system'].includes(req.body?.theme)) return res.status(400).json({ error: 'theme is dark, light or system' });
+  notifyPrefs.patch({ theme: req.body.theme });
+  res.json({ theme: notifyPrefs.get().theme });
+});
+
 app.put('/api/notify/prefs', requireAuth, (req, res) => {
   notifyPrefs.patch(req.body || {});
+  notify.emit('inbox');
   notify.pushPrefs().catch(() => {});
   res.json(notifyView());
 });
@@ -524,10 +531,58 @@ app.post('/api/notify/push/:id/test', requireAuth, async (req, res) => {
 });
 
 /**
- * App notifications, to every open console. A client that reconnects (the
- * phone app coming back from the background) passes `since` and gets what it
- * missed from the last two hours, at most five.
+ * The inbox and app notifications, to every open console.
+ *
+ *   event: inbox    the whole inbox (open, snoozed, resolved, muted, updates,
+ *                   quiet hours) — first on connect, then after every change
+ *   event: notify   one raise that is due a toast / system notification
+ *
+ * A console that reconnects gets the inbox as it is, never a replay of what
+ * it missed: coming back to the app shows state, not a burst of old toasts.
  */
+let inboxTimer = null;
+const sendInbox = () => {
+  inboxTimer = null;
+  const frame = `event: inbox\ndata: ${JSON.stringify(notify.inboxSnapshot())}\n\n`;
+  for (const res of notifyClients) { try { res.write(frame); } catch { /* closed */ } }
+};
+notify.on('inbox', () => { if (!inboxTimer) inboxTimer = setTimeout(sendInbox, 250); });
+// Snoozes run out on their own: refresh everyone once a minute.
+setInterval(() => { if (notifyClients.size) sendInbox(); }, 60_000).unref?.();
+
+app.get('/api/inbox', requireAuth, (req, res) => {
+  res.set('cache-control', 'no-store');
+  res.json(notify.inboxSnapshot());
+});
+
+const keyOf = (req) => (typeof req.body?.key === 'string' ? req.body.key.slice(0, 220) : '');
+app.post('/api/inbox/snooze', requireAuth, (req, res) => {
+  const it = notify.snooze(keyOf(req), Number(req.body?.minutes) || 60);
+  if (!it) return res.status(404).json({ error: 'Nothing open with that key.' });
+  res.json({ ok: true, until: it.snoozedUntil, inbox: notify.inboxSnapshot() });
+});
+app.post('/api/inbox/unsnooze', requireAuth, (req, res) => {
+  if (!notify.unsnooze(keyOf(req))) return res.status(404).json({ error: 'No such item.' });
+  res.json({ ok: true, inbox: notify.inboxSnapshot() });
+});
+app.post('/api/inbox/dismiss', requireAuth, (req, res) => {
+  if (!notify.dismiss(keyOf(req))) return res.status(404).json({ error: 'No such item.' });
+  res.json({ ok: true, inbox: notify.inboxSnapshot() });
+});
+app.post('/api/inbox/undismiss', requireAuth, (req, res) => {
+  if (!notify.undismiss(keyOf(req))) return res.status(404).json({ error: 'No such item.' });
+  res.json({ ok: true, inbox: notify.inboxSnapshot() });
+});
+app.post('/api/notify/mute', requireAuth, (req, res) => {
+  const r = notify.mute(String(req.body?.kind || ''));
+  if (!r) return res.status(404).json({ error: 'No such kind.' });
+  res.json({ ok: true, ...r, inbox: notify.inboxSnapshot() });
+});
+app.post('/api/notify/unmute', requireAuth, (req, res) => {
+  if (!notify.unmute(String(req.body?.kind || ''), req.body?.prev ?? null)) return res.status(404).json({ error: 'No such kind.' });
+  res.json({ ok: true, inbox: notify.inboxSnapshot() });
+});
+
 app.get('/api/notify/stream', requireAuth, (req, res) => {
   res.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -537,8 +592,7 @@ app.get('/api/notify/stream', requireAuth, (req, res) => {
   });
   res.socket?.setNoDelay(true);
   res.write(': connected\n\n');
-  const since = Number(req.query.since);
-  if (since > 0) for (const ev of notify.missedSince(since)) res.write(`event: notify\ndata: ${JSON.stringify({ ...ev, missed: true })}\n\n`);
+  res.write(`event: inbox\ndata: ${JSON.stringify(notify.inboxSnapshot())}\n\n`);
   notifyClients.add(res);
   const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* closed */ } }, 25_000);
   res.on('close', () => { clearInterval(ping); notifyClients.delete(res); });
@@ -674,7 +728,8 @@ server.on('upgrade', async (req, socket, head) => {
 });
 
 registry.start();
-if (process.env.NOTIFY !== 'off') notify.start();
+if (process.env.NOTIFY === 'local') notify.startLocal();
+else if (process.env.NOTIFY !== 'off') notify.start();
 
 server.listen(cfg.port, cfg.host, () => {
   console.log(`ojee-console on http://${cfg.host}:${cfg.port}`);

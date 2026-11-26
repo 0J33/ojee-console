@@ -70,6 +70,9 @@ export class ModuleRegistry {
         // module's upstream credential just because it can read the nav.
         token: c.token || '',
         enabled: c.enabled !== false,
+        label: c.label || null,
+        nav: c.nav !== false,
+        quietOffline: c.quietOffline === true,
         manifest: null,
         status: c.enabled === false ? 'disabled' : 'unknown',
         reason: c.enabled === false ? 'Disabled in config' : 'Not yet contacted',
@@ -91,7 +94,11 @@ export class ModuleRegistry {
   publicList() {
     return this.list().map((m) => ({
       id: m.id,
-      name: m.manifest?.name || m.name,
+      name: m.label || m.manifest?.name || m.name,
+      nav: m.nav !== false && m.manifest?.nav !== false,
+      quietOffline: !!m.quietOffline,
+      // Overview row icon/order hints and the alert kinds are read by the shell.
+      summary: (m.manifest?.capabilities || []).includes('summary'),
       version: m.manifest?.version || null,
       status: m.status,
       reason: m.status === 'ready' ? null : m.reason,

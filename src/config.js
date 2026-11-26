@@ -128,6 +128,13 @@ export function loadConfig() {
       // environment rather than the config file.
       token: env(`MODULE_${String(m.id || '').toUpperCase().replace(/-/g, '_')}_TOKEN`) || m.token || '',
       enabled: m.enabled !== false,
+      // Shown in the nav under this name instead of the manifest's ("Machines" for fleet).
+      label: typeof m.label === 'string' && m.label ? m.label.slice(0, 32) : null,
+      // Routable but not in the nav (Remote's full-screen sessions, opened from Machines).
+      nav: m.nav !== false,
+      // Expected to be unreachable at times (a module served from a laptop that
+      // sleeps): shown quietly as offline, never raised as an alert.
+      quietOffline: m.quietOffline === true,
     })),
 
     secrets,

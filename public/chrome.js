@@ -94,7 +94,7 @@ export function toast(kind, title, detail = '', { stack = '#toasts', ms } = {}) 
   x.className = 'toast-x';
   x.type = 'button';
   x.setAttribute('aria-label', 'Dismiss');
-  x.textContent = '\u00d7';
+  x.innerHTML = '<svg class="i s" aria-hidden="true"><use href="#i-x"></use></svg>';
   x.addEventListener('click', () => { clearTimeout(timer); node.remove(); });
 
   node.append(dot, txt, x);
@@ -102,8 +102,8 @@ export function toast(kind, title, detail = '', { stack = '#toasts', ms } = {}) 
 
   const life = ms ?? (kind === 'err' ? 7000 : 4200);
   const timer = setTimeout(() => {
-    node.style.opacity = '0';
-    setTimeout(() => node.remove(), 250);
+    node.classList.add('out');
+    setTimeout(() => node.remove(), 200);
   }, life);
   return node;
 }
@@ -290,8 +290,10 @@ export class ModuleHost {
    * @param {string}      opts.base        URL prefix for api/sse ('' standalone)
    * @param {Function}    opts.onUnauthorized
    */
-  constructor({ el, base = '', onUnauthorized } = {}) {
+  constructor({ el, base = '', onUnauthorized, extendCtx = null } = {}) {
     this.el = el;
+    // A host may add to ctx (the console adds `header`): extendCtx(manifest, view) -> object.
+    this.extendCtx = extendCtx;
     this.base = base;
     this.onUnauthorized = onUnauthorized;
     this.cleanups = [];
@@ -317,15 +319,16 @@ export class ModuleHost {
       onCleanup: registerCleanup,
       capabilities: manifest?.capabilities || [],
       navigate: (m, v) => { location.hash = `#/${m}${v ? `/${v}` : ''}`; },
+      ...(this.extendCtx ? this.extendCtx(manifest, view) || {} : {}),
     };
   }
 
   /** A skeleton, not a blank panel — an empty box reads as broken. */
   skeleton() {
-    this.el.innerHTML = `<div class="panel stack">
-      <div class="skeleton" style="height:18px;width:40%"></div>
-      <div class="skeleton" style="height:120px"></div>
-      <div class="skeleton" style="height:14px;width:70%"></div>
+    this.el.innerHTML = `<div class="panel pad stack" aria-busy="true" aria-label="Loading">
+      <div class="skeleton" style="height:16px;width:36%"></div>
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:12px;width:64%"></div>
     </div>`;
   }
 

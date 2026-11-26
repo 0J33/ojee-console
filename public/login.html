@@ -1,70 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-accent="cyan">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<title>sign in · console</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="color-scheme" content="dark light">
+<title>sign in · ojee.console</title>
+<script>try{var t=localStorage.getItem('ojee.theme')||'dark';if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/ojee-ui2.css">
-<link id="theme-link" rel="stylesheet" href="">
+<link rel="stylesheet" href="/ojee-ui3.css">
 <link rel="stylesheet" href="/app.css">
 </head>
-<body class="grid-bg login-body">
-
-<main class="login-wrap">
-  <div class="sheet login-sheet">
-    <div class="sheet-inner">
-      <div class="sheet-header">
-        <span>auth <b>totp</b></span>
-        <span class="right">tailnet <em id="peer">verified</em></span>
+<body class="login-body ui3-root">
+<main class="login">
+  <div class="wm" id="logo">ojee<b>.</b><span>console</span></div>
+  <div class="panel">
+    <h1>Sign in</h1>
+    <p class="lead" id="note">You are on the tailnet<span id="peer-wrap"> as <b id="peer"></b></span>. Enter the six-digit code from your authenticator.</p>
+    <form id="form" autocomplete="off" novalidate>
+      <div class="field">
+        <label for="code" class="sr-only">Authenticator code</label>
+        <!-- inputmode=numeric + autocomplete=one-time-code: iOS offers the
+             code from Messages, Android autofills it, and the digit keypad
+             comes up instead of the keyboard. -->
+        <input class="input code" id="code" name="code" type="text"
+               inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               autocomplete="one-time-code" enterkeyhint="go"
+               aria-describedby="err" placeholder="000000" required>
+        <span class="err" id="err" role="alert" hidden></span>
       </div>
-
-      <h1 class="display login-logo" id="logo">console</h1>
-
-      <p class="login-note" id="note">
-        You are on the tailnet. Enter the six-digit code from your authenticator.
-      </p>
-
-      <form id="form" class="stack" autocomplete="off" novalidate>
-        <div class="field">
-          <label for="code">Authenticator code</label>
-          <!--
-            inputmode=numeric + autocomplete=one-time-code is what makes iOS
-            offer the code from Messages and Android autofill it, and what
-            brings up the digit keypad instead of the full keyboard.
-          -->
-          <input class="input code-input" id="code" name="code" type="text"
-                 inputmode="numeric" pattern="[0-9]*" maxlength="6"
-                 autocomplete="one-time-code" enterkeyhint="go"
-                 aria-describedby="err" placeholder="000000" required>
-          <span class="err-msg" id="err" role="alert" hidden></span>
-        </div>
-
-        <label class="check">
-          <input type="checkbox" id="trust" checked>
-          <span>Trust this device for <b id="trust-days">30</b> days</span>
-        </label>
-
-        <button class="btn powerbtn" id="submit" type="submit">Sign in</button>
-      </form>
-
-      <div class="titleblock login-facts">
-        <div class="tb"><span class="tb-k">gate 1</span><span class="tb-v tb-v--accent">tailscale</span></div>
-        <div class="tb"><span class="tb-k">gate 2</span><span class="tb-v">totp</span></div>
-        <div class="tb"><span class="tb-k">gate 3</span><span class="tb-v">device trust</span></div>
-      </div>
-    </div>
+      <label class="check"><input type="checkbox" id="trust" checked><span>Trust this device for <b id="trust-days">30</b> days</span></label>
+      <button class="btn pri lg block" id="submit" type="submit">Sign in</button>
+    </form>
   </div>
+  <div class="gates m"><span>tailscale</span><span>·</span><span>totp</span><span>·</span><span>device trust</span></div>
 </main>
 
-<div class="toast-stack" id="toasts" aria-live="polite"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script type="module">
 const $ = (s) => document.querySelector(s);
@@ -74,11 +48,11 @@ const code = $('#code');
 // Branding is public within the tailnet — the gate already ran, so anyone
 // who can load this page is an authenticated peer.
 fetch('/api/branding').then((r) => r.json()).then((b) => {
-  document.title = `sign in · ${b.name}`;
-  $('#logo').textContent = `${b.wordmark}${b.wordmarkAccent}${b.wordmarkTail}`;
-  if (b.theme) $('#theme-link').href = `/themes/${b.theme}.css`;
-  if (b.peer) $('#peer').textContent = b.peer;
-}).catch(() => {});
+  const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  document.title = `sign in · ${b.wordmark}${b.wordmarkAccent}${b.wordmarkTail}`;
+  $('#logo').innerHTML = `${esc(b.wordmark)}<b>${esc(b.wordmarkAccent)}</b><span>${esc(b.wordmarkTail)}</span>`;
+  if (b.peer) $('#peer').textContent = b.peer; else $('#peer-wrap').hidden = true;
+}).catch(() => { $('#peer-wrap').hidden = true; });
 
 const show = (msg) => { err.textContent = msg; err.hidden = false; code.setAttribute('aria-invalid', 'true'); };
 const clear = () => { err.hidden = true; code.removeAttribute('aria-invalid'); };

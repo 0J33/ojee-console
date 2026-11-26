@@ -32,15 +32,16 @@
 import { EventEmitter } from 'node:events';
 import http from 'node:http';
 import https from 'node:https';
-import { decide, effective, SEVERITIES } from './policy.js';
+import { decide, effective, inQuiet as inQuietNow, SEVERITIES, CHANNELS } from './policy.js';
+import { Inbox, itemKey, subjectOf } from './inbox.js';
 import { signIdentity } from '../modules/proxy.js';
 
 /** The console's own notifications. */
 export const CONSOLE_TYPES = [
   {
     id: 'console.module-down', label: 'A module stopped responding',
-    description: 'A module that was up has failed two health checks in a row (about 40 s). Also says when it is back.',
-    severity: 'warn', defaultChannels: ['app'], cooldownMin: 15,
+    description: 'A module that was up has failed two health checks in a row (about 40 s). The item resolves by itself when it answers again.',
+    severity: 'warn', channel: 'inbox', defaultChannels: ['app'], cooldownMin: 15,
   },
 ];
 
@@ -66,6 +67,12 @@ function validType(t, moduleId) {
     description: String(t.description || '').slice(0, 400),
     note: t.note ? String(t.note).slice(0, 400) : null,
     severity: SEVERITIES.includes(t.severity) ? t.severity : 'info',
+    // 2026-11: blocking kinds toast and push; everything else waits in the inbox.
+    blocking: t.blocking === true,
+    channel: CHANNELS.includes(t.channel) ? t.channel : undefined,
+    discord: typeof t.discord === 'boolean' ? t.discord : undefined,
+    hold: Number.isFinite(t.hold) ? Math.max(1, Math.min(20, Math.round(t.hold))) : undefined,
+    clearMin: Number.isFinite(t.clearMin) ? Math.max(0, Math.min(240, t.clearMin)) : undefined,
     defaultChannels: Array.isArray(t.defaultChannels) ? t.defaultChannels.filter((c) => c === 'app' || c === 'discord') : ['app'],
     cooldownMin: Number.isFinite(t.cooldownMin) ? t.cooldownMin : undefined,
     view: typeof t.view === 'string' && /^[a-z0-9-]{1,32}$/.test(t.view) ? t.view : null,
@@ -74,7 +81,14 @@ function validType(t, moduleId) {
     // an event: the console watches the module's summary for it.
     fromAlerts: t.source === 'alerts',
     params: Array.isArray(t.params) ? t.params.filter((p) => p && /^[a-zA-Z][a-zA-Z0-9_]{0,31}$/.test(p.key || '')
-      && ['time', 'number', 'weekday', 'weekdays', 'boolean'].includes(p.type)).slice(0, 8) : [],
+      && ['time', 'number', 'weekday', 'weekdays', 'boolean'].includes(p.type)).slice(0, 8).map((p) => ({
+      key: p.key, type: p.type, default: p.default,
+      label: typeof p.label === 'string' ? p.label.slice(0, 40) : p.key,
+      unit: typeof p.unit === 'string' ? p.unit.slice(0, 12) : undefined,
+      min: Number.isFinite(p.min) ? p.min : undefined,
+      max: Number.isFinite(p.max) ? p.max : undefined,
+      step: Number.isFinite(p.step) ? p.step : undefined,
+    })) : [],
   };
 }
 
@@ -87,7 +101,7 @@ export class NotifyCenter extends EventEmitter {
    * @param {string} o.publicOrigin    for "open in console" links in Discord
    * @param {string} o.tz
    */
-  constructor({ registry, prefs, identitySecret, publicOrigin = '', tz = process.env.TIMEZONE || process.env.TZ, fetchImpl = fetch, now = () => Date.now(), log = (m) => console.log(m), push = null }) {
+  constructor({ registry, prefs, identitySecret, publicOrigin = '', tz = process.env.TIMEZONE || process.env.TZ, fetchImpl = fetch, now = () => Date.now(), log = (m) => console.log(m), push = null, inboxFile = null, quietOffline = new Set() }) {
     super();
     // Web Push (./push.js): the App channel for consoles that are not open.
     this.push = push;
@@ -108,6 +122,105 @@ export class NotifyCenter extends EventEmitter {
     this.pushedAt = new Map();      // moduleId -> ms
     this.timers = [];
     this.seq = 0;
+    // Modules that are expected to be unreachable at times (on a laptop that
+    // sleeps): their being down is shown quietly in the nav, never raised.
+    this.quietOffline = quietOffline;
+    this.inbox = new Inbox({ file: inboxFile, now: this.now, decide: (item, type) => this.#decideItem(item, type) });
+    this.deliveries = new Set();
+    this.inbox.on('notify', (n) => {
+      const p = this.#deliver(n).catch((e) => this.log(`  notify deliver: ${e.message}`));
+      this.deliveries.add(p);
+      p.finally(() => this.deliveries.delete(p));
+    });
+    this.inbox.on('change', () => this.emit('inbox'));
+  }
+
+  /* ── the inbox ───────────────────────────────────────────────────── */
+
+  /** 'toast' | 'inbox' | 'off' for a kind, from the person's settings. */
+  channelOf(kind) {
+    const found = this.typeById(kind);
+    if (!found) return 'inbox';
+    return effective(this.prefs.get(), found.type).channel;
+  }
+
+  inboxSnapshot() {
+    const cache = new Map();
+    const snap = this.inbox.snapshot((kind) => {
+      if (!cache.has(kind)) cache.set(kind, this.channelOf(kind));
+      return cache.get(kind);
+    });
+    const q = this.prefs.get().quiet;
+    return { ...snap, quiet: { ...q, active: inQuietNow(q, this.now(), this.tz) } };
+  }
+
+  /** Whether one raise toasts (and pushes) and goes to Discord. */
+  #decideItem(item, type) {
+    const t = type || { id: item.kind, severity: 'warn' };
+    const eff = effective(this.prefs.get(), t);
+    if (eff.channel === 'off') return { toast: false, discord: false, why: 'muted', channel: 'off' };
+    const ev = { tag: item.key, severity: item.severity, blocking: item.blocking };
+    const d = decide(this.prefs.get(), t, ev, { now: this.now(), tz: this.tz, last: this.last });
+    if (d.why) return { toast: false, discord: false, why: d.why, channel: eff.channel };
+    return {
+      toast: eff.channel === 'toast',
+      discord: eff.discord && t.discordBy !== 'module',
+      why: null,
+      channel: eff.channel,
+    };
+  }
+
+  /** One raise, delivered once to each channel it is due on. */
+  async #deliver({ item, toast, discord: wantDiscord }) {
+    let discord = wantDiscord;
+    const ev = {
+      key: item.key, id: item.kind, module: item.module, moduleName: item.moduleName, label: item.kindLabel,
+      title: item.title, body: item.body, tag: item.key, severity: item.severity, blocking: item.blocking,
+      route: item.route, action: item.action, count: item.count, at: this.now(),
+    };
+    const rec = { ...ev, app: toast ? 'sent' : 'inbox', discord: discord ? 'pending' : 'off' };
+    if (toast) this.emit('app', ev);
+    this.#remember(rec);
+    if (this.localOnly) { discord = false; }
+    const pushing = toast && !this.localOnly && this.push?.count()
+      ? this.push.sendAll(ev).then((r) => { rec.push = r.summary; this.emit('history', rec); }, (e) => { rec.push = `push failed (${e.message})`; })
+      : null;
+    if (discord) {
+      const hook = this.prefs.webhookFor(item.module === 'console' ? 'console' : item.module);
+      if (!hook) rec.discord = 'no webhook';
+      else {
+        const r = await this.sendDiscord(hook.url, ev);
+        rec.discord = r.ok ? 'sent' : `failed (${r.status || r.error})`;
+      }
+      this.emit('history', rec);
+    }
+    if (pushing) await pushing;
+    return rec;
+  }
+
+  /** Wait for every delivery in flight (tests, and a clean shutdown). */
+  async settled() { while (this.deliveries.size) await Promise.all([...this.deliveries]); }
+
+  snooze(key, minutes) { return this.inbox.snooze(key, minutes); }
+  unsnooze(key) { return this.inbox.unsnooze(key); }
+  dismiss(key) { return this.inbox.dismiss(key); }
+  undismiss(key) { return this.inbox.undismiss(key); }
+
+  /** Mute a kind (inbox "Mute this kind"); returns the channel it had, for Undo. */
+  mute(kind) {
+    const found = this.typeById(kind);
+    if (!found) return null;
+    const prev = this.prefs.get().types?.[kind]?.channel ?? null;
+    this.prefs.patch({ types: { [kind]: { channel: 'off' } } });
+    this.emit('inbox');
+    return { kind, prev };
+  }
+
+  unmute(kind, prev = null) {
+    if (!this.typeById(kind)) return false;
+    this.prefs.patch({ types: { [kind]: { channel: CHANNELS.includes(prev) ? prev : null } } });
+    this.emit('inbox');
+    return true;
   }
 
   /* ── catalogue ───────────────────────────────────────────────────── */
@@ -124,20 +237,22 @@ export class NotifyCenter extends EventEmitter {
       }
       // Overview alerts become notifications for modules that do not have
       // their own — and for any module that asks for it by name.
-      if (caps.includes('summary') && !declared.length && !types.some((t) => t.id === `${m.id}.alert`)) {
-        types.unshift({
-          id: `${m.id}.alert`, label: 'Overview alerts',
-          description: `What this module flags on the overview. ${ALERT_HINTS[m.id] || ''}`.trim(),
-          note: 'Sent when an alert appears and is still there a minute later; checked every minute.',
+      if (caps.includes('summary') && !types.some((t) => t.id === `${m.id}.alert`)) {
+        const t = {
+          id: `${m.id}.alert`, label: declared.length ? 'Other overview alerts' : 'Overview alerts',
+          description: `What this module flags on the overview${declared.length ? ' that is not one of the kinds above' : ''}. ${declared.length ? '' : ALERT_HINTS[m.id] || ''}`.trim(),
+          note: 'Raised when an alert holds for two checks (about a minute); resolved when it has been clear for 5 minutes.',
           severity: 'warn', defaultChannels: ['app'], discordBy: 'console', params: [], view: null,
-        });
+        };
+        if (declared.length) types.push(t); else types.unshift(t);
       }
       if (!types.length) continue;
       groups.push({
         module: m.id,
-        name: m.manifest.name || m.name,
+        name: m.label || m.manifest.name || m.name,
         icon: /^i-[a-z0-9-]+$/.test(m.manifest.icon || '') ? m.manifest.icon : 'i-box',
         status: m.status,
+        quietOffline: this.quietOffline.has(m.id),
         notify: caps.includes('notify'),
         moduleTest: Array.isArray(m.manifest.notifyTest) ? m.manifest.notifyTest.filter((x) => typeof x === 'string').slice(0, 4) : [],
         types,
@@ -155,57 +270,62 @@ export class NotifyCenter extends EventEmitter {
 
   /**
    * One event from a module (or the console itself).
-   * @returns the history record
+   *
+   *   { id: '<module>.<kind>', title, body, severity, view|route, action,
+   *     key?: '<subject>', state?: 'raise' | 'resolve' | 'update' }
+   *
+   * `raise` (the default for warn/critical and for blocking kinds) opens or
+   * updates the item `module:kind:key`; `resolve` closes it; `update` (the
+   * default for info) is one line in the digest. An item already open is
+   * updated in place: a module re-sending "still waiting" is not a second
+   * notification.
+   * @returns a record: { id, key, app: 'sent'|'inbox'|'quiet'|'muted'|'open'|'update'|'resolved', discord }
    */
   async handle(moduleId, raw) {
-    if (!raw || typeof raw !== 'object' || !raw.title) return null;
+    if (!raw || typeof raw !== 'object' || (!raw.title && raw.state !== 'resolve')) return null;
     let found = raw.id ? this.typeById(String(raw.id)) : null;
     if (found && found.group.module !== moduleId && moduleId !== 'console') found = null;
     if (!found) found = this.typeById(`${moduleId}.other`) || this.typeById(`${moduleId}.alert`);
     if (!found) return null;
     const { group, type } = found;
-    const ev = {
-      key: `${Date.now().toString(36)}-${(this.seq += 1).toString(36)}`,
-      id: type.id,
-      module: moduleId,
-      moduleName: group.name,
-      title: String(raw.title).slice(0, 200),
+    const severity = SEVERITIES.includes(raw.severity) ? raw.severity : raw.severity === 'err' ? 'critical' : type.severity;
+    const owner = moduleId === 'console' && raw.module ? String(raw.module) : moduleId;
+    const subject = typeof raw.key === 'string' && raw.key ? raw.key.slice(0, 140) : (raw.tag ? String(raw.tag).slice(0, 140) : subjectOf(raw.title));
+    const key = itemKey(moduleId === 'console' ? 'console' : moduleId, type.id, subject);
+    const d = {
+      kind: type.id,
+      moduleName: moduleId === 'console' ? 'Console' : group.name,
+      title: String(raw.title || '').slice(0, 200),
       body: String(raw.body || '').slice(0, 1500),
-      tag: String(raw.tag || type.id).slice(0, 120),
-      severity: SEVERITIES.includes(raw.severity) ? raw.severity : type.severity,
-      route: this.#route(moduleId, raw, type),
-      at: this.now(),
+      severity,
+      blocking: raw.blocking === true || type.blocking,
+      route: this.#route(moduleId === 'console' ? 'console' : moduleId, { ...raw, module: owner }, type),
+      action: typeof raw.action === 'string' ? raw.action.slice(0, 24) : undefined,
+      key,
     };
-    const prefs = this.prefs.get();
-    const d = decide(prefs, type, ev, { now: ev.at, tz: this.tz, last: this.last });
-    const eff = effective(prefs, type);
-    const rec = { ...ev, label: type.label };
-    if (d.why) {
-      rec.app = eff.app ? d.why : 'off';
-      rec.discord = eff.discord ? d.why : 'off';
-    } else {
-      rec.app = eff.app ? 'sent' : 'off';
-      rec.discord = !eff.discord ? 'off' : type.discordBy === 'module' ? 'by module' : 'pending';
+    const state = ['raise', 'resolve', 'update'].includes(raw.state) ? raw.state
+      : (d.blocking || severity !== 'info' ? 'raise' : 'update');
+    const base = { id: type.id, key, module: moduleId, title: d.title, label: type.label, at: this.now() };
+    if (state === 'resolve') {
+      this.inbox.resolve(key);
+      return { ...base, app: 'resolved', discord: 'off' };
     }
-    if (d.app) this.emit('app', ev);
-    this.#remember(rec);
-    // The same decision, delivered to every device subscribed to Web Push
-    // (an iPhone's Home Screen console, a desktop or Android browser) —
-    // which reaches them when no console is open.
-    const pushing = d.app && this.push?.count()
-      ? this.push.sendAll(ev).then((r) => { rec.push = r.summary; this.emit('history', rec); }, (e) => { rec.push = `push failed (${e.message})`; })
-      : null;
-    if (d.discord && type.discordBy !== 'module') {
-      const hook = this.prefs.webhookFor(moduleId);
-      if (!hook) rec.discord = 'no webhook';
-      else {
-        const r = await this.sendDiscord(hook.url, ev);
-        rec.discord = r.ok ? 'sent' : `failed (${r.status || r.error})`;
-      }
-      this.emit('history', rec);
+    if (state === 'update') {
+      this.inbox.addUpdate(moduleId, d, type);
+      return { ...base, app: 'update', discord: 'off' };
     }
-    if (pushing) await pushing;
-    return rec;
+    const { item, raised } = this.inbox.raise(moduleId === 'console' ? 'console' : moduleId, d, type);
+    await this.settled();
+    if (!raised) return { ...base, app: 'open', discord: 'off' };
+    const dl = item.delivery || {};
+    const sent = this.history.find((r) => r.key === key && r.at >= base.at);
+    return {
+      ...base,
+      ...(sent?.push ? { push: sent.push } : {}),
+      app: dl.why || (dl.toast ? 'sent' : 'inbox'),
+      discord: dl.discord ? (type.discordBy === 'module' ? 'by module' : 'sent') : (type.discordBy === 'module' && effective(this.prefs.get(), type).discord ? 'by module' : 'off'),
+      route: item.route,
+    };
   }
 
   #route(moduleId, raw, type) {
@@ -453,15 +573,18 @@ export class NotifyCenter extends EventEmitter {
       if (!m.enabled) continue;
       const ready = m.status === 'ready' || m.status === 'degraded';
       const h = this.health.get(m.id) || { ready: null, misses: 0, announced: false };
+      const key = itemKey('console', 'console.module-down', m.id);
       if (h.ready === null) { this.health.set(m.id, { ready, misses: 0, announced: false }); continue; }
       if (ready) {
-        if (h.announced) this.handle('console', { id: 'console.module-down', module: m.id, title: `${m.manifest?.name || m.name} is back`, body: 'The module is responding again.', tag: `module:${m.id}:up` }).catch(() => {});
+        // Back: the item resolves, silently. "X is back" is not news worth a buzz.
+        if (h.announced) this.inbox.resolve(key);
         this.health.set(m.id, { ready: true, misses: 0, announced: false });
       } else {
         h.misses += 1;
-        if (h.misses === 2 && !h.announced) {
+        if (h.misses === 2 && !h.announced && !this.quietOffline.has(m.id)) {
           h.announced = true;
-          this.handle('console', { id: 'console.module-down', module: m.id, title: `${m.manifest?.name || m.name} is unreachable`, body: m.reason || 'The module stopped responding.', tag: `module:${m.id}:down` }).catch(() => {});
+          // eslint-disable-next-line no-await-in-loop
+          await this.handle('console', { id: 'console.module-down', module: m.id, key: m.id, title: `${m.manifest?.name || m.name} is not responding`, body: m.reason || 'The module stopped responding.', severity: 'warn', action: 'Open' });
         }
         h.ready = false;
         this.health.set(m.id, h);
@@ -469,53 +592,76 @@ export class NotifyCenter extends EventEmitter {
     }
   }
 
+  /**
+   * Every module's overview alerts, through the inbox's hold-to-raise and
+   * clear-to-resolve. An alert may carry `key` (stable subject), `notify`
+   * (its kind), `title`/`body`, `action`, `view`/`route`. Without a key the
+   * subject is the text with its numbers masked, so "98 °C" and "99 °C" are
+   * the same alert.
+   */
   async checkAlerts() {
     const cat = this.catalogue();
     for (const g of cat) {
-      const watch = g.types.some((t) => t.id === `${g.module}.alert`) || g.types.some((t) => t.fromAlerts);
-      if (!watch) continue;
+      if (g.module === 'console') continue;
       const m = this.registry.get(g.module);
-      if (!m || m.status !== 'ready') continue;
+      if (!m || m.status !== 'ready' || !(m.manifest?.capabilities || []).includes('summary')) continue;
       // eslint-disable-next-line no-await-in-loop
       const r = await this.#moduleRequest(m, '/api/summary', undefined, 8000);
       if (!r.ok || !r.json) continue;
       const list = Array.isArray(r.json.alerts) ? r.json.alerts : [];
-      const st = this.alerts.get(g.module) || { seen: new Map(), baseline: true };
-      const now = new Map();
+      const types = new Map(g.types.map((t) => [t.id, t]));
+      const alerts = [];
       for (const a of list) {
-        const text = String(a?.text || '').slice(0, 300);
+        const text = String(a?.title || a?.text || '').slice(0, 300);
         if (!text) continue;
-        // A module can give an alert a stable key, so one whose words change
-        // (a data plan at 91%, then 92%) is still the same alert.
-        const k = typeof a.key === 'string' && a.key ? `k:${a.key}` : text;
-        const prev = st.seen.get(k);
-        const count = (prev?.count || 0) + 1;
-        now.set(k, { count, sent: prev?.sent || false });
-        // Present on two polls in a row, and not already there when the
-        // console started: a flicker is not news, and neither is a reboot.
-        if (count === 2 && !st.baseline && !prev?.sent) {
-          now.get(k).sent = true;
-          const id = typeof a.notify === 'string' && a.notify.startsWith(`${g.module}.`) ? a.notify : `${g.module}.alert`;
-          this.handle(g.module, { id, title: g.name, body: text, tag: `${id}:${k}`, severity: sevOf(a.severity), view: a.view }).catch(() => {});
-        }
-        if (st.baseline) now.get(k).sent = true;
+        const kind = typeof a.notify === 'string' && types.has(a.notify) ? a.notify
+          : typeof a.kind === 'string' && types.has(`${g.module}.${a.kind}`) ? `${g.module}.${a.kind}` : `${g.module}.alert`;
+        const subject = typeof a.key === 'string' && a.key ? a.key : subjectOf(text);
+        const type = types.get(kind);
+        alerts.push({
+          key: itemKey(g.module, kind, subject),
+          kind,
+          title: text,
+          body: String(a.body || (a.title && a.text && a.text !== a.title ? a.text : '') || '').slice(0, 600),
+          severity: a.severity === 'err' ? 'critical' : SEVERITIES.includes(a.severity) ? a.severity : sevOf(a.severity),
+          blocking: a.blocking === true || !!type?.blocking,
+          route: this.#route(g.module, a, type || {}),
+          action: typeof a.action === 'string' ? a.action.slice(0, 24) : undefined,
+        });
       }
-      this.alerts.set(g.module, { seen: now, baseline: false });
+      this.inbox.observeModule(g.module, alerts, types, { moduleName: g.name });
+      // eslint-disable-next-line no-await-in-loop
+      await this.settled();
     }
   }
 
   /* ── lifecycle ───────────────────────────────────────────────────── */
 
+  /**
+   * NOTIFY=local (development in front of live modules): read-only. Polls
+   * summaries and health into the inbox and streams it to open consoles, but
+   * never subscribes to module streams, never posts settings to modules, and
+   * never sends Discord or Web Push.
+   */
+  startLocal() {
+    this.localOnly = true;
+    const every = (ms, fn) => { const t = setInterval(() => { fn().catch?.(() => {}); }, ms); t.unref?.(); this.timers.push(t); };
+    every(20_000, () => this.checkHealth());
+    every(30_000, () => this.checkAlerts());
+    setTimeout(() => { this.checkHealth(); this.checkAlerts().catch(() => {}); }, 2000).unref?.();
+  }
+
   start() {
     const every = (ms, fn) => { const t = setInterval(() => { fn().catch?.(() => {}); }, ms); t.unref?.(); this.timers.push(t); };
     // The registry polls every 20 s; follow it.
     every(20_000, async () => { this.syncLinks(); await this.checkHealth(); });
-    every(60_000, () => this.checkAlerts());
+    every(30_000, () => this.checkAlerts());
     every(10 * 60_000, () => this.pushPrefs());
     setTimeout(() => { this.syncLinks(); this.checkHealth(); this.checkAlerts().catch(() => {}); }, 3000).unref?.();
   }
 
   stop() {
+    try { this.inbox.save(); } catch { /* best effort */ }
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
     for (const id of [...this.links.keys()]) this.#unsubscribe(id);

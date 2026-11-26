@@ -6,7 +6,8 @@
  *     quiet:   { on, from: 'HH:MM', to: 'HH:MM', critical: bool },
  *     discord: { default: '<webhook id>', modules: { <moduleId>: '<webhook id>' } },
  *     webhooks: [{ id, name, url }],          // added on the page
- *     types:   { <typeId>: { app, discord, cooldownMin, params } },
+ *     types:   { <typeId>: { channel: toast|inbox|off, discord, cooldownMin, params } },
+ *     theme:   'dark' | 'light' | 'system'   (applies to every device)
  *   }
  *
  * Webhooks also come from the environment, so the URLs already configured on
@@ -22,15 +23,16 @@
 
 import { readFileSync, writeFileSync, renameSync, chmodSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { toMin } from './policy.js';
+import { toMin, CHANNELS } from './policy.js';
 
 const WEBHOOK_RE = /^https:\/\/(?:[a-z0-9-]+\.)?(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 export const DEFAULTS = {
-  quiet: { on: true, from: '23:00', to: '07:00', critical: true },
+  quiet: { on: true, from: '23:00', to: '07:30', critical: true },
   discord: { default: null, modules: {} },
   webhooks: [],
   types: {},
+  theme: 'dark',
 };
 
 export function envWebhooks(env = process.env) {
@@ -87,6 +89,7 @@ export function normalize(raw = {}, base = DEFAULTS) {
       .map((w) => ({ id: /^w[a-f0-9]{6,}$/.test(w.id || '') ? w.id : `w${randomBytes(4).toString('hex')}`, name: String(w.name || 'Webhook').slice(0, 40), url: w.url.trim() }))
       .slice(0, 10);
   }
+  if (['dark', 'light', 'system'].includes(raw.theme)) s.theme = raw.theme;
   if (raw.types && typeof raw.types === 'object') {
     s.types = { ...s.types };
     for (const [id, t] of Object.entries(raw.types)) {
@@ -94,6 +97,8 @@ export function normalize(raw = {}, base = DEFAULTS) {
       const cur = s.types[id] || {};
       const next = { ...cur };
       if (typeof t.app === 'boolean') next.app = t.app;
+      if (CHANNELS.includes(t.channel)) { next.channel = t.channel; delete next.app; }
+      else if (t.channel === null) delete next.channel;
       if (typeof t.discord === 'boolean') next.discord = t.discord;
       if (t.cooldownMin === null) delete next.cooldownMin;
       else if (t.cooldownMin !== undefined) next.cooldownMin = clampInt(t.cooldownMin, 0, 1440, 5);
@@ -175,6 +180,7 @@ export class PrefsStore {
       discord: { default: d.discord.default, modules: d.discord.modules },
       webhooks: this.webhooks().map((w) => ({ id: w.id, name: w.name, source: w.source, hint: hint(w.url) })),
       types: d.types,
+      theme: d.theme,
     };
   }
 }

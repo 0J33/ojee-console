@@ -16,9 +16,11 @@ const NIGHT = Date.parse('2026-10-08T20:30:00Z');
 const type = { id: 'health.battery', severity: 'warn', defaultChannels: ['app'], params: [{ key: 'threshold', default: 20 }] };
 
 test('policy: defaults, choices, params', () => {
-  assert.deepEqual(effective({}, type), { app: true, discord: false, cooldownMin: 5, params: { threshold: 20 } });
+  assert.deepEqual(effective({}, type), { app: true, discord: false, cooldownMin: 5, params: { threshold: 20 }, channel: 'inbox' });
   const p = { types: { 'health.battery': { app: false, discord: true, cooldownMin: 0, params: { threshold: 30 } } } };
-  assert.deepEqual(effective(p, type), { app: false, discord: true, cooldownMin: 0, params: { threshold: 30 } });
+  assert.deepEqual(effective(p, type), { app: false, discord: true, cooldownMin: 0, params: { threshold: 30 }, channel: 'off' }, 'the old "app: false" still means off');
+  assert.equal(effective({}, { ...type, blocking: true }).channel, 'toast', 'blocking kinds toast by default');
+  assert.equal(effective({ types: { 'health.battery': { channel: 'toast' } } }, type).channel, 'toast');
   assert.equal(toMin('23:00'), 1380);
   assert.equal(toMin('25:00'), null);
 });
@@ -54,7 +56,7 @@ test('prefs: validated, saved 0600, webhook URLs never in the public view', () =
   const id = s.addWebhook({ name: 'Mine', url: `${HOOK}3` });
   s.patch({ quiet: { from: '22:30' }, discord: { modules: { agent: 'env:claude' } }, types: { 'health.battery': { discord: true, params: { threshold: 25 } }, 'BAD id': { app: true } } });
   assert.equal(s.get().quiet.from, '22:30');
-  assert.equal(s.get().quiet.to, '07:00', 'the rest of quiet hours is kept');
+  assert.equal(s.get().quiet.to, '07:30', 'the rest of quiet hours is kept');
   assert.equal(s.get().types['health.battery'].params.threshold, 25);
   assert.equal(s.get().types['BAD id'], undefined);
   assert.equal(s.webhookFor('agent').id, 'env:claude');
@@ -102,14 +104,14 @@ function rig({ mods, prefs = {}, now = NOON, summaries = {} } = {}) {
 const healthMod = {
   id: 'health',
   manifest: { name: 'Health', icon: 'i-heart', capabilities: ['summary', 'sse', 'notify'], notifications: [
-    { id: 'health.illness', label: 'Illness', severity: 'warn', defaultChannels: ['app', 'discord'], view: 'today' },
+    { id: 'health.illness', label: 'Illness', severity: 'warn', channel: 'toast', defaultChannels: ['app', 'discord'], view: 'today' },
     { id: 'health.battery', label: 'Battery', severity: 'warn', defaultChannels: ['app'], params: [{ key: 'threshold', type: 'number', default: 20 }] },
     { id: 'fleet.sneaky', label: 'Not mine' },
   ] },
 };
 const homeMod = { id: 'home', manifest: { name: 'Home', capabilities: ['summary', 'sse'] } };
 const agentMod = { id: 'agent', manifest: { name: 'Agent', capabilities: ['summary', 'sse', 'notify'], notifications: [
-  { id: 'agent.claude-needs-input', label: 'Needs input', defaultChannels: ['app', 'discord'], discordBy: 'module' },
+  { id: 'agent.claude-needs-input', label: 'Needs input', blocking: true, defaultChannels: ['app', 'discord'], discordBy: 'module' },
 ] } };
 
 test('catalogue: declared types, a module cannot declare another module\'s, overview alerts for the rest', () => {
@@ -117,7 +119,7 @@ test('catalogue: declared types, a module cannot declare another module\'s, over
   const cat = c.catalogue();
   assert.deepEqual(cat.map((g) => g.module), ['console', 'health', 'home', 'agent']);
   const h = cat.find((g) => g.module === 'health');
-  assert.deepEqual(h.types.map((t) => t.id), ['health.illness', 'health.battery', 'health.other']);
+  assert.deepEqual(h.types.map((t) => t.id), ['health.illness', 'health.battery', 'health.other', 'health.alert']);
   assert.deepEqual(cat.find((g) => g.module === 'home').types.map((t) => t.id), ['home.alert']);
   assert.equal(cat.find((g) => g.module === 'agent').types[0].discordBy, 'module');
 });
@@ -139,14 +141,15 @@ test('routing: a type switched off, quiet hours, cooldown; an unknown id falls b
   await c.handle('health', { id: 'health.illness', title: 'x', tag: 't' });
   assert.equal(app.length, 1); assert.equal(posts.length, 0);
   const r2 = await c.handle('health', { id: 'health.illness', title: 'x', tag: 't' });
-  assert.equal(r2.app, 'cooldown');
+  assert.equal(r2.app, 'open', 'still open: one item, no second notification');
+  assert.equal(app.length, 1);
   set(NIGHT);
-  const r3 = await c.handle('health', { id: 'health.battery', title: 'low', tag: 'b' });
+  const r3 = await c.handle('health', { id: 'health.illness', title: 'low', tag: 'b' });
   assert.equal(r3.app, 'quiet');
   set(NOON);
-  const r4 = await c.handle('health', { id: 'nonsense', title: 'hello' });
+  const r4 = await c.handle('health', { id: 'nonsense', title: 'hello', severity: 'warn' });
   assert.equal(r4.id, 'health.other');
-  const r5 = await c.handle('health', { id: 'fleet.sneaky', title: 'spoof' });
+  const r5 = await c.handle('health', { id: 'fleet.sneaky', title: 'spoof', severity: 'warn' });
   assert.equal(r5.id, 'health.other', 'a module cannot speak for another');
 });
 
@@ -158,22 +161,25 @@ test('routing: a type the module sends to Discord itself is not sent twice', asy
   assert.equal(app.length, 1);
 });
 
-test('overview alerts: new and still there a poll later; not what was there at start; re-armed when cleared', async () => {
+test('overview alerts: hold two polls to raise; what was there at the first look is quiet; inbox-only by default', async () => {
   let alerts = [{ text: 'AC: offline', severity: 'err', view: 'devices' }];
   const { c, app } = rig({ mods: [homeMod], summaries: { home: () => ({ alerts }) } });
-  await c.checkAlerts(); await c.checkAlerts();
-  assert.equal(app.length, 0, 'present at start: baseline');
+  await c.checkAlerts();
+  assert.equal(c.inboxSnapshot().open.length, 1, 'already wrong at the first look: in the inbox, silently');
+  assert.equal(app.length, 0);
   alerts = [];
   await c.checkAlerts();
-  alerts = [{ text: 'AC: offline', severity: 'err', view: 'devices' }];
+  assert.equal(c.inboxSnapshot().open.length, 1, 'one clear poll does not resolve it');
+  c.prefs.patch({ types: { 'home.alert': { channel: 'toast' } } });
+  alerts = [{ text: 'Hub: offline', severity: 'warn' }];
   await c.checkAlerts();
   assert.equal(app.length, 0, 'one poll is a flicker');
   await c.checkAlerts();
   assert.equal(app.length, 1);
   assert.equal(app[0].id, 'home.alert');
-  assert.equal(app[0].route, '#/home/devices');
+  assert.equal(app[0].route, '#/home');
   await c.checkAlerts();
-  assert.equal(app.length, 1, 'once per appearance');
+  assert.equal(app.length, 1, 'once per raise');
 });
 
 test('module health: down after two misses, back once', async () => {
@@ -183,10 +189,14 @@ test('module health: down after two misses, back once', async () => {
   m.status = 'unreachable'; await c.checkHealth();
   assert.equal(app.length, 0);
   await c.checkHealth();
-  assert.equal(app.length, 1);
-  assert.match(app[0].title, /Home is unreachable/);
+  const open = c.inboxSnapshot().open;
+  assert.equal(open.length, 1);
+  assert.match(open[0].title, /Home is not responding/);
+  assert.equal(open[0].route, '#/home');
+  assert.equal(app.length, 0, 'inbox only: a module down is not a toast');
   m.status = 'ready'; await c.checkHealth();
-  assert.match(app[1].title, /Home is back/);
+  assert.equal(c.inboxSnapshot().open.length, 0, 'back: resolved, silently');
+  assert.equal(c.inboxSnapshot().resolved.length, 1);
 });
 
 test('prefs are pushed to notify modules, signed, with defaults filled in', async () => {
@@ -217,10 +227,13 @@ test('overview alerts with a stable key are one alert while their words change; 
     { id: 'router.data-plan', label: 'Data plan', severity: 'warn', defaultChannels: ['app'], source: 'alerts' },
   ] } };
   let pct = 90;
-  const { c, app } = rig({ mods: [router], summaries: { router: () => ({ alerts: pct ? [{ text: `data plan ${pct}% used`, severity: 'warn', notify: 'router.data-plan', key: 'data-plan' }] : [] }) } });
+  const { c, app } = rig({ mods: [router], prefs: { types: { 'router.data-plan': { channel: 'toast' } } }, summaries: { router: () => ({ alerts: pct ? [{ text: `data plan ${pct}% used`, severity: 'warn', notify: 'router.data-plan', key: 'data-plan' }] : [] }) } });
   pct = 0; await c.checkAlerts();
   pct = 90; await c.checkAlerts(); pct = 91; await c.checkAlerts(); pct = 92; await c.checkAlerts();
   assert.equal(app.length, 1);
   assert.equal(app[0].id, 'router.data-plan');
-  assert.equal(app[0].body, 'data plan 91% used');
+  assert.equal(app[0].title, 'data plan 91% used');
+  const open = c.inboxSnapshot().open;
+  assert.equal(open.length, 1);
+  assert.equal(open[0].title, 'data plan 92% used', 'the same item, with the newest words');
 });

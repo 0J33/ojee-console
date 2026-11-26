@@ -23,6 +23,12 @@
    Per device, it can be switched off here (localStorage) without
    touching the shared settings. Two tabs of one browser show an
    event once: they agree through localStorage which one does.
+
+   The stream also carries the INBOX (event: inbox), first on connect
+   and then on every change. A reconnect is never a replay: coming back
+   to the app shows the inbox as it is, not a burst of old toasts.
+   Only raises the server marked toast-worthy (blocking kinds, or kinds
+   the person set to "Toast") arrive as `notify`.
    ============================================================ */
 
 import * as nativeBridge from '/native.js';
@@ -31,6 +37,7 @@ const KEY_ON = 'ojee.notify.device';
 const KEY_SEEN = 'ojee.notify.seen';
 const me = Math.random().toString(36).slice(2);
 const historyFns = new Set();
+const inboxFns = new Set();
 let source = null;
 let toastFn = () => {};
 let attempt = 0;
@@ -61,6 +68,7 @@ export async function requestPermission() {
 }
 
 export function onHistory(fn) { historyFns.add(fn); return () => historyFns.delete(fn); }
+export function onInbox(fn) { inboxFns.add(fn); return () => inboxFns.delete(fn); }
 export const connected = () => !!source && source.readyState === 1;
 
 /** Only one tab of this browser shows a given event. */
@@ -115,7 +123,7 @@ async function show(ev) {
       return;
     } catch { /* some browsers only allow it from a service worker — fall through */ }
   }
-  toastFn(level, ev.title, ev.body || '');
+  toastFn(ev);
 }
 
 /* ── Web Push ───────────────────────────────────────────────────── */
@@ -257,10 +265,10 @@ export function start({ toast } = {}) {
     });
   }
   const connect = () => {
-    const since = Number(store.get(KEY_SEEN)) || 0;
-    source = new EventSource(`/api/notify/stream${since ? `?since=${since}` : ''}`);
+    source = new EventSource('/api/notify/stream');
     source.addEventListener('open', () => { attempt = 0; });
     source.addEventListener('notify', (e) => { try { show(JSON.parse(e.data)); } catch { /* malformed */ } });
+    source.addEventListener('inbox', (e) => { try { const snap = JSON.parse(e.data); for (const fn of inboxFns) fn(snap); } catch { /* malformed */ } });
     source.addEventListener('history', (e) => { try { const r = JSON.parse(e.data); for (const fn of historyFns) fn(r); } catch { /* malformed */ } });
     source.addEventListener('error', () => {
       // EventSource retries by itself, but not after a 401 or a dead proxy;

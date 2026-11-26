@@ -155,7 +155,7 @@ test('delivery: a dropped connection is retried once; an answer is never retried
   assert.match(r.summary, /ECONNREFUSED/);
 });
 
-test('router → push: one decision, every device; cooldown, quiet hours and "off" send nothing; logged in Recent', async () => {
+test('router → push: one decision, every device; an open item, quiet hours and inbox-only send nothing; logged in Recent', async () => {
   const vapid = loadVapid(join(mkdtempSync(join(tmpdir(), 'ojc-push-')), 'vapid.json'));
   const svc = fakePushService();
   let clock = NOON;
@@ -165,7 +165,7 @@ test('router → push: one decision, every device; cooldown, quiet hours and "of
   push.add(phone.sub, { label: 'iPhone (Home Screen)' });
   push.add(desk.sub, { label: 'Chrome on Linux' });
   const mod = { id: 'health', enabled: true, status: 'ready', origin: 'http://health', manifest: { name: 'Health', capabilities: ['notify'], notifications: [
-    { id: 'health.illness', label: 'Illness', severity: 'warn', defaultChannels: ['app'] },
+    { id: 'health.illness', label: 'Illness', severity: 'warn', channel: 'toast' },
     { id: 'health.battery', label: 'Battery', severity: 'info', defaultChannels: ['discord'] },
   ] } };
   const registry = { list: () => [mod], get: (id) => (id === 'health' ? mod : null) };
@@ -183,8 +183,8 @@ test('router → push: one decision, every device; cooldown, quiet hours and "of
   assert.equal(c.history[0].push, 'push 2 sent');
 
   const again = await c.handle('health', { id: 'health.illness', title: 'Possible illness', tag: 'd1' });
-  assert.equal(again.app, 'cooldown');
-  assert.equal(svc.calls.length, 2, 'cooldown: no push');
+  assert.equal(again.app, 'open', 'the same item, still open: updated, not re-sent');
+  assert.equal(svc.calls.length, 2, 'one event, one notification: no second push');
 
   clock = NIGHT;
   const quiet = await c.handle('health', { id: 'health.illness', title: 'Night', tag: 'd2' });
@@ -196,7 +196,7 @@ test('router → push: one decision, every device; cooldown, quiet hours and "of
 
   clock = NOON + 3600_000;
   await c.handle('health', { id: 'health.battery', title: 'Battery low', tag: 'b' });
-  assert.equal(svc.calls.length, 4, 'App off for the type: no push');
+  assert.equal(svc.calls.length, 4, 'an inbox-only kind never pushes');
 
   // The page's tests.
   const t = await c.testApp(0);

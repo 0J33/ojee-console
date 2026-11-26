@@ -39,6 +39,17 @@ export function inQuiet(quiet, now, tz) {
   return a < b ? m >= a && m < b : m >= a || m < b;
 }
 
+/** Delivery for a kind: toast (+ inbox + push), inbox only, or off. */
+export const CHANNELS = ['toast', 'inbox', 'off'];
+
+/** The kind's default channel: what it declares, else toast for blocking kinds and inbox for the rest. */
+export function defaultChannel(type) {
+  if (CHANNELS.includes(type?.channel)) return type.channel;
+  if (type?.blocking) return 'toast';
+  const ch = Array.isArray(type?.defaultChannels) ? type.defaultChannels : ['app'];
+  return ch.includes('app') ? 'inbox' : (ch.length ? 'inbox' : 'off');
+}
+
 /** One type's settings: what was chosen, else the catalogue's default. */
 export function effective(prefs, type) {
   const p = prefs?.types?.[type.id] || {};
@@ -48,11 +59,17 @@ export function effective(prefs, type) {
     : (Number.isFinite(type.cooldownMin) ? type.cooldownMin : DEFAULT_COOLDOWN_MIN);
   const params = {};
   for (const x of type.params || []) params[x.key] = x.default;
+  // `channel` is the 2026-11 setting; `app: false` is how the older page said "off".
+  let channel = CHANNELS.includes(p.channel) ? p.channel : defaultChannel(type);
+  if (p.app === false && !CHANNELS.includes(p.channel)) channel = 'off';
+  if (p.app === true && !CHANNELS.includes(p.channel) && channel === 'off') channel = 'inbox';
+  const discordDefault = typeof type.discord === 'boolean' ? type.discord : ch.includes('discord');
   return {
-    app: typeof p.app === 'boolean' ? p.app : ch.includes('app'),
-    discord: typeof p.discord === 'boolean' ? p.discord : ch.includes('discord'),
+    app: channel !== 'off',
+    discord: typeof p.discord === 'boolean' ? p.discord : discordDefault,
     cooldownMin: cd,
     params: { ...params, ...(p.params && typeof p.params === 'object' ? p.params : {}) },
+    channel,
   };
 }
 
@@ -70,7 +87,10 @@ export function decide(prefs, type, ev, { now = Date.now(), tz, last = new Map()
   const out = (app, discord, why) => ({ app, discord, why, key });
   if (!t.app && !t.discord) return out(false, false, 'off');
   const sev = SEVERITIES.includes(ev.severity) ? ev.severity : (type.severity || 'info');
-  if (inQuiet(prefs?.quiet, now, tz) && !(sev === 'critical' && prefs?.quiet?.critical)) return out(false, false, 'quiet');
+  // Quiet hours hold everything back except what blocks you (a question you
+  // must answer, sustained critical heat) — and, when allowed, critical items.
+  const breaks = prefs?.quiet?.critical !== false && (ev.blocking || type.blocking || sev === 'critical');
+  if (inQuiet(prefs?.quiet, now, tz) && !breaks) return out(false, false, 'quiet');
   const prev = last.get(key);
   if (prev && t.cooldownMin > 0 && now - prev < t.cooldownMin * 60_000) return out(false, false, 'cooldown');
   last.set(key, now);
