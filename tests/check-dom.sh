@@ -294,7 +294,9 @@ axe=$(node -e '
   const fs = require("fs");
   let j; try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch { console.log("unparsed"); process.exit(0); }
   const d = j.data || j;
-  const v = d.violations || [];
+  // meta-viewport: zoom is off on purpose (owner request 2026-11-26: no zoom in
+  // or out on the phone; inputs are 16px so focus never needs it). Accepted.
+  const v = (d.violations || []).filter((x) => x.id !== "meta-viewport");
   console.log(v.length ? "VIOLATION " + v.map(x => `${x.id}[${x.impact}]:${x.nodeCount}`).join(" ") : "clean");
 ' "$TMP/axe.json" 2>/dev/null)
 # As in ojee-ui: axe cannot resolve contrast over a gradient root, so it
