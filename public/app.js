@@ -554,6 +554,7 @@ function paletteItems() {
     { group: 'Console', label: 'Devices and sessions', hint: 'trusted devices', icon: 'i-shield', href: '#/settings/devices' },
     { group: 'Console', label: 'Re-check modules', hint: 'health probe', icon: 'i-refresh', run: async () => { await refreshModules({ force: true }); renderChrome(); route(); } },
     { group: 'Console', label: 'Settings', hint: 'all', icon: 'i-sliders', href: '#/settings' },
+    { group: 'Console', label: 'Layout diagnostics', hint: 'screen, safe area, bars', icon: 'i-monitor', run: () => layoutDiag() },
   );
   return out;
 }
@@ -884,3 +885,42 @@ window.addEventListener('hashchange', () => route());
 boot();
 
 export { toast, modal, icon, esc, relTime, placeSegs };
+
+
+/* ── layout diagnostics: what the device actually reports ─────────────
+   Opened from the palette. A fixed box with the numbers behind the bottom
+   bar's position (window and screen heights, safe-area insets measured with
+   a probe element, frame and bar rectangles), refreshed while it is open. */
+function layoutDiag() {
+  let box = document.getElementById('layout-diag');
+  if (box) { box.remove(); return; }
+  box = document.createElement('div');
+  box.id = 'layout-diag';
+  box.style.cssText = 'position:fixed;z-index:9999;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));background:rgba(0,0,0,.88);color:#7ef;font:12px/1.45 ui-monospace,monospace;padding:10px 12px;border:1px solid #2fd8ee;border-radius:8px;white-space:pre-wrap;pointer-events:auto';
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.append(probe, box);
+  const r = (el) => { if (!el) return '-'; const b = el.getBoundingClientRect(); return `top ${Math.round(b.top)} bottom ${Math.round(b.bottom)} h ${Math.round(b.height)}`; };
+  const paint = () => {
+    const ps = getComputedStyle(probe); const tb = document.getElementById('tabbar'); const tbs = tb ? getComputedStyle(tb) : null;
+    const vv = window.visualViewport;
+    box.textContent = [
+      `standalone ${matchMedia('(display-mode: standalone)').matches} · navigator.standalone ${navigator.standalone}`,
+      `innerHeight ${innerHeight} · outerHeight ${outerHeight} · clientHeight ${document.documentElement.clientHeight}`,
+      `screen ${screen.width}x${screen.height} · dpr ${devicePixelRatio}`,
+      `visualViewport h ${vv ? Math.round(vv.height) : '-'} offsetTop ${vv ? Math.round(vv.offsetTop) : '-'}`,
+      `--app-h ${getComputedStyle(document.documentElement).getPropertyValue('--app-h') || '-'}`,
+      `safe-area t ${ps.paddingTop} r ${ps.paddingRight} b ${ps.paddingBottom} l ${ps.paddingLeft}`,
+      `shell ${r(document.getElementById('app'))}`,
+      `tabbar ${r(tb)} · padding-bottom ${tbs ? tbs.paddingBottom : '-'}`,
+      `main ${r(document.getElementById('main'))}`,
+      `body ${r(document.body)} · html ${r(document.documentElement)}`,
+      `scrollY ${Math.round(scrollY)} · doc scrollH ${document.scrollingElement.scrollHeight}`,
+      `UA ${navigator.userAgent.replace(/^Mozilla\/5.0 /, '').slice(0, 120)}`,
+      'tap to close',
+    ].join('\n');
+  };
+  paint();
+  const t = setInterval(paint, 500);
+  box.addEventListener('click', () => { clearInterval(t); box.remove(); probe.remove(); });
+}
