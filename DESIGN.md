@@ -1,483 +1,433 @@
 ---
-name: ojee.console — Instrument Panel (ojee-ui v2)
-description: A private control console drawn as a monochrome instrument panel — white on black, one mono face, colour only for state.
+name: ojee.console (ojee-ui v3)
+description: A personal control console drawn as a modern tech product; dark is the hero, light is first-class, neutral greys with one electric-cyan accent and colour otherwise only for status.
 colors:
-  ground: "#000000"
-  lift: "#0a0a0a"
-  panel: "rgba(255, 255, 255, 0.03)"
-  tint-2: "rgba(255, 255, 255, 0.05)"
-  tint-3: "rgba(255, 255, 255, 0.12)"
-  scrim: "rgba(0, 0, 0, 0.80)"
-  ink: "#ffffff"
-  ink-2: "#b3b3b3"
-  dim: "#8a8a8a"
-  on-accent: "#000000"
-  line: "rgba(255, 255, 255, 0.12)"
-  line-2: "#1c1c1c"
-  line-strong: "#6a6a6a"
-  line-hover: "#9a9a9a"
-  accent: "#ffffff"
-  accent-08: "rgba(255, 255, 255, 0.08)"
-  accent-03: "rgba(255, 255, 255, 0.03)"
-  ok: "#5fc26e"
-  warn: "#d1a03a"
-  err: "#e05555"
-  err-line: "rgba(224, 85, 85, 0.55)"
-  err-wash: "rgba(224, 85, 85, 0.10)"
-  chart-1: "#ffffff"
-  chart-2: "#d4d4d4"
-  chart-3: "#b0b0b0"
-  chart-4: "#909090"
-  chart-5: "#757575"
-  chart-6: "#5e5e5e"
-  chart-7: "#4a4a4a"
-  chart-8: "#3a3a3a"
-  cell-0: "#141414"
-  cell-1: "#2e2e2e"
-  cell-2: "#5c5c5c"
+  page: "#0a0a0a"
+  panel: "#111112"
+  raised: "#18181a"
+  hover: "#1c1c1e"
+  line: "#232325"
+  line-2: "#2f2f32"
+  fg: "#ededef"
+  fg-2: "#a3a3aa"
+  fg-3: "#8a8a92"
+  inv-fg: "#0a0a0a"
+  scrim: "rgba(0,0,0,.5)"
+  accent: "#2fd8ee"
+  on-accent: "#04141a"
+  ok: "#3fcf7f"
+  warn: "#f2b13c"
+  err: "#ff6262"
+  page-light: "#fafafa"
+  panel-light: "#ffffff"
+  raised-light: "#f4f4f5"
+  hover-light: "#f0f0f1"
+  line-light: "#e9e9eb"
+  line-2-light: "#dcdcdf"
+  fg-light: "#0b0b0c"
+  fg-2-light: "#56565c"
+  fg-3-light: "#6b6b72"
+  inv-fg-light: "#fafafa"
+  scrim-light: "rgba(10,10,12,.32)"
+  accent-light: "#0e7490"
+  ok-light: "#15803d"
+  warn-light: "#b45309"
+  err-light: "#d92d20"
+  term: "#080808"
+  term-light: "#0c0c0d"
+  term-fg: "#d8d8dc"
+  term-2: "#8c8c94"
+  term-line: "#1d1d20"
+  term-ok: "#3fcf7f"
+  term-warn: "#f2b13c"
+  term-err: "#ff6262"
+  term-hl: "#2fd8ee"
 typography:
-  wordmark:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "1.4rem"
-    fontWeight: 400
-    lineHeight: 1.05
-    letterSpacing: "0.05em"
-  figures:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "clamp(3.2rem, 16.5vw, 6rem)"
-    fontWeight: 300
-    lineHeight: 0.9
-    letterSpacing: "-0.03em"
-    fontFeature: "tabular-nums"
-  headline:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "1rem"
-    fontWeight: 400
-    lineHeight: 1.35
-    letterSpacing: "normal"
+  page-title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.15
+    letterSpacing: "-0.025em"
+  dialog-title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 600
+    letterSpacing: "-0.01em"
+  section-title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+    letterSpacing: "-0.005em"
   body:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: "14px"
     fontWeight: 400
-    lineHeight: 1.6
-    letterSpacing: "normal"
-  reading:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "0.82rem"
+    lineHeight: 1.45
+    fontFeature: "ss01"
+  body-sm:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "normal"
-    fontFeature: "tabular-nums"
-  name:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "0.68rem"
+  control:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
+  meta:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "12.5px"
     fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "0.22em"
-  caseline:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "0.72rem"
-    fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "0.14em"
-  button:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "0.75rem"
-    fontWeight: 900
+  label:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11.5px"
+    fontWeight: 500
+  metric:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "15px"
+    fontWeight: 500
+    lineHeight: 1.2
+    letterSpacing: "-0.02em"
+    fontFeature: "tnum"
+  metric-lg:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "22px"
+    fontWeight: 500
+    letterSpacing: "-0.035em"
+    fontFeature: "tnum"
+  metric-xl:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "32px"
+    fontWeight: 500
+    letterSpacing: "-0.04em"
+    fontFeature: "tnum"
+  wordmark:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "15px"
+    fontWeight: 600
     lineHeight: 1
-    letterSpacing: "2px"
-  chrome:
-    fontFamily: "Geist Mono, ui-monospace, Menlo, monospace"
-    fontSize: "0.6rem"
+    letterSpacing: "-0.03em"
+  terminal:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "0.16em"
+    lineHeight: 1.6
+    letterSpacing: "-0.01em"
 rounded:
-  none: "0"
+  r-1: "4px"
+  r-2: "6px"
+  r-3: "8px"
+  r-4: "10px"
+  r-5: "14px"
 spacing:
   s-1: "4px"
   s-2: "8px"
-  s-3: "16px"
-  s-4: "24px"
-  s-5: "40px"
-  s-6: "64px"
+  s-3: "12px"
+  s-4: "16px"
+  s-5: "24px"
+  s-6: "32px"
+  page-x-narrow: "16px"
+  page-x-mid: "28px"
+  page-x-wide: "40px"
 components:
+  button:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.fg}"
+    typography: "{typography.control}"
+    rounded: "{rounded.r-2}"
+    padding: "0 12px"
+    height: "32px"
+  button-hover:
+    backgroundColor: "{colors.hover}"
+  button-sm:
+    rounded: "{rounded.r-2}"
+    padding: "0 10px"
+    height: "28px"
   button-primary:
+    backgroundColor: "{colors.fg}"
+    textColor: "{colors.inv-fg}"
+    rounded: "{rounded.r-2}"
+    padding: "0 12px"
+    height: "32px"
+  button-accent:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.on-accent}"
-    typography: "{typography.button}"
-    rounded: "{rounded.none}"
-    padding: "12px 24px"
-    height: "44px"
-  button-primary-hover:
-    backgroundColor: "transparent"
-    textColor: "{colors.accent}"
+    rounded: "{rounded.r-2}"
+    height: "32px"
   button-ghost:
     backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-    rounded: "{rounded.none}"
-    padding: "12px 24px"
-    height: "44px"
-  button-ghost-hover:
-    backgroundColor: "{colors.accent-03}"
-    textColor: "{colors.accent}"
+    textColor: "{colors.fg-2}"
+    rounded: "{rounded.r-2}"
+    height: "32px"
   button-danger:
-    backgroundColor: "transparent"
-    textColor: "{colors.err}"
-    typography: "{typography.button}"
-    rounded: "{rounded.none}"
-    padding: "12px 24px"
-  button-danger-hover:
-    backgroundColor: "{colors.err}"
-    textColor: "{colors.on-accent}"
-  input:
     backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "11px 14px"
-    height: "44px"
+    textColor: "{colors.err}"
+    rounded: "{rounded.r-2}"
+    height: "32px"
+  icon-button:
+    textColor: "{colors.fg-2}"
+    rounded: "{rounded.r-2}"
+    size: "32px"
+  input:
+    backgroundColor: "{colors.page}"
+    textColor: "{colors.fg}"
+    rounded: "{rounded.r-2}"
+    padding: "0 10px"
+    height: "32px"
+  tag:
+    textColor: "{colors.fg-2}"
+    typography: "{typography.label}"
+    rounded: "{rounded.r-1}"
+    padding: "0 6px"
+    height: "20px"
+  chip:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.fg-2}"
+    rounded: "{rounded.r-5}"
+    padding: "0 10px"
+    height: "28px"
+  chip-pressed:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.fg}"
+  segmented:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.fg-3}"
+    padding: "2px"
+    height: "32px"
+  segmented-indicator:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.fg}"
   panel:
     backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "{spacing.s-4}"
-  topbar:
-    backgroundColor: "{colors.ground}"
-    textColor: "{colors.ink-2}"
-    typography: "{typography.chrome}"
-    height: "56px"
-  sidenav-item:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-2}"
-    padding: "9px 10px"
-    height: "38px"
-  sidenav-item-active:
-    backgroundColor: "{colors.accent-08}"
-    textColor: "{colors.accent}"
-  sidenav:
-    width: "232px"
-  module-row:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.none}"
-    padding: "{spacing.s-3} 0"
-  toggle-pressed:
-    backgroundColor: "{colors.accent-08}"
-    textColor: "{colors.accent}"
-    rounded: "{rounded.none}"
+    rounded: "{rounded.r-3}"
+  row:
+    padding: "12px 16px"
+  nav-item:
+    textColor: "{colors.fg-2}"
+    rounded: "{rounded.r-2}"
+    padding: "0 8px"
+    height: "34px"
+  nav-item-active:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.fg}"
+  tab-bar-item:
+    textColor: "{colors.fg-3}"
+    height: "58px"
+  switch:
+    backgroundColor: "{colors.line-2}"
+    rounded: "{rounded.r-4}"
+    width: "36px"
+    height: "20px"
+  switch-on:
+    backgroundColor: "{colors.ok}"
+  popover:
+    backgroundColor: "{colors.panel}"
+    rounded: "{rounded.r-4}"
+  sheet-mobile:
+    backgroundColor: "{colors.panel}"
+    rounded: "{rounded.r-5}"
+  terminal:
+    backgroundColor: "{colors.term}"
+    textColor: "{colors.term-fg}"
+    typography: "{typography.terminal}"
+    padding: "14px 16px"
 ---
 
-# Design System: ojee.console — Instrument Panel (ojee-ui v2)
+# Design System: ojee.console (ojee-ui v3)
 
 ## Overview
 
-**Creative North Star: "The Instrument Panel"**
+**Creative North Star: "The Quiet Console"**
 
-The console is a monochrome instrument panel: a black field, white figures, grey
-legends, and a lamp that only lights when something is in a state. It replaces the
-Calibre world (cyan on near-black, a bloomed watch movement, brass/blued/ruby
-materials, three mono faces). Nothing here is lit for effect. The page is one flat
-black field, the chrome is opaque, and the only things that carry hue are a reading
-that reports state and content the console is showing rather than drawing — album
-art, a device's real LED colour, and the real colours of the physical objects the
-3D models depict.
+ojee.console is one person's control room for their machines, services and agents, drawn to the grade of Vercel, Cloudflare and Linear. It is a modern tech product, not a themed instrument: neutral grey planes separated by hairlines, a single electric-cyan accent that marks *where you are* and *what is focused*, and colour otherwise spent only on status (ok, warn, err). Dark is the hero theme and the one people see first; light is first-class and gets its own tuned values rather than an inversion. Everything is flat and two-dimensional: no 3D, no glass, no gradients as decoration.
 
-The home page is a status board read top to bottom in the order a glance needs it:
-what is wrong, then the clock and its rate, then one hairline-separated row per
-module with that module's 3D object drawn small at the row's end as identification.
-The objects are still white line art in one orthographic scene, but they no longer
-glow and no longer perform: bloom is off, they turn slowly and sway, and the word
-beside them always carries the fact.
+Density is high but calm. The body is 14px Geist with most chrome at 12.5–13px; every number, ID, time and the wordmark is set in Geist Mono with tabular figures so values never jitter while they update. Surfaces sit on a 4px grid, corners step through five small radii (4/6/8/10/14), and motion is short and decelerating (120–200ms on `--ease-out`, 260–380ms on `--ease-drawer` for things that travel in from an edge).
 
-The system is ojee-ui v2, shipped as `public/ojee-ui2.css`. It keeps v1's class
-contract so every consumer is a drop-in, and changes the world underneath it. v1
-(`public/ojee-ui.css`) stays in the repo **untouched** as the archive of the
-previous world and for everything not migrated: the native app's offline page
-(`native/www/`), the `themes/*.css` overlays (calibre, ember, paper), and the
-`ojee-ui` repo itself, which still ships only v1. Each module repo carries its own
-copy of `ojee-ui2.css` for its standalone page.
+The system lives in one vendored file, `public/ojee-ui3.css` (identical to the shared `ojee-ui/ojee-ui3.css`), plus self-hosted variable woff2 fonts and the `icons3.svg` sprite. `public/app.css` only places the shell's own pages. Modules never patch the shared file; they scope their own rules under their root.
 
 **Key Characteristics:**
-
-- Pure black ground (#000), opaque chrome, one flat field — no backdrop texture, no vignette.
-- White/grey ink ramp; the accent is white. No cosmetic colour anywhere.
-- Colour is state: ok green, warn amber, err red, and destructive actions take err.
-- One face, Geist Mono, at every size; the old `--pixel`/`--hud` tokens survive and resolve to it.
-- Zero radius on every box.
-- No glow, bloom, blur, or gradient wash; the glow tokens exist and are transparent.
-- Charts separate series by grey weight and end labels, never by hue.
+- Dark hero, first-class light; theme set by `<html data-theme>` or the OS.
+- Neutral greys plus one accent (cyan `#2fd8ee` dark / `#0e7490` light); status colours ok/warn/err are the only other hues.
+- Geist for UI, Geist Mono tabular for numbers, IDs, times and the wordmark.
+- 1px hairlines (`--line`, `--line-2`) do the structural work; shadows are light and reserved for things that float.
+- Radii 4/6/8/10/14, 4px grid, decelerating motion, no 3D.
+- Layout by container queries on `app` (the `<body>`): 700 / 1000 / 1200.
+- Lucide-style 16px line icons at stroke 1.75.
 
 ## Colors
 
-A luminance ladder from pure black to pure white, with three muted signal colours held
-back for state.
+A neutral grey stack in two tuned themes, one electric cyan accent, and three status hues; nothing else carries colour.
 
 ### Primary
-- **Panel White** (`{colors.accent}`): the one emphasis — selection, the focus ring,
-  the active nav entry, a pressed toggle, the primary button's face, the rate pointer,
-  the lit marks of the minute rail. Text placed on it is `{colors.on-accent}`.
-  `{colors.accent-08}` and `{colors.accent-03}` are its washes for an active row and a
-  hovered control.
+- **Electric Cyan** (`#2fd8ee` dark / `#0e7490` light, `--acc`): the current-location and focus colour. The active nav icon, the active view-tab underline, the active tab-bar icon, the selected palette item's icon, the wordmark's bold letter, focus rings (`2px solid`, offset 2px) and the input focus halo (22% cyan wash). Text on a filled cyan button is Deep Cyan Ink (`#04141a`). Text selection is a 30% cyan wash.
+- Alternate accents are opt-in via `data-accent`: orange (`#ff7a35` / `#c2410c`) and violet (`#a48bff` / `#6d3cf0`). They replace cyan wholesale; they never appear alongside it.
 
-### Tertiary (state only)
-- **Signal Green** (`{colors.ok}`), **Signal Amber** (`{colors.warn}`), **Signal Red**
-  (`{colors.err}`): muted from v1's neons — signals, not light sources. They appear only
-  on a status mark, an alert, a module headline in that state, a degraded top-bar
-  segment, a meter past its threshold, and destructive controls (`{colors.err-line}`
-  border at rest, a solid `{colors.err}` face on hover, `{colors.err-wash}` behind a
-  danger icon button). The `info` state is `{colors.ink-2}`: information is not a hue.
+### Status
+- **Signal Green** (`#3fcf7f` dark / `#15803d` light, `--ok`): healthy, done, switch-on.
+- **Amber** (`#f2b13c` dark / `#b45309` light, `--warn`): degraded, needs attention, a module that is down in nav.
+- **Alarm Red** (`#ff6262` dark / `#d92d20` light, `--err`): failure, destructive actions, unread badges.
+- Status tints are always `color-mix(in srgb, <status> 13–16%, transparent)` backgrounds with the status colour as text (tags, counts, severity squares). The confirm strip uses an 8% warn wash over the panel.
 
-### Neutral
-- **Ground** (`{colors.ground}`): the page, every bar, the idle display. On the OLED
-  panels the idle display runs on for hours, black is a pixel that is off.
-- **Lift** (`{colors.lift}`): the only raised surface — modals, toasts, menus.
-- **Panel** (`{colors.panel}`, with `{colors.tint-2}` and `{colors.tint-3}`): the
-  translucent white fills for a panel face, a table header, a hovered nav row.
-- **Ink** (`{colors.ink}`): figures, headlines, values. **Ink 2** (`{colors.ink-2}`,
-  10.3:1): names, labels, secondary lines. **Dim** (`{colors.dim}`, 5.7:1): micro-type
-  in the chrome, separators, placeholders; it clears AA, so it may carry small text.
-- **Lines**: `{colors.line}` and `{colors.line-2}` are decorative hairlines (row
-  separators, table rules, panel edges) and deliberately near-invisible;
-  `{colors.line-strong}` (3.7:1) is every control boundary, `{colors.line-hover}` its
-  hover.
-- **Chart ladder** (`{colors.chart-1}` … `{colors.chart-8}`): series 1 is always white,
-  each further series a step darker. **Heat cells** (`{colors.cell-0}` → `{colors.cell-1}`
-  → `{colors.cell-2}` → white) carry a numeric label on every cell, light on the dark
-  steps and black on white.
+### Neutral (dark / light)
+- **Page** (`#0a0a0a` / `#fafafa`): app background, sidebar, top bar.
+- **Panel** (`#111112` / `#ffffff`): panels, popovers, buttons, chips.
+- **Raised** (`#18181a` / `#f4f4f5`): segmented-control track, active nav, selected rows, dialog footers, table group rows.
+- **Hover** (`#1c1c1e` / `#f0f0f1`): hover fill on buttons, icon buttons, nav; rows hover at 60% of it.
+- **Line** (`#232325` / `#e9e9eb`): every hairline divider and panel border.
+- **Line 2** (`#2f2f32` / `#dcdcdf`): control borders (buttons, inputs, tags, chips, kbd) and the border of every floating surface.
+- **Foreground** (`#ededef` / `#0b0b0c`), **Fg 2** (`#a3a3aa` / `#56565c`), **Fg 3** (`#8a8a92` / `#6b6b72`): primary text, secondary text, labels and meta. The primary button inverts: background `--fg`, text `--inv-fg` (`#0a0a0a` / `#fafafa`).
+- **Scrim** (`rgba(0,0,0,.5)` / `rgba(10,10,12,.32)`): behind sheets, palette, modals, the mobile inbox.
+- Under `prefers-contrast: more`, `--line` becomes `--line-2` and `--fg-3` becomes `--fg-2`.
+
+### Terminal
+The terminal surface is dark in both themes: background `#080808` (dark) / `#0c0c0d` (light), text `#d8d8dc`, dim `#8c8c94`, divider `#1d1d20`. ANSI-like highlights are fixed literals so they read the same in either theme: ok `#3fcf7f`, warn `#f2b13c`, err `#ff6262`, highlight `#2fd8ee`. The on-screen key row uses `#0d0d0e` with keys `#1a1a1c` bordered `#2a2a2d`.
 
 ### Named Rules
+**The One Accent Rule.** Cyan marks location and focus only. It is never a decorative fill, a chart series, or a second brand colour; the default primary action is the inverted neutral button, and `.btn.acc` is a rare exception.
 
-**The Colour Is State Rule.** A hue on screen means a state: ok, warn, err. Nothing is
-coloured for variety, identity or emphasis — emphasis is white. If a new element wants
-colour and is not reporting a state, it is grey.
+**The Status-Only Colour Rule.** Any hue other than the accent means ok, warn or err. If something is coloured and is not a status, it is wrong.
 
-**The Content Is Data Rule.** Colour the console shows rather than draws is allowed:
-album art, a device's real LED colour as a swatch, a screen stream. It is data, so it
-is not subject to the rule above.
-
-**The Real Object Rule.** A 3D object that depicts a real thing the user owns wears
-that thing's real colours, shown as they are: they are content, not decoration. The
-watch (Seiko SNXS79) has blue-cyan lume (#5fe6ec, as the owner's glows) and a white day-date wheel printed
-black with SAT in blue and SUN in red; the music player is the black Snowsky Echo
-Mini with its red power key; the router is the white Huawei 5G CPE 5s whose three
-lamps (5G, 4G, STATUS) light blue/yellow/red exactly as the real ones do; the R86 HE
-board is lit #00ffff on every key and the V5's lamp is its current DPI stage colour
-as the module reads it. Everything that is not a real colour of a real object stays
-white and grey line art, and status still owns ok/warn/err.
-
-**The Word And Shape Rule.** Every coloured state also changes its words or its shape:
-a module that is down is struck through as well as tinted, the degraded top-bar
-segment says "1 down", a row that needs attention grows and its headline says what
-happened. Colour alone never carries the message.
-
-**The Grey Ladder Rule.** A chart separates series by weight of grey and by an end
-label, never by hue. If eight greys are not enough, the chart has too many series.
+**The Two Tuned Themes Rule.** Every neutral and status token has its own light value; light is never produced by inverting dark.
 
 ## Typography
 
-**Body Font:** Geist Mono (with `ui-monospace, Menlo, monospace`), weights 300–900.
-**Display / Label Font:** the same. `--pixel` and `--hud` survive as token names so
-every rule and consumer still resolves; in v2 all three resolve to Geist Mono.
+**UI Font:** Geist (variable, self-hosted `fonts/Geist-Variable.woff2`, with ui-sans-serif, system-ui fallback), stylistic set `ss01` on.
+**Mono Font:** Geist Mono (variable, self-hosted `fonts/GeistMono-Variable.woff2`), always with `font-variant-numeric: tabular-nums` and slight negative tracking.
 
-**Character:** one instrument face. Hierarchy comes from size, weight and tracking, and
-from ink step — never from a second family. Figures are set at weight 300 with tabular
-numerals so a changing digit never moves the line.
+**Character:** A clean grotesk for language, its mono sibling for anything that is a value. The pairing reads as engineered without becoming a code editor.
 
 ### Hierarchy
-- **Figures** (300, `clamp(3.2rem, 16.5vw, 6rem)`, 0.9, -0.03em, tabular): the clock.
-  On the status board it runs `clamp(2.4rem, 6vw, 4.6rem)`; on the idle display
-  `clamp(3.4rem, 8vw, 8.5rem)`. Separators drop to dim, seconds to ink-2.
-- **Wordmark** (400, 1.4rem, lowercase, 0.05em): "ojee.console", in the top bar only.
-- **Headline** (400, 1rem, 1.35): a module row's headline fact; 1.12rem on the idle display.
-- **Body** (400, 14px, 1.6): prose, alerts, tables.
-- **Reading** (400, 0.82rem, tabular): a fact's value, right-aligned against a dotted leader.
-- **Name** (400, 0.68rem, 0.22em, uppercase): a module's name on its row, and fact keys
-  (0.7rem, 0.1em). It names the thing it sits on; it is the row's identity, not a
-  category line.
-- **Caseline** (400, 0.72rem, 0.14em, uppercase): date, zone and time source under the clock.
-- **Button** (900, 0.75rem, 2px, uppercase): button faces; 0.65rem / 1.5px on a small button.
-- **Chrome** (400, 0.6rem, 0.16em, uppercase): top-bar segments and `.meta`. This is
-  the floor, and only the chrome sits on it.
+- **Page title** (600, 24px, 1.15, -0.025em): `.ph h1`, one per page, `text-wrap: balance`.
+- **Login title / dialog title** (600, 18px login; 600, 15px for modal, sheet and inbox heads at 14px, -0.01em).
+- **Section title** (600, 13px, -0.005em): `.sh h2`, the heading above a panel. Sentence case, no uppercase labels.
+- **Body** (400, 14px, 1.45): default text, row titles at 500, service names at 600.
+- **Small body** (13–13.5px): buttons, inputs, tables, feeds, palette items and inbox/toast titles (13.5px).
+- **Meta** (12–12.5px, `--fg-3` or `--fg-2`): row descriptions, notes, table headers (12px, 500), small buttons, chips, segmented options (12.5px).
+- **Label** (500, 11.5px, `--fg-3`): metric labels `.ml`, tags, captions, palette group heads. Tab-bar labels, counts and kbd go down to 11px.
+- **Metric** (Geist Mono 500, 15px, -0.02em): `.mv`; 17px in system rows at ≥1200, 20px in host metrics, 22px `.lg`/cells, 32px `.xl`. Units `.u` sit at 0.78em in `--fg-3`.
+- **Wordmark** (Geist Mono 600, 15px, -0.03em; 16px in the sidebar, 20px on login).
+- **Terminal** (Geist Mono 400, 13px, 1.6).
+
+The observed ramp is 11, 11.5, 12, 12.5, 13, 13.5, 14, 15, 16, 17, 18, 20, 22, 24, 32px. Inputs go to 16px on coarse pointers to stop iOS zoom.
 
 ### Named Rules
+**The Tabular Values Rule.** Numbers, IDs, times, durations and the wordmark are Geist Mono with tabular figures. Prose and labels are never mono.
 
-**The One Face Rule.** Geist Mono only. A display face, a pixel face, a serif for the
-clock: none of them. The wordmark is the same face as a table cell.
-
-**The Room Floor Rule.** The idle display is read from across a room: nothing under
-0.8rem, names at 0.85rem, headlines in white, and no reading in dim.
+**The Small Steps Rule.** Hierarchy comes from half-pixel size steps, weight (400/500/600) and the three foreground greys, not from big display type. Nothing in the app chrome exceeds 24px except a 32px hero metric.
 
 ## Layout
 
-One opaque top bar (56px, `--nav-h`, plus the safe-area inset) carries the wordmark,
-the state segments, the clock, Jump and Settings; it scrolls its own overflow rather
-than widening the page, and segments that repeat the page give way under 1280px. At
-1100px and up a 232px side rail lists every module and its views, Settings pinned to
-its foot; the content column is `minmax(0, 1fr)` so one wide table can never widen
-the page. Under 860px the rail and the top-bar links go and a fixed tab bar takes the
-bottom edge.
+Layout is driven by **container queries on `app`**: `<body>` is `container-type: inline-size; container-name: app`, so the same CSS works inside the console and standalone. A nested region can opt in with `.ui3-root`. Breakpoints:
 
-The home page is a status board that fills exactly one screen above 900px: `.ov`
-locks to `--view-h` with `overflow: hidden`, so it never scrolls. It stacks alerts
-(only when there are any — the slot takes no room and draws nothing otherwise) → the
-clock row with the watch beside it → one wrapping strip of rate, now playing,
-caseline and controls → then the tile grid. The grid is
-`repeat(auto-fit, minmax(220px, 1fr))` of `minmax(0, 1fr)` rows; each tile is the
-module's object at up to 168px, its name with a state dot, one headline line
-(ellipsis, no wrapping), and its quick-action buttons at the foot. The whole tile
-except the buttons is one stretched link (`.comp-hit`); the buttons sit beside it,
-never inside it. Under 900px the lock lifts: the tiles become rows — object at the
-left at `clamp(76px, 19vw, 116px)`, name and line beside it, actions under — and the
-page scrolls, because a phone scrolls and eight tiles cannot share one phone screen.
-A module with no object of its own gets a full-width text row (`data-obj="0"`).
+- **<700:** top bar (52px + safe-area) and bottom tab bar (58px, blurred 86% page, backdrop `blur(16px) saturate(160%)`); page padding 20px 16px; single-column metric grids; needs-you items stack actions under the body.
+- **≥700:** page padding 28px; `.grid3` goes to 3 columns; system rows become a 4-column grid; toasts dock right at 380px wide.
+- **≥1000:** `.grid4` goes to 4 columns; sheets become a right side sheet (viewport media query, 480px default).
+- **≥1200:** the 232px sidebar replaces top bar and tab bar (one of the two is always on screen); page padding 28px 40px 72px; the inbox becomes a 440px popover.
 
-The idle display is two columns on one screen: clock, now playing and the watch with
-the player beside it on the left (`1.1fr`), module rows on the right (`0.9fr`). On a phone it is the clock and the
-watch only, centred; a row list nobody is close enough to read is removed, not shrunk.
-
-Three shell contracts ride the board:
-
-**Quick actions.** A module may declare `quickActions: [{ id, label, icon }]` in its
-manifest and report their state in `/api/summary.quick` as
-`{ [id]: { on: bool } }`. The tile (and the synthesized overview) renders one
-`.qa` button per action — bordered like the crown, `aria-pressed` from `quick` —
-and a press POSTs `/{module}/api/quick/{id}` through the proxy, then repaints
-from the module's own answer. Home carries the lead AC's power; Peripherals
-carries one button per mouse profile, built from the driver's own profile list.
-Nothing else crosses the line: ids are `[a-z0-9-]`, labels and icons are checked
-in `registry.publicList()` before the browser sees them.
-
-**The overview tab.** A module with more than one view and no `overview` view of
-its own opens on a shell-synthesized Overview at its bare URL: the object, the
-status dot, the headline, the readings, the quick actions, and a link into each
-view — the module's own screens are never mounted on it. The synthesized entry
-leads the tab strip, the view strip and the rail; modules that ship their own
-overview (Home, Fleet, Agent) are untouched. A single-view module has no strip
-at all: it opens straight on its one view.
-
-**Live status.** `GET /api/modules/events` streams the whole module list the
-moment any status or reason changes — the registry emits on every probe that
-changes one, and a failed proxied request says so at once. The client repaints
-whatever screen is up; the 20-second poll stays as the floor. A stopped
-container greys the nav without anyone reloading.
-
-Rhythm is the six-step 4/8/16/24/40/64 scale. Every control's hit area is 44px
-(`--hit`); small buttons and icon buttons keep their drawn size and grow an invisible
-hit area out to it.
+The page is capped at 1640px and centred. Spacing is a **4px grid**: 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 40 are the values in use. Sections are 28px apart, a section head sits 10px above its panel, rows pad 12px 16px, cells 14px 16px, metric grids gap 12px. All safe-area insets are honoured on shell edges.
 
 ## Elevation & Depth
 
-Flat. The page is one black field and depth is tonal: `{colors.panel}` over ground for
-a face, `{colors.lift}` for anything that comes up off the page (modal, toast, menu),
-`{colors.scrim}` behind it. Edges are 1px hairlines; the border, not a shadow, says
-where a surface ends. Chrome is opaque black — `--chrome-blur` is `none` and every
-`--glow*` token resolves to `transparent`, so the v1 rule layer keeps its contract and
-renders nothing.
+Depth is mostly tonal: page, panel and raised greys separated by 1px hairlines. Shadows exist in three steps and are reserved by role. Resting panels carry only `--sh-1`, which is near-invisible in dark. Anything that floats above the page (inbox, command palette, toast, sheet, modal) pairs a 1px `--line-2` border with `--sh-3`; that pairing is deliberate, since a dark shadow alone disappears on a near-black page and the border gives the edge.
 
-The 3D scene agrees: unlit white/grey line art (`kit.js` palette — structure
-`#5e5e5e`, secondary `#9a9a9a`, train `#d4d4d4`, hands and the live part white) on a
-transparent clear, bloom at 0. Status colour reaches a model only through
-`STATUS_HEX` (ok / warn / err; off is the structure grey).
+### Shadow Vocabulary
+- **Rest** (`--sh-1`: `0 1px 2px rgba(0,0,0,.4)` dark / `0 1px 2px rgba(0,0,0,.04)` light): panels.
+- **Lift** (`--sh-2`: `0 10px 30px -8px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.02)` dark / `0 8px 24px -6px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)` light): available for menus and hovered floating cards.
+- **Float** (`--sh-3`: `0 28px 70px -12px rgba(0,0,0,.75)` dark / `0 24px 60px -12px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.06)` light): inbox, palette, toast, sheet, modal.
+- **Segment thumb** (`0 1px 2px rgba(0,0,0,.12), 0 0 0 1px var(--line-2)`): the sliding indicator in the segmented control.
 
 ### Named Rules
+**The Border-Plus-Float Rule.** A popover always has both a `--line-2` border and `--sh-3`. Neither alone.
 
-**The Opaque Chrome Rule.** Bars, rails and sheets are solid or absent. No frosted
-glass, no translucency over content, no backdrop blur.
-
-**The Nothing Glows Rule.** No `box-shadow`, `text-shadow` or bloom used as light or
-lift. If a thing must read as forward, it gets a brighter ink or a stronger line.
+**The Flat Plane Rule.** No 3D, no perspective, no tilt, no glass on content surfaces. The only blur in the system is the mobile tab bar, and it drops to solid page under `prefers-reduced-transparency`.
 
 ## Shapes
 
-Zero radius on every box: buttons, fields, panels, badges, toggles, the range thumb,
-the status mark (an 8px square, 6px inside a badge). Lines are 1px. The watch dial and
-the 3D objects are round because they are drawings of round things. Hard-stop
-gradients are allowed only to *draw* marks — the crown's knurling, the rate scale's
-graduations, the select caret — never to shade or wash a surface.
+Small, consistent corners from a five-step scale: **r-1 4px** (tags, kbd, toast close), **r-2 6px** (buttons, icon buttons, inputs, nav items, palette items, skeletons, the focus ring), **r-3 8px** (panels), **r-4 10px** (popovers: desktop inbox, palette, toast, modal; also the switch track), **r-5 14px** (the top corners of bottom sheets and the mobile inbox; chips use 14px as a pill at 28px height). Nested shapes derive their radius from the parent: the segmented track is 7px around 5px thumbs (2px inset); service icon tiles `.sic` are 7px. Dots, badges and the switch knob are circles; bars and grab handles are 2px-rounded.
+
+Borders are always 1px. Panels use `--line`; interactive controls and floating surfaces use `--line-2`. The active view tab is the one 2px stroke: a cyan underline inset 10px from each side.
 
 ## Components
 
 ### Buttons
-- **Shape:** square-cut (0), 1px border, 44px minimum height, `12px 24px`.
-- **Primary:** white face, black text, 900 weight caps at 2px tracking. Hover inverts
-  to a transparent face with white text and border.
-- **Ghost:** transparent, ink text, `{colors.line-strong}` border; hover takes border and
-  text to white over `{colors.accent-03}`.
-- **Danger:** err text on an `{colors.err-line}` border; hover fills err with black text.
-- **Disabled:** dim text, hairline border, struck through.
-- **Focus:** the global 2px white outline at 2px offset.
+Restrained and precise; they press rather than glow.
+- **Shape:** 6px corners, 32px tall (`.sm` 28px, `.lg` 40px), 12px horizontal padding, 13px/500 Geist, 6px icon gap.
+- **Default:** `--panel` fill, 1px `--line-2` border, `--fg` text; hover fills `--hover`.
+- **Primary (`.pri`):** inverted neutral, `--fg` fill with `--inv-fg` text and no border; hover mixes 14% page in. This is the main call to action.
+- **Accent (`.acc`):** cyan fill, `#04141a` text. Rare.
+- **Ghost (`.ghost`):** transparent, `--fg-2` text; hover `--fg` on `--hover`.
+- **Danger (`.danger`):** default button with `--err` text; `.danger.solid` is an `--err` fill with white text for the final step of a destructive action.
+- **Icon button (`.ib`):** 32px (28px `.sm`) square, `--fg-2` icon, `.on` uses `--raised`.
+- **Press:** every button, icon button, chip and key scales to 0.97 on `:active` over 120ms `--ease-out` (disabled under reduced motion). Disabled is 50% opacity; busy is 70%.
 
-### Toggles (crown, display switches)
-- The crown holds the movement still; `12H`/`EN` switches change a label. Same 1px
-  `{colors.line-strong}` box and caps, no radius.
-- **Pressed:** white text, white border, `{colors.accent-08}` face; the crown's knurled
-  stem turns white and pushes in 2px. The state word is the point of the control.
+### Segmented control
+A `--raised` track (2px padding, 7px radius, `--line` border) with a sliding `--panel` thumb (`.ind`) positioned by `ui3.placeSegs()`; it moves on `transform`/`width` over 200ms `--ease-out`. Options are 26px (22px `.sm`), 12.5px/500, `--fg-3` becoming `--fg` when pressed. Without JS the pressed button draws its own thumb.
 
-### Inputs / Fields
-- **Style:** `{colors.panel}` face, 1px `{colors.line-strong}` border, 0 radius, 44px.
-- **Focus:** border to white over `{colors.accent-03}`.
-- **Error / Disabled:** err border with an err message line; 0.45 opacity.
+### Tags, chips, counts, dots
+- **Tag:** 20px, 4px radius, 11.5px/500, `--line-2` outline in `--fg-2`; status/accent tags drop the border for a 14% wash of their colour.
+- **Chip:** 28px pill filter, `--line-2` border on `--panel`; pressed is `--raised` with a `--fg-3` border.
+- **Count (`.cnt`):** 18px mono pill on `--raised`; err/warn variants use a 16% wash.
+- **Status dot:** 7px circle in a status colour; `.live` adds a 2s ping ring. Badges are 8px err dots with a 2px page ring.
+- **Severity square (`.sev`):** 28px, 6px radius, 13% status wash with the status icon.
 
-### Panels
-- **Background:** `{colors.panel}`; 1px `{colors.line-2}` border; `{spacing.s-4}` padding.
-- **Hover:** border to `{colors.line-hover}`. Modules use panels for their own pages;
-  the status board does not.
+### Panels, rows and lists
+- **Panel:** `--panel`, 1px `--line`, 8px radius, `--sh-1`; `.pad` is 16px, `.clip` hides overflow for edge-to-edge rows.
+- **Rows:** 12px 16px, divided by `--line` hairlines; title 500, description 12.5px `--fg-3`. Interactive rows hover at 60% `--hover`.
+- **Needs-you list (`.need`):** a severity square, title, two-line description, time and actions; on ≥700 it collapses to one line with actions on the right.
+- **System rows (`.srow`):** service name with icon tile, 2 to 4 metrics, a sparkline and a chevron; the whole row is one link via a stretched `::after`, with quick-action chips above it.
+- **Settings rows (`.set`):** title plus description on the left, control on the right; `.wrap` stacks below 520px.
+- **Feed (`.ev`):** time column, 1px rail with dots, text.
+
+### Metrics, sparklines, bars
+`.ml` label (11.5px `--fg-3`) above `.mv` value (Geist Mono tabular, status-tintable through `--c`). Sparklines are 32px SVGs: 1.5px line, 10% area fill, dashed threshold line, and a 5px end dot ringed in panel colour. Bars are 4px tracks in `--line` with a 2px-rounded fill that animates width over 300ms.
+
+### Tables
+13px, header 12px/500 `--fg-3` over a `--line` rule, cells 10px 16px with hairline row dividers, numerics right-aligned and tabular, group rows on `--raised` at 12px/600. Wide tables scroll inside `.scroll`; the settings kinds table reflows to cards below 900px.
+
+### Inputs and switch
+- **Input / select / textarea:** 32px, 6px radius, `--line-2` border on `--page`, 13px; focus turns the border cyan with a 3px 22% cyan halo. Numeric inputs are 72px, right-aligned mono. Labels are 12px/500 `--fg-2`.
+- **Switch:** 36 by 20px track in `--line-2`, white 16px knob that slides 16px over 180ms `--ease-out`; on is `--ok` green.
 
 ### Navigation
-- **Top bar:** one opaque bar, hairline under it; segments in chrome caps, values in
-  ink-2, a degraded segment in warn with its word.
-- **Side rail:** 0.76rem items, ink-2; hover `{colors.panel}` face; active is white text
-  on `{colors.accent-08}`; a down module dims, a sub-view indents 34px.
-- **Tab bar (phones):** fixed, opaque, a 1px white top rule over the active item.
+- **Sidebar (≥1200):** 232px, page background with a `--line` right border; wordmark, a search button showing the ⌘K kbd, 34px nav items (`--fg-2`, 500) with 16px icons. Active is `--raised` fill, `--fg` text and a cyan icon. A module that is down is struck through with an amber icon; an asleep module is quiet `--fg-3`.
+- **Top bar and tab bar (<1200):** 52px top bar with wordmark and icon buttons; 58px bottom tab bar, 20px icons over 11px labels, the active tab's icon in cyan.
+- **View tabs:** 36px text tabs on a hairline with a 2px cyan underline for the active one.
 
-### Module Row (signature)
-- **Character:** one line on a status board — name, headline, readings, object — not a
-  card. Rows are divided by a hairline and never boxed.
-- **Read:** a square status mark beside the name in caps; the headline in ink; each
-  fact a key, a dotted leader and a tabular value right-aligned.
-- **State:** warn/err recolour the headline and add 3px of padding so the cadence
-  breaks where the priority does; down drops the row to 0.68 opacity and strikes the
-  name.
-- **Object:** the module's 3D object, small, in an open cell at the row's end.
+### Inbox, toast, sheet, palette, modal
+All floating surfaces share `--panel`, a `--line-2` border, `--sh-3` and a scrim.
+- **Inbox:** a bottom drawer with a grab handle and 14px top corners on narrow screens (380ms `--ease-drawer`); a 440px popover with 10px corners at ≥1200 (scale 0.97 to 1, 180ms). Grouped items, collapsible folds, a `--raised` footer.
+- **Toast:** 10px radius card, status dot, 13.5px title, actions; enters from below with `@starting-style` over 260ms `--ease-drawer`, stacks bottom-right at ≥700.
+- **Sheet:** bottom sheet with 14px corners on phones; a full-height side sheet with a left `--line-2` border at ≥1000 (260ms `--ease-out`).
+- **Command palette:** 620px, 10px radius, 50px input row at 15px, 38px items, `--raised` selection with cyan icon, kbd hints in a `--raised` footer. It opens and closes **without animation** because it is used hundreds of times.
+- **Modal:** 440px, 10px radius, 15px/600 head, `--raised` footer; pops from 0.97 over 200ms.
 
-### Alert Block
-- Only present when something needs attention, and first on the page when it is: a
-  count in signal caps ("4 things need attention"), then each item in ink with a dotted
-  underline that follows the words.
+### Empty states and loading
+Empty states are centred, 13px `--fg-3` with a 20px icon (green when the empty state is good news), a 14px/500 title and an optional button. Skeletons shimmer between `--raised` and `--hover` over 1.4s; the spinner is a 14px 1.5px ring.
 
-### Rate Scale and Minute Rail
-- **Rate:** a 14px scale with zero in the middle, 1px end rails, 9px graduations and a
-  1px white pointer where this clock sits against true time.
-- **Rail:** sixty marks, every fifth taller; elapsed marks white at 0.8, the last five
-  set apart. The v1 flash, trail and pulse on the second are retired.
+### Terminal
+`.term` is the dark terminal surface described in Colors (13px/1.6 mono, 14px 16px padding), with a scrollable row of 36px on-screen keys beneath it.
 
-### The Scene (3D)
-- One orthographic camera at 120px per world unit across the viewport; unlit line art;
-  bloom 0. Objects idle-spin at 0.035 rad/s and sway on a 14s period; reduced motion
-  stops both. A refused WebGL context loses no word or number.
+### Icons
+Lucide-style line icons from the `icons3.svg` sprite, used as `<svg class="i"><use href="#i-name"/></svg>`: 16px default (14 `.s`, 18 `.l`, 20 in the tab bar and empty states, 24 `.xl`), `stroke: currentColor`, stroke width 1.75, round caps and joins, no fill.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** resolve every value to an ojee-ui2 token; a literal colour outside the token block is a bug.
-- **Do** spend white on the one thing that is selected, focused, pressed or live.
-- **Do** use ok / warn / err only for a state, and err for destructive actions.
-- **Do** pair every coloured state with a word or shape change.
-- **Do** draw charts on the `--chart-1..8` grey ladder with end labels.
-- **Do** keep chrome opaque black with a 1px hairline edge.
-- **Do** scope a module's CSS under its own prefix and ship its own copy of `ojee-ui2.css` for its standalone page.
-- **Do** stay on the 4/8/16/24/40/64 rhythm and the 44px hit area.
+- **Do** take every colour from a token (`--page`, `--panel`, `--raised`, `--hover`, `--line`, `--line-2`, `--fg`, `--fg-2`, `--fg-3`, `--acc`, `--ok`, `--warn`, `--err`) so both themes and all three accents work.
+- **Do** set numbers, IDs, times and durations in Geist Mono with tabular figures (`.m`, `.mv`, `.num`).
+- **Do** use the inverted neutral `.btn.pri` for the primary action and keep cyan for location and focus.
+- **Do** give every floating surface a 1px `--line-2` border plus `--sh-3`.
+- **Do** write layout queries as `@container app (min-width: 700px | 1000px | 1200px)`, not viewport media queries (sheets excepted).
+- **Do** keep radii on the 4/6/8/10/14 scale and spacing on the 4px grid.
+- **Do** animate only `transform` and `opacity` on `--ease-out` (`cubic-bezier(.23,1,.32,1)`) for UI and `--ease-drawer` (`cubic-bezier(.32,.72,0,1)`) for edge-entering surfaces, and provide a reduced-motion path.
+- **Do** self-host fonts and icons; vendor `ojee-ui3.css`, `fonts/` and `icons3.svg` rather than fetching them.
+- **Do** add module fixes in the module's own scoped CSS; never edit `ojee-ui3.css` to solve a module problem.
 
 ### Don't:
-- **Don't** add a hue for identity, decoration, a category or a chart series.
-- **Don't** use glow, bloom, `text-shadow`, `backdrop-filter` blur, or a gradient wash.
-- **Don't** load a second typeface, or point `--pixel` / `--hud` at one.
-- **Don't** put a radius on a box.
-- **Don't** decorate a tile: no radius, no glow, no gradient — the object, the
-  words and the buttons are the whole tile.
-- **Don't** put a quick action inside the stretched link; buttons live in
-  `.comp-acts`, beside it, or a press navigates instead of firing.
-- **Don't** write a module stylesheet with `*` or bare design-system class names (`.panel`, `.btn`, `.label`) as selectors.
-- **Don't** edit `ojee-ui.css`; v1 is the archive and the fallback for unmigrated surfaces.
-- **Don't** let the 3D scene carry a fact the text does not also say.
+- **Don't** introduce a second accent or any decorative hue; colour other than cyan means ok, warn or err.
+- **Don't** add 3D, perspective, tilt, glassmorphism on content, or decorative gradients.
+- **Don't** use uppercase tracked labels or eyebrow text above headings; section titles are 13px/600 sentence case.
+- **Don't** set prose or labels in mono, or numbers in proportional figures.
+- **Don't** use filled or glyph icons (text characters standing in for icons); use the line sprite.
+- **Don't** rely on a shadow alone to separate a floating surface from a dark page.
+- **Don't** animate the command palette, or animate layout properties (width/height/top) outside the segmented indicator and bar fill.
+- **Don't** produce the light theme by inverting dark values.

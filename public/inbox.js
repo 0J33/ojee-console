@@ -56,9 +56,7 @@ export async function snooze(key, minutes = 60) {
   try {
     const j = await post('/api/inbox/snooze', { key, minutes });
     undo.set(key, { kind: 'snooze', label: it?.title || '', until: j.until, at: Date.now() });
-    if (!isOpenNow) {
-      plainToast('info', 'Snoozed for 1 hour', `Back at ${hm(j.until)}. Undo it from the inbox.`, { ms: 4000 });
-    }
+    if (!isOpenNow) actionToast('Snoozed for 1 hour', `Back at ${hm(j.until)}.`, 'Undo', () => unsnooze(key));
     paintIfOpen();
   } catch (e) { plainToast('err', 'Could not snooze', e.message); }
 }
@@ -171,6 +169,8 @@ export function open() {
   const el = $('#inbox');
   paint();
   void el.offsetWidth;
+  // On desktop it opens beside the sidebar, where its Inbox entry is.
+  el.classList.toggle('at-side', matchMedia('(min-width: 1200px)').matches);
   el.classList.add('open');
   el.setAttribute('aria-hidden', 'false');
   el.setAttribute('role', 'dialog');
@@ -251,6 +251,22 @@ function showToast(ev) {
   stack.appendChild(node);
   while (stack.children.length > 3) stack.firstElementChild.remove();
   arm();
+}
+
+/** A short confirmation with one action (Undo). */
+function actionToast(title, detail, label, fn) {
+  const stack = $('#toasts');
+  if (!stack) return;
+  const node = document.createElement('div');
+  node.className = 'toast toast--info';
+  node.setAttribute('role', 'status');
+  node.innerHTML = `<span class="dot"></span><div class="toast-txt"><b></b><span></span></div><button class="btn sm ghost" type="button">${esc(label)}</button>`;
+  node.querySelector('b').textContent = title;
+  node.querySelector('.toast-txt span').textContent = detail;
+  const remove = () => { node.classList.add('out'); setTimeout(() => node.remove(), 200); };
+  node.querySelector('button').addEventListener('click', () => { remove(); fn(); });
+  stack.appendChild(node);
+  setTimeout(remove, 6000);
 }
 
 /* ── start ──────────────────────────────────────────────────────────── */

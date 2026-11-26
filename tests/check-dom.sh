@@ -160,22 +160,21 @@ url=$(agent-browser get url 2>/dev/null | tail -n 1)
 [[ "$url" != *"/login"* ]] && ok "six digits auto-submit and land on the plate (${url})" \
                            || bad "after login, url is ${url}"
 
-# Every enabled module gets a seat on it, each carrying its own headline —
-# including the dead one, marked down. Hiding a module that will not start
-# makes a broken deploy look like a feature that was never built.
-plate=$(ev "(() => { const s = document.querySelector('.ov-stage');
-  if (!s) return 'no plate';
-  const seats = [...s.querySelectorAll('.comp')];
-  const heads = seats.filter(c => c.querySelector('.comp-head')?.textContent.trim()).length;
-  const ghost = seats.find(c => /ghost/i.test(c.textContent));
-  return seats.length + '/' + heads + '/' + (ghost ? ghost.dataset.state : 'no-ghost'); })()")
-[[ "$plate" == "2/2/down" ]] && ok "the plate seats every module with its headline, the dead one marked down (${plate})" \
-                             || bad "plate seats/headlines/ghost are '${plate}', expected 2/2/down"
+# Every enabled module gets a row on the Overview, carrying its own status —
+# including the dead one, marked as not responding. Hiding a module that will
+# not start makes a broken deploy look like a feature that was never built.
+plate=$(ev "(() => { const rows = [...document.querySelectorAll('.srows .srow')];
+  if (!rows.length) return 'no rows';
+  const named = rows.filter(r => r.querySelector('.sname')?.textContent.trim()).length;
+  const ghost = rows.find(r => /ghost/i.test(r.textContent));
+  return rows.length + '/' + named + '/' + (ghost ? (/not responding/i.test(ghost.textContent) ? 'down' : 'up') : 'no-ghost'); })()")
+[[ "$plate" == "2/2/down" ]] && ok "the overview has a row per module, the dead one marked down (${plate})" \
+                             || bad "overview rows/names/ghost are '${plate}', expected 2/2/down"
 
-# The movement is one canvas over the whole viewport, never one per dial.
+# No 3D: nothing on the page draws into a canvas.
 canvases=$(ev "document.querySelectorAll('canvas').length")
-[[ "$canvases" -le 1 ]] && ok "one canvas for the whole scene (${canvases})" \
-                        || bad "${canvases} canvases — a context per dial will be dropped by the browser"
+[[ "$canvases" -eq 0 ]] && ok "no canvas anywhere (${canvases})" \
+                        || bad "${canvases} canvases on the overview"
 
 echo ""
 echo "=== module contract ================================================"
@@ -186,15 +185,15 @@ echo "=== module contract ================================================"
 agent-browser open "$BASE/#/demo" >/dev/null 2>&1
 agent-browser wait 1200 >/dev/null 2>&1
 
-overview=$(ev "(() => { const s = document.querySelector('.mover'); return s ? (s.querySelector('.comp-head, .mover-line')?.textContent.trim() ? 'present' : 'empty') : 'absent'; })()")
-[ "$overview" = "present" ] && ok "bare module URL shows the shell-synthesized overview"                             || bad "synthesized overview is ${overview}"
+overview=$(ev "(() => { const h = document.querySelector('#phead .ph h1'); return h ? h.textContent.trim() : 'absent'; })()")
+[[ "$overview" =~ [Dd]emo ]] && ok "bare module URL opens the module under the shell's page header (${overview})" || bad "module page header is ${overview}"
 
 agent-browser open "$BASE/#/demo/status" >/dev/null 2>&1
 agent-browser wait 1200 >/dev/null 2>&1
 mounted=$(ev "!!document.querySelector('#demo-reading')")
 [ "$mounted" = "true" ] && ok "module UI mounted into the shell" || bad "demo module did not mount"
 
-nav=$(ev "[...document.querySelectorAll('.nav-link')].map(a => a.textContent.trim()).join('|')")
+nav=$(ev "[...document.querySelectorAll('#vtabs a')].map(a => a.textContent.trim()).join('|')")
 [[ "$nav" == *"Status"* && "$nav" == *"Log"* ]] && ok "module views appear in the shell nav (${nav})" \
                                                 || bad "nav is '${nav}'"
 
@@ -202,9 +201,9 @@ nav=$(ev "[...document.querySelectorAll('.nav-link')].map(a => a.textContent.tri
 # like a feature that was never built. The view row carries the ACTIVE
 # module's views only — switching modules is the plate's job and the side
 # rail's — so this asks the rail, which is where every module is listed.
-ghost=$(ev "(() => { const a = [...document.querySelectorAll('#sidenav .sn-item')].find(x => /ghost/i.test(x.textContent));
+ghost=$(ev "(() => { const a = [...document.querySelectorAll('#side .nav, #tabbar .tab')].find(x => /ghost/i.test(x.textContent));
   if (!a) return 'hidden';
-  const marked = a.classList.contains('is-down') || !!a.querySelector('.dot--err, .dot--warn');
+  const marked = a.classList.contains('down');
   return marked ? 'listed-and-marked' : 'listed-unmarked'; })()")
 [ "$ghost" = "listed-and-marked" ] && ok "unreachable module stays in the rail, marked down" \
                                    || bad "unreachable module is '${ghost}'"
@@ -276,11 +275,11 @@ for W in 375 768 1280; do
   fi
 done
 
-# Settings must stay reachable on a phone: the tab bar is module-only, so the
-# settings button lives outside .nav-links and must survive the breakpoint.
+# Settings must stay reachable on a phone: a bottom tab, a top-bar button, or
+# inside More — one of them is on screen at every width.
 agent-browser set viewport 375 820 >/dev/null 2>&1
 agent-browser wait 350 >/dev/null 2>&1
-settings=$(ev "(() => { const a = document.querySelector('.nav-settings');
+settings=$(ev "(() => { const a = [...document.querySelectorAll('a[href=\"#/settings\"], [data-act=more]')].find(x => x.getBoundingClientRect().width > 0);
   if (!a) return 'absent';
   const r = a.getBoundingClientRect();
   return (r.width > 0 && r.height > 0) ? 'visible' : 'hidden'; })()")

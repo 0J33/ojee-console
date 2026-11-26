@@ -1,255 +1,716 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-07T00:00:00Z",
-  "title": "Design System: ojee.console — Instrument Panel (ojee-ui v2)",
+  "generatedAt": "2026-11-26T08:55:20+00:00",
+  "title": "Design System: ojee.console (ojee-ui v3)",
   "extensions": {
     "colorMeta": {
-      "ground": {
+      "page": {
         "role": "neutral",
-        "displayName": "Ground Black",
-        "canonical": "#000000",
-        "tonalRamp": [
-          "#000000",
-          "#0a0a0a",
-          "#141414",
-          "#1c1c1c",
-          "#2e2e2e",
-          "#5c5c5c",
-          "#8a8a8a",
-          "#b3b3b3"
-        ]
-      },
-      "lift": {
-        "role": "neutral",
-        "displayName": "Lift",
+        "displayName": "Page (dark)",
         "canonical": "#0a0a0a",
         "tonalRamp": [
-          "#000000",
-          "#0a0a0a",
-          "#141414",
-          "#1c1c1c",
-          "#2e2e2e",
-          "#4a4a4a",
-          "#757575",
-          "#b0b0b0"
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
         ]
       },
-      "ink": {
+      "panel": {
         "role": "neutral",
-        "displayName": "Ink White (21:1)",
-        "canonical": "#ffffff",
+        "displayName": "Panel (dark)",
+        "canonical": "#111112",
         "tonalRamp": [
-          "#1c1c1c",
-          "#3a3a3a",
-          "#5e5e5e",
-          "#8a8a8a",
-          "#b3b3b3",
-          "#d4d4d4",
-          "#ececec",
-          "#ffffff"
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
         ]
       },
-      "ink-2": {
+      "raised": {
         "role": "neutral",
-        "displayName": "Legend Grey (10.3:1)",
-        "canonical": "#b3b3b3",
+        "displayName": "Raised (dark)",
+        "canonical": "#18181a",
         "tonalRamp": [
-          "#1c1c1c",
-          "#2e2e2e",
-          "#4a4a4a",
-          "#5e5e5e",
-          "#8a8a8a",
-          "#b3b3b3",
-          "#d4d4d4",
-          "#ececec"
+          "#0b0b0c",
+          "#252526",
+          "#424244",
+          "#616163",
+          "#828285",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
         ]
       },
-      "dim": {
+      "hover": {
         "role": "neutral",
-        "displayName": "Dim (5.7:1, chrome micro-type)",
-        "canonical": "#8a8a8a",
+        "displayName": "Hover (dark)",
+        "canonical": "#1c1c1e",
         "tonalRamp": [
-          "#141414",
-          "#2e2e2e",
-          "#4a4a4a",
-          "#5e5e5e",
-          "#757575",
-          "#8a8a8a",
-          "#b0b0b0",
-          "#d4d4d4"
+          "#0b0b0c",
+          "#252526",
+          "#424244",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
         ]
       },
-      "line-strong": {
+      "line": {
         "role": "neutral",
-        "displayName": "Control Line (3.7:1, WCAG 1.4.11)",
-        "canonical": "#6a6a6a",
+        "displayName": "Hairline (dark)",
+        "canonical": "#232325",
         "tonalRamp": [
-          "#141414",
-          "#1c1c1c",
-          "#2e2e2e",
-          "#4a4a4a",
-          "#5e5e5e",
-          "#6a6a6a",
-          "#9a9a9a",
-          "#d4d4d4"
+          "#0b0b0c",
+          "#252526",
+          "#424244",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
         ]
+      },
+      "line-2": {
+        "role": "neutral",
+        "displayName": "Control Line (dark)",
+        "canonical": "#2f2f32",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616164",
+          "#828285",
+          "#a5a5a8",
+          "#c9c9cc",
+          "#eeeef1"
+        ]
+      },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Foreground (dark)",
+        "canonical": "#ededef",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeef0"
+        ]
+      },
+      "fg-2": {
+        "role": "neutral",
+        "displayName": "Secondary Text (dark)",
+        "canonical": "#a3a3aa",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252529",
+          "#414147",
+          "#616066",
+          "#828288",
+          "#a4a4ab",
+          "#c8c8cf",
+          "#eeeef4"
+        ]
+      },
+      "fg-3": {
+        "role": "neutral",
+        "displayName": "Muted Text (dark)",
+        "canonical": "#8a8a92",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#24242a",
+          "#414147",
+          "#606067",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d0",
+          "#eeeef5"
+        ]
+      },
+      "inv-fg": {
+        "role": "neutral",
+        "displayName": "Inverse Text (dark)",
+        "canonical": "#0a0a0a",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "scrim": {
+        "role": "neutral",
+        "displayName": "Scrim (dark)",
+        "canonical": "rgba(0,0,0,.5)"
       },
       "accent": {
         "role": "primary",
-        "displayName": "Panel White",
-        "canonical": "#ffffff",
+        "displayName": "Electric Cyan (dark)",
+        "canonical": "#2fd8ee",
         "tonalRamp": [
-          "#3a3a3a",
-          "#4a4a4a",
-          "#5e5e5e",
-          "#757575",
-          "#909090",
-          "#b0b0b0",
-          "#d4d4d4",
-          "#ffffff"
+          "#001220",
+          "#003040",
+          "#005062",
+          "#007386",
+          "#0096ac",
+          "#13b9cd",
+          "#60ddf0",
+          "#94ffff"
+        ]
+      },
+      "on-accent": {
+        "role": "primary",
+        "displayName": "Deep Cyan Ink",
+        "canonical": "#04141a",
+        "tonalRamp": [
+          "#030d11",
+          "#1a272d",
+          "#35454b",
+          "#53656c",
+          "#72868e",
+          "#96a9b0",
+          "#bacdd4",
+          "#e1f2f9"
         ]
       },
       "ok": {
-        "role": "tertiary",
-        "displayName": "Signal Green",
-        "canonical": "#5fc26e",
+        "role": "status",
+        "displayName": "Signal Green (dark)",
+        "canonical": "#3fcf7f",
         "tonalRamp": [
-          "#0f2613",
-          "#173a1d",
-          "#225429",
-          "#2f7039",
-          "#3d8d4a",
-          "#4ea95c",
-          "#5fc26e",
-          "#bfe8c5"
+          "#001600",
+          "#003500",
+          "#005618",
+          "#007934",
+          "#009e52",
+          "#3fc177",
+          "#74e49e",
+          "#a3ffc6"
         ]
       },
       "warn": {
-        "role": "tertiary",
-        "displayName": "Signal Amber",
-        "canonical": "#d1a03a",
+        "role": "status",
+        "displayName": "Amber (dark)",
+        "canonical": "#f2b13c",
         "tonalRamp": [
-          "#2a1f08",
-          "#3e2e0c",
-          "#594212",
-          "#775819",
-          "#956f21",
-          "#b3872c",
-          "#d1a03a",
-          "#f0dcb0"
+          "#210000",
+          "#421700",
+          "#663500",
+          "#8b5300",
+          "#b17400",
+          "#d4992c",
+          "#f6be63",
+          "#ffe592"
         ]
       },
       "err": {
-        "role": "tertiary",
-        "displayName": "Signal Red",
-        "canonical": "#e05555",
+        "role": "status",
+        "displayName": "Alarm Red (dark)",
+        "canonical": "#ff6262",
         "tonalRamp": [
-          "#2e0e0e",
-          "#441515",
-          "#621f1f",
-          "#832a2a",
-          "#a43535",
-          "#c44444",
-          "#e05555",
-          "#f6c2c2"
+          "#320000",
+          "#5a0000",
+          "#85000e",
+          "#b11f2b",
+          "#dd4347",
+          "#ff706e",
+          "#ff9a95",
+          "#ffc4bd"
+        ]
+      },
+      "page-light": {
+        "role": "neutral",
+        "displayName": "Page (light)",
+        "canonical": "#fafafa",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "panel-light": {
+        "role": "neutral",
+        "displayName": "Panel (light)",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "raised-light": {
+        "role": "neutral",
+        "displayName": "Raised (light)",
+        "canonical": "#f4f4f5",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252525",
+          "#424242",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "hover-light": {
+        "role": "neutral",
+        "displayName": "Hover (light)",
+        "canonical": "#f0f0f1",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252525",
+          "#424242",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "line-light": {
+        "role": "neutral",
+        "displayName": "Hairline (light)",
+        "canonical": "#e9e9eb",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeef0"
+        ]
+      },
+      "line-2-light": {
+        "role": "neutral",
+        "displayName": "Control Line (light)",
+        "canonical": "#dcdcdf",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828285",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "fg-light": {
+        "role": "neutral",
+        "displayName": "Foreground (light)",
+        "canonical": "#0b0b0c",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "fg-2-light": {
+        "role": "neutral",
+        "displayName": "Secondary Text (light)",
+        "canonical": "#56565c",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252529",
+          "#414146",
+          "#616166",
+          "#828288",
+          "#a4a4ab",
+          "#c8c8ce",
+          "#eeeef3"
+        ]
+      },
+      "fg-3-light": {
+        "role": "neutral",
+        "displayName": "Muted Text (light)",
+        "canonical": "#6b6b72",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252429",
+          "#414147",
+          "#606067",
+          "#818189",
+          "#a4a4ab",
+          "#c8c8cf",
+          "#eeeef4"
+        ]
+      },
+      "inv-fg-light": {
+        "role": "neutral",
+        "displayName": "Inverse Text (light)",
+        "canonical": "#fafafa",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "scrim-light": {
+        "role": "neutral",
+        "displayName": "Scrim (light)",
+        "canonical": "rgba(10,10,12,.32)"
+      },
+      "accent-light": {
+        "role": "primary",
+        "displayName": "Electric Cyan (light)",
+        "canonical": "#0e7490",
+        "tonalRamp": [
+          "#000f20",
+          "#002b3f",
+          "#004a61",
+          "#106c85",
+          "#368eab",
+          "#63b1cd",
+          "#8ed5f0",
+          "#b8faff"
+        ]
+      },
+      "ok-light": {
+        "role": "status",
+        "displayName": "Signal Green (light)",
+        "canonical": "#15803d",
+        "tonalRamp": [
+          "#001400",
+          "#003200",
+          "#00521b",
+          "#127537",
+          "#379854",
+          "#65bb7a",
+          "#8fdfa0",
+          "#baffc8"
+        ]
+      },
+      "warn-light": {
+        "role": "status",
+        "displayName": "Amber (light)",
+        "canonical": "#b45309",
+        "tonalRamp": [
+          "#280000",
+          "#4d0300",
+          "#732500",
+          "#9c4300",
+          "#c56324",
+          "#e88954",
+          "#ffb07e",
+          "#ffd8a9"
+        ]
+      },
+      "err-light": {
+        "role": "status",
+        "displayName": "Alarm Red (light)",
+        "canonical": "#d92d20",
+        "tonalRamp": [
+          "#350000",
+          "#5e0000",
+          "#890000",
+          "#b60f07",
+          "#e43b2c",
+          "#ff6b58",
+          "#ff9782",
+          "#ffc1ac"
+        ]
+      },
+      "term": {
+        "role": "terminal",
+        "displayName": "Terminal Black (dark)",
+        "canonical": "#080808",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "term-light": {
+        "role": "terminal",
+        "displayName": "Terminal Black (light)",
+        "canonical": "#0c0c0d",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "term-fg": {
+        "role": "terminal",
+        "displayName": "Terminal Text",
+        "canonical": "#d8d8dc",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616164",
+          "#828285",
+          "#a5a5a8",
+          "#c9c9cc",
+          "#eeeef1"
+        ]
+      },
+      "term-2": {
+        "role": "terminal",
+        "displayName": "Terminal Dim",
+        "canonical": "#8c8c94",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#24242a",
+          "#414147",
+          "#606067",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d0",
+          "#eeeef5"
+        ]
+      },
+      "term-line": {
+        "role": "terminal",
+        "displayName": "Terminal Rule",
+        "canonical": "#1d1d20",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a8",
+          "#c9c9cc",
+          "#eeeef1"
+        ]
+      },
+      "term-ok": {
+        "role": "terminal",
+        "displayName": "Terminal Green",
+        "canonical": "#3fcf7f",
+        "tonalRamp": [
+          "#001600",
+          "#003500",
+          "#005618",
+          "#007934",
+          "#009e52",
+          "#3fc177",
+          "#74e49e",
+          "#a3ffc6"
+        ]
+      },
+      "term-warn": {
+        "role": "terminal",
+        "displayName": "Terminal Amber",
+        "canonical": "#f2b13c",
+        "tonalRamp": [
+          "#210000",
+          "#421700",
+          "#663500",
+          "#8b5300",
+          "#b17400",
+          "#d4992c",
+          "#f6be63",
+          "#ffe592"
+        ]
+      },
+      "term-err": {
+        "role": "terminal",
+        "displayName": "Terminal Red",
+        "canonical": "#ff6262",
+        "tonalRamp": [
+          "#320000",
+          "#5a0000",
+          "#85000e",
+          "#b11f2b",
+          "#dd4347",
+          "#ff706e",
+          "#ff9a95",
+          "#ffc4bd"
+        ]
+      },
+      "term-hl": {
+        "role": "terminal",
+        "displayName": "Terminal Cyan",
+        "canonical": "#2fd8ee",
+        "tonalRamp": [
+          "#001220",
+          "#003040",
+          "#005062",
+          "#007386",
+          "#0096ac",
+          "#13b9cd",
+          "#60ddf0",
+          "#94ffff"
         ]
       }
     },
     "typographyMeta": {
-      "wordmark": {
-        "displayName": "Wordmark",
-        "purpose": "\"ojee.console\" in the top bar only, lowercase, same face as everything else."
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "One per page (.ph h1)."
       },
-      "figures": {
-        "displayName": "Figures",
-        "purpose": "The clock readout. Weight 300, tabular, tight leading; 2.4–4.6rem on the status board, 3.4–8.5rem on the idle display."
+      "dialog-title": {
+        "displayName": "Dialog Title",
+        "purpose": "Modal, sheet heads."
       },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "A module row's headline fact; 1.12rem in white on the idle display."
+      "section-title": {
+        "displayName": "Section Title",
+        "purpose": "Heading above a panel (.sh h2), sentence case."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Prose, alerts, tables. 14px at 1.6."
+        "purpose": "Default UI text."
       },
-      "reading": {
-        "displayName": "Reading",
-        "purpose": "A fact's value: tabular, right-aligned against a dotted leader."
+      "body-sm": {
+        "displayName": "Body Sm",
+        "purpose": "Tables, feeds, descriptions in needs-you."
       },
-      "name": {
-        "displayName": "Name",
-        "purpose": "A module's name on its row and fact keys. Names the thing it sits on; never a category line above a heading."
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons and inputs."
       },
-      "caseline": {
-        "displayName": "Caseline",
-        "purpose": "Date, zone and time source under the clock."
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Row descriptions, small buttons, chips, segmented options."
       },
-      "button": {
-        "displayName": "Button",
-        "purpose": "Button faces: 900 weight caps at 2px tracking."
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metric labels, tags, captions, group heads."
       },
-      "chrome": {
-        "displayName": "Chrome",
-        "purpose": "Top-bar segments and .meta. The size floor, used by the chrome only."
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "Mono tabular metric value (.mv)."
+      },
+      "metric-lg": {
+        "displayName": "Metric Lg",
+        "purpose": "Metric cells and .mv.lg."
+      },
+      "metric-xl": {
+        "displayName": "Metric Xl",
+        "purpose": "Hero metric (.mv.xl)."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "ojee.console wordmark; bold letter in accent."
+      },
+      "terminal": {
+        "displayName": "Terminal",
+        "purpose": "Terminal surface text."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "sh-1",
+        "value": "0 1px 2px rgba(0,0,0,.4)",
+        "light": "0 1px 2px rgba(0,0,0,.04)",
+        "purpose": "Resting panels."
+      },
+      {
+        "name": "sh-2",
+        "value": "0 10px 30px -8px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.02)",
+        "light": "0 8px 24px -6px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)",
+        "purpose": "Lifted menus and hovered floating cards."
+      },
+      {
+        "name": "sh-3",
+        "value": "0 28px 70px -12px rgba(0,0,0,.75)",
+        "light": "0 24px 60px -12px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.06)",
+        "purpose": "Floating surfaces (inbox, palette, toast, sheet, modal), always paired with a 1px line-2 border."
+      },
+      {
+        "name": "seg-thumb",
+        "value": "0 1px 2px rgba(0,0,0,.12), 0 0 0 1px var(--line-2)",
+        "purpose": "Segmented-control sliding indicator."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent)",
+        "purpose": "Input focus, with the border turning cyan."
+      }
+    ],
     "motion": [
       {
-        "name": "dur",
-        "value": "0.3s",
-        "purpose": "Considered transitions; --t is all var(--dur)."
+        "name": "ease-out",
+        "value": "cubic-bezier(.23,1,.32,1)",
+        "purpose": "Default for UI state changes: press scale, segmented indicator, switch knob, popovers, page enter (120-200ms)."
       },
       {
-        "name": "dur-2",
-        "value": "0.15s",
-        "purpose": "Immediate feedback: colour and border on hover."
+        "name": "ease-drawer",
+        "value": "cubic-bezier(.32,.72,0,1)",
+        "purpose": "Surfaces entering from an edge: mobile inbox and bottom sheet (380ms), toast (260ms)."
       },
       {
-        "name": "reduced-motion",
-        "value": "--dur and --dur-2 collapse to 0.001s; animations run once; the scene's spin and sway stop",
-        "purpose": "One block disables every transition."
+        "name": "ease-io",
+        "value": "cubic-bezier(.77,0,.175,1)",
+        "purpose": "Symmetric in-out, available for on-screen movement."
       },
       {
-        "name": "scene-idle-spin",
-        "value": "0.035 rad/s about Y",
-        "purpose": "Objects turn slowly at rest."
+        "name": "press",
+        "value": "transform: scale(.97) 120ms ease-out",
+        "purpose": "Active state of buttons, icon buttons, chips, keys."
       },
       {
-        "name": "scene-sway",
-        "value": "14s period",
-        "purpose": "A slow tilt so a line drawing reads as an object."
-      },
-      {
-        "name": "bloom",
-        "value": "0",
-        "purpose": "Retired; bloomFor() returns 0 for every screen."
+        "name": "command-palette",
+        "value": "none",
+        "purpose": "The palette opens and closes without animation."
       }
     ],
     "breakpoints": [
       {
-        "name": "phone-row-tighten",
-        "value": "640px"
+        "name": "app-700",
+        "value": "700px",
+        "note": "container query on app: wider padding, 3-col grids, inline needs-you actions"
       },
       {
-        "name": "tabbar",
-        "value": "860px"
+        "name": "app-1000",
+        "value": "1000px",
+        "note": "4-col grids; side sheet (viewport media query)"
       },
       {
-        "name": "single-column",
-        "value": "900px"
-      },
-      {
-        "name": "side-rail",
-        "value": "1100px"
-      },
-      {
-        "name": "topbar-segments",
-        "value": "1280px"
-      },
-      {
-        "name": "ortho-scale",
-        "value": "120px per world unit"
+        "name": "app-1200",
+        "value": "1200px",
+        "note": "sidebar replaces top bar and tab bar; inbox becomes a popover"
       }
     ]
   },
@@ -258,148 +719,152 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "White face, black caps; hover inverts to an outline. The one filled control on a screen.",
-      "html": "<button class=\"ds-btn\">SET WATCH</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 24px;min-height:44px;font-family:var(--mono,'Geist Mono', ui-monospace, Menlo, monospace);font-size:0.75rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;background:#fff;color:#000;border:1px solid #fff;border-radius:0;cursor:pointer;transition:all .3s}.ds-btn:hover{background:transparent;color:#fff}.ds-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}"
+      "description": "Inverted neutral fill; the main call to action on a screen.",
+      "html": "<button class=\"ds-btn ds-btn-pri\">Restart service</button>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-2,6px);border:1px solid var(--line-2,#2f2f32);background:var(--panel,#111112);font:500 13px/1 Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg,#ededef);cursor:pointer;transition:transform 120ms var(--ease-out,cubic-bezier(.23,1,.32,1)),background-color 120ms ease}.ds-btn:hover{background:var(--hover,#1c1c1e)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--acc,#2fd8ee);outline-offset:2px}.ds-btn-pri{background:var(--fg,#ededef);color:var(--inv-fg,#0a0a0a);border-color:transparent}.ds-btn-pri:hover{background:color-mix(in srgb,var(--fg,#ededef) 86%,var(--page,#0a0a0a))}"
     },
     {
-      "name": "Ghost Button",
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Panel fill with a control-line border; the everyday button.",
+      "html": "<button class=\"ds-btn\">View logs</button>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-2,6px);border:1px solid var(--line-2,#2f2f32);background:var(--panel,#111112);font:500 13px/1 Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg,#ededef);cursor:pointer;transition:transform 120ms var(--ease-out,cubic-bezier(.23,1,.32,1)),background-color 120ms ease}.ds-btn:hover{background:var(--hover,#1c1c1e)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--acc,#2fd8ee);outline-offset:2px}"
+    },
+    {
+      "name": "Ghost and Danger Buttons",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Transparent with a control-line border; hover takes border and text to white.",
-      "html": "<button class=\"ds-btn-ghost\">RESTART</button>",
-      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;padding:12px 24px;min-height:44px;font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.75rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;background:transparent;color:#fff;border:1px solid #6a6a6a;border-radius:0;cursor:pointer;transition:all .3s}.ds-btn-ghost:hover{border-color:#fff;background:rgba(255,255,255,0.03)}.ds-btn-ghost:focus-visible{outline:2px solid #fff;outline-offset:2px}"
+      "description": "Ghost for tertiary actions; danger is red text, solid red only for the final destructive step.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-btn ds-btn-ghost\">Dismiss</button><button class=\"ds-btn ds-btn-danger\">Stop</button></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-2,6px);border:1px solid var(--line-2,#2f2f32);background:var(--panel,#111112);font:500 13px/1 Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg,#ededef);cursor:pointer;transition:transform 120ms var(--ease-out,cubic-bezier(.23,1,.32,1)),background-color 120ms ease}.ds-btn:hover{background:var(--hover,#1c1c1e)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--acc,#2fd8ee);outline-offset:2px}.ds-btn-ghost{border-color:transparent;background:transparent;color:var(--fg-2,#a3a3aa)}.ds-btn-ghost:hover{color:var(--fg,#ededef);background:var(--hover,#1c1c1e)}.ds-btn-danger{color:var(--err,#ff6262)}"
     },
     {
-      "name": "Danger Button",
-      "kind": "button",
-      "refersTo": "button-danger",
-      "description": "Destructive actions take err: red caps on a red hairline, filled red on hover.",
-      "html": "<button class=\"ds-btn-danger\">REVOKE DEVICE</button>",
-      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;padding:12px 24px;min-height:44px;font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.75rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;background:transparent;color:#e05555;border:1px solid rgba(224,85,85,0.55);border-radius:0;cursor:pointer;transition:all .3s}.ds-btn-danger:hover{background:#e05555;color:#000;border-color:#e05555}.ds-btn-danger:focus-visible{outline:2px solid #fff;outline-offset:2px}"
-    },
-    {
-      "name": "Input",
+      "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Square field on a faint panel face with a control-line border; focus goes white.",
-      "html": "<input class=\"ds-input\" placeholder=\"host or service\">",
-      "css": ".ds-input{font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.8rem;color:#fff;background:rgba(255,255,255,0.03);border:1px solid #6a6a6a;border-radius:0;padding:11px 14px;min-height:44px;width:100%;outline:none;transition:all .3s}.ds-input::placeholder{color:#8a8a8a}.ds-input:focus{border-color:#fff;background:rgba(255,255,255,0.03)}"
+      "description": "32px field on the page colour; focus turns the border cyan with a soft halo.",
+      "html": "<input class=\"ds-in\" placeholder=\"Filter services\">",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-in{height:32px;border:1px solid var(--line-2,#2f2f32);border-radius:var(--r-2,6px);background:var(--page,#0a0a0a);padding:0 10px;font:13px Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg,#ededef);outline:none;transition:border-color 120ms ease,box-shadow 120ms ease}.ds-in::placeholder{color:var(--fg-3,#8a8a92)}.ds-in:focus-visible{border-color:var(--acc,#2fd8ee);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc,#2fd8ee) 22%,transparent)}"
     },
     {
-      "name": "Toggle",
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segmented",
+      "description": "Raised track with a panel-coloured thumb that slides between options.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">24h</button><button>7d</button><button>30d</button></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-seg{display:inline-flex;padding:2px;border-radius:7px;background:var(--raised,#18181a);border:1px solid var(--line,#232325)}.ds-seg button{height:26px;padding:0 10px;border:0;border-radius:5px;background:transparent;font:500 12.5px Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg-3,#8a8a92);cursor:pointer;transition:color 150ms ease,background-color 200ms cubic-bezier(.23,1,.32,1)}.ds-seg button:hover{color:var(--fg,#ededef)}.ds-seg button[aria-pressed=\"true\"]{color:var(--fg,#ededef);background:var(--panel,#111112);box-shadow:0 1px 2px rgba(0,0,0,.12),0 0 0 1px var(--line-2,#2f2f32)}.ds-seg button:focus-visible{outline:2px solid var(--acc,#2fd8ee);outline-offset:2px}"
+    },
+    {
+      "name": "Tags and Status",
       "kind": "chip",
-      "refersTo": "toggle-pressed",
-      "description": "A display switch (12H, EN) or the crown: line box, caps state word; pressed is white on an 8% white wash.",
-      "html": "<button class=\"ds-tog\" aria-pressed=\"true\">12H</button> <button class=\"ds-tog\" aria-pressed=\"false\">EN</button>",
-      "css": ".ds-tog{display:inline-flex;align-items:center;justify-content:center;min-width:2.6em;height:27px;padding:0 8px;background:none;border:1px solid #6a6a6a;color:#b3b3b3;font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;border-radius:0;cursor:pointer;transition:all .3s}.ds-tog:hover{color:#fff;border-color:#9a9a9a}.ds-tog[aria-pressed=\"true\"]{color:#fff;border-color:#fff;background:rgba(255,255,255,0.08)}.ds-tog:focus-visible{outline:2px solid #fff;outline-offset:2px}"
+      "refersTo": "tag",
+      "description": "Outline tag; status tags are a 14% wash of their colour. Status dot beside a label.",
+      "html": "<div style=\"display:flex;gap:8px;align-items:center\"><span class=\"ds-tag\">v3.2</span><span class=\"ds-tag ds-ok\">healthy</span><span class=\"ds-tag ds-warn\">degraded</span><span class=\"ds-tag ds-err\">down</span><span class=\"ds-st\"><span class=\"ds-dot\"></span>Running</span></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--r-1,4px);border:1px solid var(--line-2,#2f2f32);font:500 11.5px/1 Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg-2,#a3a3aa)}.ds-ok{--c:var(--ok,#3fcf7f)}.ds-warn{--c:var(--warn,#f2b13c)}.ds-err{--c:var(--err,#ff6262)}.ds-tag.ds-ok,.ds-tag.ds-warn,.ds-tag.ds-err{border-color:transparent;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}.ds-st{display:inline-flex;align-items:center;gap:6px;font:12.5px Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg-2,#a3a3aa)}.ds-dot{width:7px;height:7px;border-radius:50%;background:var(--ok,#3fcf7f)}"
     },
     {
-      "name": "Side Rail",
+      "name": "Panel with Metric Rows",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Hairline panel at 8px radius; mono tabular values under small labels.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-cell\"><div class=\"ds-ml\">CPU</div><div class=\"ds-mv\">42<span class=\"ds-u\">%</span></div></div><div class=\"ds-cell\"><div class=\"ds-ml\">Memory</div><div class=\"ds-mv ds-warn\">18.4<span class=\"ds-u\">GB</span></div></div><div class=\"ds-cell\"><div class=\"ds-ml\">Uptime</div><div class=\"ds-mv\">12d 4h</div></div></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--panel,#111112);border:1px solid var(--line,#232325);border-radius:var(--r-3,8px);box-shadow:var(--sh-1)}.ds-cell{padding:14px 16px}.ds-cell+.ds-cell{border-left:1px solid var(--line,#232325)}.ds-ml{font:11.5px Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg-3,#8a8a92);margin-bottom:3px}.ds-mv{font:500 22px/1.2 \"Geist Mono\",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.035em;color:var(--c,var(--fg,#ededef))}.ds-mv.ds-warn{--c:var(--warn,#f2b13c)}.ds-u{color:var(--fg-3,#8a8a92);font-size:.78em;margin-left:1px;letter-spacing:0}"
+    },
+    {
+      "name": "Sidebar Navigation",
       "kind": "nav",
-      "refersTo": "sidenav-item",
-      "description": "Module list at 1100px and up: grey items, white text on an 8% wash when active, a square status mark at the end.",
-      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-i is-on\" href=\"#\"><span>Overview</span></a><a class=\"ds-rail-i\" href=\"#\"><span>Fleet</span><i class=\"ds-mk ds-mk--err\"></i></a><a class=\"ds-rail-i\" href=\"#\"><span>Home</span><i class=\"ds-mk ds-mk--ok\"></i></a></nav>",
-      "css": ".ds-rail{display:flex;flex-direction:column;gap:2px;width:232px;padding:16px 8px;border-right:1px solid rgba(255,255,255,0.12);background:#000}.ds-rail-i{display:flex;align-items:center;gap:9px;padding:9px 10px;min-height:38px;color:#b3b3b3;text-decoration:none;font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.76rem;transition:all .3s}.ds-rail-i span{flex:1}.ds-rail-i:hover{background:rgba(255,255,255,0.03);color:#fff}.ds-rail-i.is-on{background:rgba(255,255,255,0.08);color:#fff}.ds-rail-i:focus-visible{outline:2px solid #fff;outline-offset:2px}.ds-mk{width:8px;height:8px;background:#8a8a8a}.ds-mk--ok{background:#5fc26e}.ds-mk--err{background:#e05555}"
+      "refersTo": "nav-item",
+      "description": "Mono wordmark, 34px items; the active item is raised with a cyan icon.",
+      "html": "<nav class=\"ds-side\"><div class=\"ds-wm\"><b>o</b>jee<span>.console</span></div><a class=\"ds-nav\" aria-current=\"page\"><svg class=\"ds-i\" viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg><span>Overview</span></a><a class=\"ds-nav\"><svg class=\"ds-i\" viewBox=\"0 0 24 24\"><rect x=\"2\" y=\"3\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M8 21h8M12 17v4\"/></svg><span>Machines</span></a><a class=\"ds-nav\"><svg class=\"ds-i\" viewBox=\"0 0 24 24\"><path d=\"M4 17l6-6-6-6M12 19h8\"/></svg><span>Terminal</span></a></nav>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-side{width:232px;padding:16px 12px;background:var(--page,#0a0a0a);border-right:1px solid var(--line,#232325);display:flex;flex-direction:column;gap:2px}.ds-wm{font:600 16px/1 \"Geist Mono\",ui-monospace,monospace;letter-spacing:-.03em;padding:6px 8px 18px;color:var(--fg,#ededef)}.ds-wm b{color:var(--acc,#2fd8ee);font-weight:700}.ds-wm span{color:var(--fg-3,#8a8a92);font-weight:500}.ds-nav{display:flex;align-items:center;gap:10px;height:34px;padding:0 8px;border-radius:var(--r-2,6px);color:var(--fg-2,#a3a3aa);font:500 14px Geist,ui-sans-serif,system-ui,sans-serif;cursor:pointer;transition:background-color 120ms ease,color 120ms ease}.ds-nav:hover{background:var(--hover,#1c1c1e);color:var(--fg,#ededef)}.ds-nav[aria-current=\"page\"]{background:var(--raised,#18181a);color:var(--fg,#ededef)}.ds-nav[aria-current=\"page\"] .ds-i{color:var(--acc,#2fd8ee)}.ds-i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}"
     },
     {
-      "name": "Module Row",
+      "name": "Toast",
       "kind": "custom",
-      "refersTo": "module-row",
-      "description": "One line on the status board: square status mark, name in caps, headline, dotted-leader readings, the module's object at the end. Hairline-separated, never boxed.",
-      "html": "<div class=\"ds-rows\"><a class=\"ds-row\" href=\"#\"><div class=\"ds-row-read\"><div class=\"ds-row-name\"><i class=\"ds-mk ds-mk--ok\"></i>HOME</div><div class=\"ds-row-head\">1 of 1 device online</div><dl class=\"ds-row-facts\"><div><dt>LIVING ROOM</dt><span></span><dd>30.7°C</dd></div></dl></div><div class=\"ds-row-obj\"></div></a><a class=\"ds-row\" href=\"#\" data-state=\"err\"><div class=\"ds-row-read\"><div class=\"ds-row-name\"><i class=\"ds-mk ds-mk--err\"></i>FLEET</div><div class=\"ds-row-head\">1 of 3 unreachable</div><dl class=\"ds-row-facts\"><div><dt>MACHINES</dt><span></span><dd>1 up · disinteg down</dd></div></dl></div><div class=\"ds-row-obj\"></div></a></div>",
-      "css": ".ds-rows{background:#000;font-family:'Geist Mono', ui-monospace, Menlo, monospace}.ds-row{display:grid;grid-template-columns:minmax(0,1fr) 72px;align-items:center;gap:16px;padding:16px 0;border-top:1px solid #1c1c1c;color:#b3b3b3;text-decoration:none}.ds-row:first-child{border-top:0}.ds-row-read{display:grid;gap:6px}.ds-row-name{display:flex;align-items:center;gap:9px;font-size:0.68rem;letter-spacing:0.22em;color:#b3b3b3}.ds-row-head{font-size:1rem;line-height:1.35;color:#fff}.ds-row-facts{margin:0}.ds-row-facts div{display:flex;align-items:baseline;gap:8px}.ds-row-facts dt{font-size:0.7rem;letter-spacing:0.1em;color:#b3b3b3;white-space:nowrap}.ds-row-facts span{flex:1;border-bottom:1px dotted rgba(255,255,255,0.12);min-width:8px}.ds-row-facts dd{margin:0;font-size:0.82rem;color:#fff;font-variant-numeric:tabular-nums}.ds-row-obj{width:72px;height:72px;border:0}.ds-row[data-state=\"err\"]{padding-block:19px}.ds-row[data-state=\"err\"] .ds-row-head{color:#e05555}.ds-row:hover .ds-row-name{color:#fff}.ds-row:focus-visible{outline:2px solid #fff;outline-offset:4px}.ds-mk{width:8px;height:8px;background:#8a8a8a}.ds-mk--ok{background:#5fc26e}.ds-mk--err{background:#e05555}"
+      "refersTo": "popover",
+      "description": "Floating card: line-2 border plus the float shadow, status dot, title, detail.",
+      "html": "<div class=\"ds-toast\"><span class=\"ds-dot\"></span><div><b>Backup finished</b><span>disinteg · 2.4 GB in 3m 12s</span></div></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-toast{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;width:340px;padding:12px;border-radius:var(--r-4,10px);background:var(--panel,#111112);border:1px solid var(--line-2,#2f2f32);box-shadow:var(--sh-3);font-family:Geist,ui-sans-serif,system-ui,sans-serif}.ds-toast .ds-dot{width:7px;height:7px;border-radius:50%;background:var(--ok,#3fcf7f);margin-top:6px}.ds-toast b{display:block;font-weight:500;font-size:13.5px;color:var(--fg,#ededef)}.ds-toast span:not(.ds-dot){display:block;font-size:12.5px;color:var(--fg-2,#a3a3aa);margin-top:2px}"
     },
     {
-      "name": "Alert Block",
+      "name": "Switch",
       "kind": "custom",
-      "refersTo": null,
-      "description": "First on the page when something needs attention: a count in signal caps, then each item in ink with a dotted underline that follows the words.",
-      "html": "<div class=\"ds-alert\"><div class=\"ds-alert-count\">2 THINGS NEED ATTENTION</div><a href=\"#\">disinteg is unreachable</a><a href=\"#\">ojee-hp-zorin CPU at 95°C</a></div>",
-      "css": ".ds-alert{display:grid;gap:5px;font-family:'Geist Mono', ui-monospace, Menlo, monospace;background:#000}.ds-alert-count{font-size:0.85rem;letter-spacing:0.16em;color:#e05555}.ds-alert a{justify-self:start;font-size:0.95rem;color:#fff;text-decoration:underline dotted #6a6a6a;text-underline-offset:4px}.ds-alert a:hover{text-decoration-color:#fff}.ds-alert a:focus-visible{outline:2px solid #fff;outline-offset:2px}"
-    },
-    {
-      "name": "Rate Scale",
-      "kind": "custom",
-      "refersTo": null,
-      "description": "How the clock is regulated: zero in the middle, graduations drawn with hard stops, a 1px white pointer where the clock sits against true time.",
-      "html": "<div class=\"ds-rate\"><span>RATE</span><span class=\"ds-rate-scale\"><i style=\"left:46%\"></i></span><span class=\"ds-rate-v\">-1 MS</span></div>",
-      "css": ".ds-rate{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;font-family:'Geist Mono', ui-monospace, Menlo, monospace;font-size:0.64rem;letter-spacing:0.16em;color:#b3b3b3}.ds-rate-scale{position:relative;height:14px;border-left:1px solid #6a6a6a;border-right:1px solid #6a6a6a;background:linear-gradient(180deg,transparent 45%,rgba(255,255,255,0.12) 45% 55%,transparent 55%),repeating-linear-gradient(90deg,#1c1c1c 0 1px,transparent 1px 9px)}.ds-rate-scale::before{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#6a6a6a}.ds-rate-scale i{position:absolute;top:-3px;width:1px;height:calc(100% + 6px);background:#fff;transition:left .3s}.ds-rate-v{color:#fff;font-variant-numeric:tabular-nums}"
+      "refersTo": "switch",
+      "description": "36 by 20 track; on is status green, knob slides on ease-out.",
+      "html": "<div style=\"display:flex;gap:12px\"><button class=\"ds-sw\" role=\"switch\" aria-checked=\"true\" aria-label=\"on\"></button><button class=\"ds-sw\" role=\"switch\" aria-checked=\"false\" aria-label=\"off\"></button></div>",
+      "css": ":host,.ds{--page:#0a0a0a;--panel:#111112;--raised:#18181a;--hover:#1c1c1e;--line:#232325;--line-2:#2f2f32;--fg:#ededef;--fg-2:#a3a3aa;--fg-3:#8a8a92;--inv-fg:#0a0a0a;--acc:#2fd8ee;--ok:#3fcf7f;--warn:#f2b13c;--err:#ff6262;--sh-1:0 1px 2px rgba(0,0,0,.4);--sh-3:0 28px 70px -12px rgba(0,0,0,.75);--r-1:4px;--r-2:6px;--r-3:8px;--r-4:10px;--ease-out:cubic-bezier(.23,1,.32,1);font-family:Geist,ui-sans-serif,system-ui,sans-serif;color:var(--fg)}.ds-sw{width:36px;height:20px;border:0;padding:0;border-radius:10px;background:var(--line-2,#2f2f32);position:relative;cursor:pointer;transition:background-color 150ms ease}.ds-sw::after{content:\"\";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform 180ms cubic-bezier(.23,1,.32,1)}.ds-sw[aria-checked=\"true\"]{background:var(--ok,#3fcf7f)}.ds-sw[aria-checked=\"true\"]::after{transform:translateX(16px)}.ds-sw:focus-visible{outline:2px solid var(--acc,#2fd8ee);outline-offset:2px}"
     }
   ],
   "narrative": {
-    "northStar": "The Instrument Panel",
-    "overview": "**Creative North Star: \"The Instrument Panel\"**\n\nThe console is a monochrome instrument panel: a black field, white figures, grey legends, and a lamp that only lights when something is in a state. It replaces the Calibre world (cyan on near-black, a bloomed watch movement, brass/blued/ruby materials, three mono faces). Nothing here is lit for effect. The page is one flat black field, the chrome is opaque, and the only things that carry hue are a reading that reports state and content the console is showing rather than drawing — album art, a device's real LED colour.\n\nThe home page is a status board read top to bottom in the order a glance needs it: what is wrong, then the clock and its rate, then one hairline-separated row per module with that module's 3D object drawn small at the row's end as identification. The objects are still white line art in one orthographic scene, but they no longer glow and no longer perform: bloom is off, they turn slowly and sway, and the word beside them always carries the fact.\n\nThe system is ojee-ui v2, shipped as `public/ojee-ui2.css`. It keeps v1's class contract so every consumer is a drop-in, and changes the world underneath it. v1 (`public/ojee-ui.css`) stays in the repo **untouched** as the archive of the previous world and for everything not migrated: the native app's offline page (`native/www/`), the `themes/*.css` overlays (calibre, ember, paper), and the `ojee-ui` repo itself, which still ships only v1. Each module repo carries its own copy of `ojee-ui2.css` for its standalone page.",
+    "northStar": "The Quiet Console",
+    "overview": "ojee.console is one person's control room for their machines, services and agents, drawn to the grade of Vercel, Cloudflare and Linear. It is a modern tech product, not a themed instrument: neutral grey planes separated by hairlines, a single electric-cyan accent that marks *where you are* and *what is focused*, and colour otherwise spent only on status (ok, warn, err). Dark is the hero theme and the one people see first; light is first-class and gets its own tuned values rather than an inversion. Everything is flat and two-dimensional: no 3D, no glass, no gradients as decoration.\n\nDensity is high but calm. The body is 14px Geist with most chrome at 12.5–13px; every number, ID, time and the wordmark is set in Geist Mono with tabular figures so values never jitter while they update. Surfaces sit on a 4px grid, corners step through five small radii (4/6/8/10/14), and motion is short and decelerating (120–200ms on `--ease-out`, 260–380ms on `--ease-drawer` for things that travel in from an edge).\n\nThe system lives in one vendored file, `public/ojee-ui3.css` (identical to the shared `ojee-ui/ojee-ui3.css`), plus self-hosted variable woff2 fonts and the `icons3.svg` sprite. `public/app.css` only places the shell's own pages. Modules never patch the shared file; they scope their own rules under their root.",
     "keyCharacteristics": [
-      "Pure black ground (#000), opaque chrome, one flat field — no backdrop texture, no vignette.",
-      "White/grey ink ramp; the accent is white. No cosmetic colour anywhere.",
-      "Colour is state: ok green, warn amber, err red, and destructive actions take err.",
-      "One face, Geist Mono, at every size; the old `--pixel`/`--hud` tokens survive and resolve to it.",
-      "Zero radius on every box.",
-      "No glow, bloom, blur, or gradient wash; the glow tokens exist and are transparent.",
-      "Charts separate series by grey weight and end labels, never by hue."
+      "Dark hero, first-class light; theme set by `<html data-theme>` or the OS.",
+      "Neutral greys plus one accent (cyan `#2fd8ee` dark / `#0e7490` light); status colours ok/warn/err are the only other hues.",
+      "Geist for UI, Geist Mono tabular for numbers, IDs, times and the wordmark.",
+      "1px hairlines (`--line`, `--line-2`) do the structural work; shadows are light and reserved for things that float.",
+      "Radii 4/6/8/10/14, 4px grid, decelerating motion, no 3D.",
+      "Layout by container queries on `app` (the `<body>`): 700 / 1000 / 1200.",
+      "Lucide-style 16px line icons at stroke 1.75."
     ],
     "rules": [
       {
-        "name": "The Colour Is State Rule",
-        "body": "A hue on screen means a state: ok, warn, err. Nothing is coloured for variety, identity or emphasis — emphasis is white. If a new element wants colour and is not reporting a state, it is grey.",
+        "name": "The One Accent Rule",
+        "body": "Cyan marks location and focus only. It is never a decorative fill, a chart series, or a second brand colour; the default primary action is the inverted neutral button, and `.btn.acc` is a rare exception.",
         "section": "colors"
       },
       {
-        "name": "The Content Is Data Rule",
-        "body": "Colour the console shows rather than draws is allowed: album art, a device's real LED colour as a swatch, a screen stream. It is data, so it is not subject to the rule above.",
+        "name": "The Status-Only Colour Rule",
+        "body": "Any hue other than the accent means ok, warn or err. If something is coloured and is not a status, it is wrong.",
         "section": "colors"
       },
       {
-        "name": "The Word And Shape Rule",
-        "body": "Every coloured state also changes its words or its shape: a module that is down is struck through as well as tinted, the degraded top-bar segment says \"1 down\", a row that needs attention grows and its headline says what happened. Colour alone never carries the message.",
+        "name": "The Two Tuned Themes Rule",
+        "body": "Every neutral and status token has its own light value; light is never produced by inverting dark.",
         "section": "colors"
       },
       {
-        "name": "The Grey Ladder Rule",
-        "body": "A chart separates series by weight of grey and by an end label, never by hue. If eight greys are not enough, the chart has too many series.",
-        "section": "colors"
-      },
-      {
-        "name": "The One Face Rule",
-        "body": "Geist Mono only. A display face, a pixel face, a serif for the clock: none of them. The wordmark is the same face as a table cell.",
+        "name": "The Tabular Values Rule",
+        "body": "Numbers, IDs, times, durations and the wordmark are Geist Mono with tabular figures. Prose and labels are never mono.",
         "section": "typography"
       },
       {
-        "name": "The Room Floor Rule",
-        "body": "The idle display is read from across a room: nothing under 0.8rem, names at 0.85rem, headlines in white, and no reading in dim.",
+        "name": "The Small Steps Rule",
+        "body": "Hierarchy comes from half-pixel size steps, weight (400/500/600) and the three foreground greys, not from big display type. Nothing in the app chrome exceeds 24px except a 32px hero metric.",
         "section": "typography"
       },
       {
-        "name": "The Opaque Chrome Rule",
-        "body": "Bars, rails and sheets are solid or absent. No frosted glass, no translucency over content, no backdrop blur.",
+        "name": "The Border-Plus-Float Rule",
+        "body": "A popover always has both a `--line-2` border and `--sh-3`. Neither alone.",
         "section": "elevation"
       },
       {
-        "name": "The Nothing Glows Rule",
-        "body": "No `box-shadow`, `text-shadow` or bloom used as light or lift. If a thing must read as forward, it gets a brighter ink or a stronger line.",
+        "name": "The Flat Plane Rule",
+        "body": "No 3D, no perspective, no tilt, no glass on content surfaces. The only blur in the system is the mobile tab bar, and it drops to solid page under `prefers-reduced-transparency`.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do resolve every value to an ojee-ui2 token; a literal colour outside the token block is a bug.",
-      "Do spend white on the one thing that is selected, focused, pressed or live.",
-      "Do use ok / warn / err only for a state, and err for destructive actions.",
-      "Do pair every coloured state with a word or shape change.",
-      "Do draw charts on the `--chart-1..8` grey ladder with end labels.",
-      "Do keep chrome opaque black with a 1px hairline edge.",
-      "Do scope a module's CSS under its own prefix and ship its own copy of `ojee-ui2.css` for its standalone page.",
-      "Do stay on the 4/8/16/24/40/64 rhythm and the 44px hit area."
+      "**Do** take every colour from a token (`--page`, `--panel`, `--raised`, `--hover`, `--line`, `--line-2`, `--fg`, `--fg-2`, `--fg-3`, `--acc`, `--ok`, `--warn`, `--err`) so both themes and all three accents work.",
+      "**Do** set numbers, IDs, times and durations in Geist Mono with tabular figures (`.m`, `.mv`, `.num`).",
+      "**Do** use the inverted neutral `.btn.pri` for the primary action and keep cyan for location and focus.",
+      "**Do** give every floating surface a 1px `--line-2` border plus `--sh-3`.",
+      "**Do** write layout queries as `@container app (min-width: 700px | 1000px | 1200px)`, not viewport media queries (sheets excepted).",
+      "**Do** keep radii on the 4/6/8/10/14 scale and spacing on the 4px grid.",
+      "**Do** animate only `transform` and `opacity` on `--ease-out` (`cubic-bezier(.23,1,.32,1)`) for UI and `--ease-drawer` (`cubic-bezier(.32,.72,0,1)`) for edge-entering surfaces, and provide a reduced-motion path.",
+      "**Do** self-host fonts and icons; vendor `ojee-ui3.css`, `fonts/` and `icons3.svg` rather than fetching them.",
+      "**Do** add module fixes in the module's own scoped CSS; never edit `ojee-ui3.css` to solve a module problem."
     ],
     "donts": [
-      "Don't add a hue for identity, decoration, a category or a chart series.",
-      "Don't use glow, bloom, `text-shadow`, `backdrop-filter` blur, or a gradient wash.",
-      "Don't load a second typeface, or point `--pixel` / `--hud` at one.",
-      "Don't put a radius on a box.",
-      "Don't box the status board's module rows or turn them into a card grid.",
-      "Don't write a module stylesheet with `*` or bare design-system class names (`.panel`, `.btn`, `.label`) as selectors.",
-      "Don't edit `ojee-ui.css`; v1 is the archive and the fallback for unmigrated surfaces.",
-      "Don't let the 3D scene carry a fact the text does not also say."
+      "**Don't** introduce a second accent or any decorative hue; colour other than cyan means ok, warn or err.",
+      "**Don't** add 3D, perspective, tilt, glassmorphism on content, or decorative gradients.",
+      "**Don't** use uppercase tracked labels or eyebrow text above headings; section titles are 13px/600 sentence case.",
+      "**Don't** set prose or labels in mono, or numbers in proportional figures.",
+      "**Don't** use filled or glyph icons (text characters standing in for icons); use the line sprite.",
+      "**Don't** rely on a shadow alone to separate a floating surface from a dark page.",
+      "**Don't** animate the command palette, or animate layout properties (width/height/top) outside the segmented indicator and bar fill.",
+      "**Don't** produce the light theme by inverting dark values."
     ]
   }
 }
