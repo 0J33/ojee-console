@@ -218,6 +218,24 @@ test('center: mute a kind from the inbox, undo restores what it was; muted items
   assert.equal(c.channelOf('fleet.disk'), 'inbox', 'undo of a default goes back to the default');
 });
 
+test('center: unmute works on a kind the older page switched off (app: false)', async () => {
+  const { c } = centerRig({ types: { 'fleet.disk': { app: false } } });
+  assert.equal(c.channelOf('fleet.disk'), 'off');
+  assert.equal(c.unmute('fleet.disk', null), true);
+  assert.notEqual(c.channelOf('fleet.disk'), 'off', 'Unmute really unmutes');
+});
+
+test('inbox: clear resolved items, one or all; open items stay', () => {
+  const { ib, tick } = inboxRig();
+  for (const k of ['a', 'b', 'c']) ib.raise('fleet', { key: k, kind: temp.id, title: k, severity: 'warn' }, temp);
+  ib.dismiss('a'); ib.dismiss('b'); tick(MIN);
+  assert.equal(ib.clearResolved('a'), 1);
+  assert.equal(ib.snapshot().resolved.length, 1);
+  assert.equal(ib.clearResolved(), 1);
+  assert.equal(ib.snapshot().resolved.length, 0);
+  assert.equal(ib.snapshot().open.length, 1, 'open items are never cleared');
+});
+
 test('center: resolve and update states from module events', async () => {
   const { c, app } = centerRig();
   await c.handle('agent', { id: 'agent.question', title: 'forsa is asking', key: 'forsa' });

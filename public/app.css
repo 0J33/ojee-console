@@ -107,3 +107,12 @@ table.kinds td.r,table.t th.r,table.t td.r{text-align:right}
 .login .gates span{display:inline-flex;align-items:center;gap:6px}
 @container app (max-width:520px){.settings .sh{flex-wrap:wrap}.settings .sh .note{flex-basis:100%;order:3}}
 .settings select.in{height:28px}
+
+/* resolved: clear all / clear one */
+.fold-row{display:flex;align-items:center;border-top:1px solid var(--line)}
+.fold-row .fold{border-top:0;flex:1;min-width:0}
+.fold-row .clr{margin-right:12px;flex:none}
+.it.resolved{position:relative}
+.it.resolved .x{position:absolute;top:8px;right:10px;padding-inline:6px;color:var(--fg-3)}
+.it.resolved>div{padding-right:34px}
+@media (hover:hover) and (pointer:fine){.it.resolved .x{opacity:0;transition:opacity 120ms var(--ease-out,ease-out)}.it.resolved:hover .x,.it.resolved .x:focus-visible{opacity:1}.it.resolved .x:hover{color:var(--fg)}}

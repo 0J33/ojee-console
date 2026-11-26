@@ -84,6 +84,10 @@ async function mute(key) {
   } catch (e) { plainToast('err', 'Could not mute', e.message); }
 }
 
+async function clearResolved(key) {
+  try { const j = await post('/api/inbox/clear-resolved', key ? { key } : {}); if (j?.inbox) setSnap(j.inbox); } catch (e) { plainToast('err', 'Could not clear', e.message); }
+}
+
 async function unmute(kindId, prev, key) {
   if (key) undo.delete(key);
   try { await post('/api/notify/unmute', { kind: kindId, prev }); } catch (e) { plainToast('err', 'Could not unmute', e.message); }
@@ -159,8 +163,8 @@ function paint() {
       ${(snap.snoozed || []).filter((x) => !undo.has(x.key)).length ? `<div class="ig">${ic('clock', 's')}Snoozed</div>${snap.snoozed.filter((x) => !undo.has(x.key)).map((it) => `<div class="it done" data-key="${esc(it.key)}"><span class="sev">${ic('clock')}</span><div><div class="t">${esc(it.title)}</div><div class="mt m"><span>${esc(it.moduleName)}</span><span>back at ${hm(it.snoozedUntil)}</span></div><div class="a"><button class="btn sm ghost" type="button" data-i="undo-snooze">Bring back now</button></div></div></div>`).join('')}` : ''}
       ${updates.length ? `<button class="fold" type="button" data-i="fold-updates" aria-expanded="${foldUpdates}">${ic('chev', 's rot')}<span><b>${updates.length} ${updates.length === 1 ? 'update' : 'updates'}</b> · ${esc(summaryOf(updates))}</span></button>
         ${foldUpdates ? `<div class="feed">${updates.map((u) => `<div class="ev"><span class="tm m">${hm(u.at)}</span><span class="rail"><span class="dot" style="--c:${col(u.severity === 'warn' ? 'warn' : u.severity === 'critical' ? 'err' : 'n')}"></span></span><span class="tx"><b>${esc(u.moduleName || u.module)}</b> ${esc(u.title)}</span></div>`).join('')}</div>` : ''}` : ''}
-      ${(snap.resolved || []).length ? `<button class="fold" type="button" data-i="fold-resolved" aria-expanded="${foldResolved}">${ic('chev', 's rot')}<span><b>${snap.resolved.length} resolved</b> · last 6 hours</span></button>
-        ${foldResolved ? snap.resolved.map((it) => `<div class="it resolved"><span class="sev" style="--c:var(--ok)">${ic('check')}</span><div><div class="t">${esc(it.title)}</div><div class="mt m"><span>${esc(it.moduleName)}</span><span>${it.dismissed ? 'marked done' : 'cleared'} ${hm(it.resolvedAt)}</span>${it.count > 1 ? `<span>×${it.count}</span>` : ''}</div></div></div>`).join('') : ''}` : ''}
+      ${(snap.resolved || []).length ? `<div class="fold-row"><button class="fold" type="button" data-i="fold-resolved" aria-expanded="${foldResolved}">${ic('chev', 's rot')}<span><b>${snap.resolved.length} resolved</b> · last 6 hours</span></button><button class="btn sm ghost clr" type="button" data-i="clear-resolved" title="Clear every resolved notification">Clear all</button></div>
+        ${foldResolved ? snap.resolved.map((it) => `<div class="it resolved" data-key="${esc(it.key)}"><span class="sev" style="--c:var(--ok)">${ic('check')}</span><div><div class="t">${esc(it.title)}</div><div class="mt m"><span>${esc(it.moduleName)}</span><span>${it.dismissed ? 'marked done' : 'cleared'} ${hm(it.resolvedAt)}</span>${it.count > 1 ? `<span>×${it.count}</span>` : ''}</div></div><button class="btn sm ghost icon x" type="button" data-i="clear-one" aria-label="Clear" title="Clear">${ic('x', 's')}</button></div>`).join('') : ''}` : ''}
       ${(snap.muted || []).map((m) => `<div class="fold muted">${ic('belloff', 's')}<span>Muted · ${esc(m.label)} <span class="m">· ${m.count} today</span></span><button class="btn sm ghost" type="button" data-i="unmute" data-kind="${esc(m.kind)}">Unmute</button></div>`).join('')}
     </div>
     <div class="ifoot">${ic('moon', 's')}<span>${quietText}</span><a class="btn sm ghost r" href="#/settings/notifications" data-close>Rules</a></div>`;
@@ -286,6 +290,8 @@ export function start({ onChange: fn, itemIcon } = {}) {
       case 'unmute': await unmute(b.dataset.kind, null); break;
       case 'fold-updates': foldUpdates = !foldUpdates; paint(); break;
       case 'fold-resolved': foldResolved = !foldResolved; paint(); break;
+      case 'clear-resolved': await clearResolved(null); break;
+      case 'clear-one': await clearResolved(key); break;
       default: break;
     }
   });

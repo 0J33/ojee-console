@@ -204,6 +204,7 @@ export class NotifyCenter extends EventEmitter {
   snooze(key, minutes) { return this.inbox.snooze(key, minutes); }
   unsnooze(key) { return this.inbox.unsnooze(key); }
   dismiss(key) { return this.inbox.dismiss(key); }
+  clearResolved(key = null) { return this.inbox.clearResolved(key); }
   undismiss(key) { return this.inbox.undismiss(key); }
 
   /** Mute a kind (inbox "Mute this kind"); returns the channel it had, for Undo. */
@@ -217,8 +218,13 @@ export class NotifyCenter extends EventEmitter {
   }
 
   unmute(kind, prev = null) {
-    if (!this.typeById(kind)) return false;
-    this.prefs.patch({ types: { [kind]: { channel: CHANNELS.includes(prev) ? prev : null } } });
+    const found = this.typeById(kind);
+    if (!found) return false;
+    // A concrete channel, never null: a kind switched off by the older page
+    // ({ app: false }) would otherwise stay off. Setting a channel drops `app`.
+    const fallback = effective({ types: {} }, found.type).channel;
+    const channel = CHANNELS.includes(prev) && prev !== 'off' ? prev : fallback !== 'off' ? fallback : 'inbox';
+    this.prefs.patch({ types: { [kind]: { channel } } });
     this.emit('inbox');
     return true;
   }

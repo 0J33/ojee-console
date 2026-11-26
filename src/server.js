@@ -573,6 +573,11 @@ app.post('/api/inbox/undismiss', requireAuth, (req, res) => {
   if (!notify.undismiss(keyOf(req))) return res.status(404).json({ error: 'No such item.' });
   res.json({ ok: true, inbox: notify.inboxSnapshot() });
 });
+app.post('/api/inbox/clear-resolved', requireAuth, (req, res) => {
+  const key = keyOf(req) || null;
+  const n = notify.clearResolved(key);
+  res.json({ ok: true, cleared: n, inbox: notify.inboxSnapshot() });
+});
 app.post('/api/notify/mute', requireAuth, (req, res) => {
   const r = notify.mute(String(req.body?.kind || ''));
   if (!r) return res.status(404).json({ error: 'No such kind.' });

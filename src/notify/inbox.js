@@ -292,6 +292,18 @@ export class Inbox extends EventEmitter {
     return it;
   }
 
+  /** Forget resolved items: one by key, or all of them. Returns how many went. */
+  clearResolved(key = null) {
+    let n = 0;
+    for (const [k, it] of this.items) {
+      if (it.state !== 'resolved' || (key && k !== key)) continue;
+      this.items.delete(k);
+      n += 1;
+    }
+    if (n) this.#changed(null);
+    return n;
+  }
+
   /* ── views ───────────────────────────────────────────────────────── */
   publicItem(it) {
     const now = this.now();
