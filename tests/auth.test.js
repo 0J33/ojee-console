@@ -10,14 +10,14 @@
 
 import { test, describe, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { TotpVerifier, _resetTotpState, authenticator } from '../src/auth/totp.js';
 import { DeviceStore } from '../src/auth/devices.js';
 import { SessionCodec, parseCookies, cookieHeader } from '../src/auth/session.js';
-import { tailnetGate, normalizeAddr, peerAddress, _internals as tsInternals } from '../src/auth/tailscale.js';
+import { tailnetGate, normalizeAddr, peerAddress, samePeer, clearWhoisCache, _internals as tsInternals } from '../src/auth/tailscale.js';
 import { ModuleRegistry, validateManifest } from '../src/modules/registry.js';
 import { signIdentity, verifyIdentity } from '../src/modules/proxy.js';
 
@@ -775,5 +775,181 @@ describe('module registry', () => {
     });
     await reg.refreshAll();
     assert.equal(reg.publicList()[0].assistant, null);
+  });
+});
+
+/* ══ whois outages: one node, two lenses ═════════════════════════════════ */
+
+describe('identity across a whois outage', () => {
+  // The desktop, as whois sees it and as the CIDR fallback sees it when the
+  // CLI times out. Same machine, same tailnet address.
+  const ADDR = '100.81.241.55';
+  const viaWhois = { login: 'oj@github', nodeId: '8669', display: 'oj', node: 'loq', addr: ADDR, source: 'whois' };
+  const viaCidr = { login: `tailnet:${ADDR}`, nodeId: ADDR, display: '', node: ADDR, addr: ADDR, source: 'cidr' };
+  const otherNodeCidr = { login: 'tailnet:100.64.55.106', nodeId: '100.64.55.106', addr: '100.64.55.106', source: 'cidr' };
+  const otherNodeWhois = { login: 'oj@github', nodeId: '5813', addr: '100.64.55.106', source: 'whois' };
+  let file;
+  beforeEach(() => { file = join(TMP, `devices-ws-${Math.random().toString(36).slice(2)}.json`); });
+
+  test('samePeer: the same node through either lens, never another node', () => {
+    const bound = { login: viaWhois.login, nodeId: viaWhois.nodeId, addr: ADDR };
+    assert.equal(samePeer(bound, viaWhois), true);
+    assert.equal(samePeer(bound, viaCidr), true, 'whois down: the node is still known by its address');
+    assert.equal(samePeer(bound, otherNodeCidr), false);
+    assert.equal(samePeer(bound, otherNodeWhois), false, 'same user, other machine');
+
+    const cidrBound = { login: viaCidr.login, nodeId: viaCidr.nodeId };
+    assert.equal(samePeer(cidrBound, viaWhois), true, 'whois back: same address, same node');
+    assert.equal(samePeer(cidrBound, otherNodeWhois), false);
+    assert.equal(samePeer(cidrBound, otherNodeCidr), false);
+
+    // A binding that never recorded an address cannot vouch for a CIDR peer.
+    assert.equal(samePeer({ login: 'oj@github', nodeId: '8669' }, viaCidr), false);
+  });
+
+  test('a session issued under whois survives the CLI timing out (the TOTP-several-times-a-day bug)', () => {
+    // What issueSession stamps and sessionStillValid checks.
+    const session = { user: viaWhois.login, nodeId: viaWhois.nodeId, addr: viaWhois.addr };
+    const check = (peer) => samePeer({ login: session.user, nodeId: session.nodeId, addr: session.addr }, peer);
+    assert.equal(check(viaCidr), true);
+    assert.equal(check(viaWhois), true);
+    assert.equal(check(otherNodeCidr), false, 'a copied session cookie on another node still fails');
+  });
+
+  test('a device enrolled under whois redeems through an outage, then back', () => {
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
+    const { cookie } = s.issue({ peer: viaWhois });
+    const a = s.redeem(cookie, viaCidr);
+    assert.equal(a.ok, true, a.reason);
+    t += 60_000;
+    const b = s.redeem(a.cookie, viaWhois);
+    assert.equal(b.ok, true, b.reason);
+    assert.equal(s.list().length, 1, 'no second device enrolled, none burned');
+  });
+
+  test('a device enrolled under CIDR fallback upgrades to the whois identity', () => {
+    const s = new DeviceStore({ file });
+    const { cookie, device } = s.issue({ peer: viaCidr });
+    const r = s.redeem(cookie, viaWhois);
+    assert.equal(r.ok, true, r.reason);
+    const d = s.list().find((x) => x.id === device.id);
+    assert.equal(d.peerLogin, viaWhois.login);
+    assert.equal(d.peerNodeId, viaWhois.nodeId);
+    // Now bound to the real node: another machine of the same user is refused.
+    assert.equal(s.redeem(r.cookie, otherNodeWhois).reason, 'peer_mismatch');
+    assert.equal(s.redeem(r.cookie, viaCidr).ok, true, 'and the outage path still works');
+  });
+
+  test('a stolen device cookie from another tailnet node still fails, and does not burn the device', () => {
+    const s = new DeviceStore({ file });
+    const { cookie } = s.issue({ peer: viaWhois });
+    assert.equal(s.redeem(cookie, otherNodeCidr).reason, 'peer_mismatch');
+    assert.equal(s.redeem(cookie, otherNodeWhois).reason, 'peer_mismatch');
+    assert.equal(s.redeem(cookie, viaWhois).ok, true);
+  });
+
+  test('a device from before addresses were kept learns its address on the next whois redeem', () => {
+    const s = new DeviceStore({ file });
+    const { cookie } = s.issue({ peer: { ...viaWhois, addr: undefined } });
+    assert.equal(s.redeem(cookie, viaCidr).reason, 'peer_mismatch', 'fails closed with nothing to match');
+    const r = s.redeem(cookie, viaWhois);
+    assert.equal(r.ok, true);
+    assert.equal(s.list()[0].peerAddr, ADDR);
+    assert.equal(s.redeem(r.cookie, viaCidr).ok, true);
+  });
+
+  test('racing requests that straddle the lens change share one successor', () => {
+    let t = Date.now();
+    const s = new DeviceStore({ file, clock: () => t });
+    const { cookie } = s.issue({ peer: viaWhois });
+    const first = s.redeem(cookie, viaWhois);
+    t += 1_000;
+    const sibling = s.redeem(cookie, viaCidr);
+    assert.equal(sibling.ok, true, sibling.reason);
+    assert.equal(sibling.cookie, first.cookie);
+    assert.equal(s.redeem(cookie, otherNodeCidr).reason, 'stale_token', 'another node inside the window is still a clone');
+  });
+
+  describe('whois', () => {
+    const { whois, whoisCache } = tsInternals;
+    const dir = mkdtempSync(join(tmpdir(), 'ojc-whois-'));
+    const mode = join(dir, 'mode');
+    const calls = join(dir, 'calls');
+    const cli = join(dir, 'tailscale');
+    // A fake CLI: answers, fails like an unreachable daemon, or says "no match".
+    writeFileSync(cli, `#!/bin/sh
+echo x >> "${calls}"
+case "$(cat "${mode}")" in
+  ok) echo '{"UserProfile":{"LoginName":"oj@github","DisplayName":"oj"},"Node":{"ID":8669,"Name":"loq.ts.net."}}' ;;
+  down) echo 'failed to connect to local tailscaled' >&2; exit 1 ;;
+  nomatch) echo 'peer not found' >&2; exit 1 ;;
+esac
+`);
+    chmodSync(cli, 0o755);
+    const set = (m) => writeFileSync(mode, m);
+    const callCount = () => { try { return readFileSync(calls, 'utf8').split('\n').filter(Boolean).length; } catch { return 0; } };
+    beforeEach(() => { clearWhoisCache(); writeFileSync(calls, ''); });
+    after(() => rmSync(dir, { recursive: true, force: true }));
+
+    test('a failed lookup falls back to the last answer for that address, not to CIDR', async () => {
+      set('ok');
+      const a = await whois('100.81.241.55', { cliPath: cli });
+      assert.equal(a.login, 'oj@github');
+      assert.equal(a.addr, '100.81.241.55');
+      whoisCache.clear();                     // the fresh entry ages out
+      set('down');
+      const warn = console.warn; console.warn = () => {};
+      try {
+        const b = await whois('100.81.241.55', { cliPath: cli });
+        assert.equal(b?.login, 'oj@github', 'identity must not flip to tailnet:<ip>');
+        assert.equal(callCount(), 3, 'one try plus one retry while down');
+        // Another address with no history gets no free pass.
+        assert.equal(await whois('100.64.0.9', { cliPath: cli }), null);
+      } finally { console.warn = warn; }
+    });
+
+    test('an authoritative "no match" clears the remembered answer', async () => {
+      set('ok');
+      await whois('100.81.241.55', { cliPath: cli });
+      whoisCache.clear();
+      set('nomatch');
+      const warn = console.warn; console.warn = () => {};
+      try {
+        assert.equal(await whois('100.81.241.55', { cliPath: cli }), null);
+        assert.equal(callCount(), 2, 'no retry for a definite answer');
+        whoisCache.clear();
+        set('down');
+        assert.equal(await whois('100.81.241.55', { cliPath: cli }), null, 'the removed peer is not resurrected by an outage');
+      } finally { console.warn = warn; }
+    });
+
+    test('a burst of requests shares one lookup', async () => {
+      set('ok');
+      const all = await Promise.all(Array.from({ length: 8 }, () => whois('100.81.241.55', { cliPath: cli })));
+      assert.ok(all.every((p) => p.login === 'oj@github'));
+      assert.equal(callCount(), 1);
+    });
+
+    test('the gate keeps the whois identity through an outage', async () => {
+      set('ok');
+      const gate = tailnetGate({ cliPath: cli });
+      const run = (ip) => new Promise((resolve) => {
+        const req = { ip, socket: { remoteAddress: '172.18.0.5' }, headers: {}, get: () => undefined };
+        gate(req, { status() { return this; }, type() { return this; }, send() { resolve(null); } }, () => resolve(req.peer));
+      });
+      assert.equal((await run('100.81.241.55')).source, 'whois');
+      whoisCache.clear();
+      set('down');
+      const warn = console.warn; console.warn = () => {};
+      try {
+        const p = await run('100.81.241.55');
+        assert.equal(p.login, 'oj@github');
+        // An address whois never vouched for still only gets CIDR identity,
+        // and a public address is still refused.
+        assert.equal((await run('100.64.0.9')).source, 'cidr');
+        assert.equal(await run('8.8.8.8'), null);
+      } finally { console.warn = warn; }
+    });
   });
 });

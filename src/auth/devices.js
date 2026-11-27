@@ -29,7 +29,9 @@
  *
  *   - Trust is BOUND to the tailnet peer that created it. A cookie exfiltrated
  *     to a machine outside the tailnet is useless twice over: gate 1 rejects
- *     it, and the binding would reject it anyway.
+ *     it, and the binding would reject it anyway. The binding is checked with
+ *     samePeer (tailscale.js): the same node seen by whois or, when whois
+ *     is down, by its tailnet address, is the same peer. Any other node is not.
  *
  * Writes go through a temp-file rename so a crash mid-write cannot leave a
  * truncated store — which would silently log every device out.
@@ -38,6 +40,7 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { samePeer } from './tailscale.js';
 
 const TOKEN_BYTES = 32;
 const ID_BYTES = 9;
@@ -69,7 +72,7 @@ export class DeviceStore {
     this.graceMs = graceMs;
     this.clock = clock;
     this.devices = new Map();
-    /** id → the rotation just made: {prevHash, cookie, login, nodeId, until}. Memory only. */
+    /** id → the rotation just made: {prevHash, cookie, login, nodeId, addr, until}. Memory only. */
     this.rotated = new Map();
     /**
      * Bumped by revokeAll(). Sessions carry the epoch they were issued under
@@ -138,6 +141,9 @@ export class DeviceStore {
       // when whois gave us a stable id.
       peerLogin: peer?.login || '',
       peerNodeId: peer?.nodeId || '',
+      // The tailnet address, so a request seen only by CIDR fallback (whois
+      // down) can still be recognised as this node.
+      peerAddr: peer?.addr || '',
       createdAt: now,
       lastSeenAt: now,
       expiresAt: now + this.trustMs,
@@ -178,7 +184,7 @@ export class DeviceStore {
     if (!safeEqualHex(sha256(token), device.tokenHash)) {
       const g = this.rotated.get(id);
       if (g && now < g.until && safeEqualHex(sha256(token), g.prevHash)
-          && (peer?.login || '') === g.login && (peer?.nodeId || '') === g.nodeId) {
+          && samePeer({ login: g.login, nodeId: g.nodeId, addr: g.addr }, peer)) {
         // A sibling request of the one that just rotated it: same successor.
         return { ok: true, device: redact(device), cookie: g.cookie };
       }
@@ -192,21 +198,31 @@ export class DeviceStore {
       return { ok: false, reason: 'stale_token' };
     }
 
-    // Binding check. Only enforced for fields we actually recorded, so a
-    // device issued under CIDR fallback (no nodeId) is not permanently
-    // unusable once whois starts answering.
-    if (device.peerLogin && peer?.login && device.peerLogin !== peer.login) {
+    // Binding check. A device enrolled while whois was down (`tailnet:<ip>`)
+    // still works once whois answers for that same address, and a device
+    // enrolled under whois still works through a whois outage, from its own
+    // address only.
+    if (!samePeer({ login: device.peerLogin, nodeId: device.peerNodeId, addr: device.peerAddr }, peer)) {
       return { ok: false, reason: 'peer_mismatch' };
     }
-    if (device.peerNodeId && peer?.nodeId && device.peerNodeId !== peer.nodeId) {
-      return { ok: false, reason: 'peer_mismatch' };
+
+    // An authoritative (whois) sighting refreshes the binding: it records the
+    // address of devices enrolled before addresses were kept, and upgrades a
+    // device enrolled under CIDR fallback to the real user and node, which is
+    // the stronger binding from then on.
+    if (peer?.source === 'whois') {
+      if (peer.addr) device.peerAddr = peer.addr;
+      if ((device.peerLogin || '').startsWith('tailnet:')) {
+        device.peerLogin = peer.login || device.peerLogin;
+        device.peerNodeId = peer.nodeId || device.peerNodeId;
+      }
     }
 
     // Rotate.
     const next = randomBytes(TOKEN_BYTES).toString('base64url');
     if (this.graceMs > 0) {
       this.rotated.set(id, { prevHash: device.tokenHash, cookie: `${id}.${next}`,
-        login: peer?.login || '', nodeId: peer?.nodeId || '', until: now + this.graceMs });
+        login: peer?.login || '', nodeId: peer?.nodeId || '', addr: peer?.addr || '', until: now + this.graceMs });
     }
     device.tokenHash = sha256(next);
     device.lastSeenAt = now;

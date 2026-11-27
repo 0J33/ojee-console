@@ -100,34 +100,143 @@ export function normalizeAddr(addr) {
 const whoisCache = new Map();
 const WHOIS_TTL_MS = 60_000;
 
-async function whois(addr, { cliPath = 'tailscale', timeoutMs = 2500 } = {}) {
+/*
+ * A FAILED whois is not an answer.
+ *
+ * The CLI times out or cannot reach tailscaled now and then (the box under
+ * load, a link change mid-rebind). That used to be cached for a full minute
+ * as "no answer", every request from the peer fell to the CIDR path, and the
+ * peer's identity changed from `user@github` / node id to `tailnet:<ip>` /
+ * `<ip>`. Every session and device cookie the desktop had was bound to the
+ * first identity, so all of them failed the peer check at once and the
+ * console asked for TOTP — then again when whois came back and the new
+ * device, bound to `tailnet:<ip>`, no longer matched. Several times a day.
+ *
+ * So: one retry, a short negative cache, and when the daemon is merely
+ * unreachable the last answer it gave for this address stands in. Tailnet
+ * addresses are assigned per node and WireGuard authenticates them, so the
+ * last authoritative answer for an address is still the right one until the
+ * daemon says otherwise. An authoritative "no such peer" clears it.
+ */
+const lastGood = new Map();
+const LAST_GOOD_MS = 24 * 60 * 60 * 1000;
+const NEGATIVE_TTL_MS = 5_000;
+const inflight = new Map();
+const failLogged = new Map();
+
+/** tailscaled answered, and the answer was "not a peer". */
+const isNoMatch = (err) => /peer not found|no match for/i.test(String(err?.stderr || err?.message || ''));
+
+function logFailure(addr, err) {
+  const now = Date.now();
+  if ((failLogged.get(addr) || 0) > now) return;
+  failLogged.set(addr, now + 60_000);
+  const why = err?.killed ? 'timed out' : String(err?.stderr || err?.message || err).trim().split('\n').pop().slice(0, 160);
+  console.warn(`[auth] tailscale whois ${addr} failed: ${why}`);
+}
+
+async function whoisOnce(addr, { cliPath, timeoutMs }) {
+  const { stdout } = await exec(cliPath, ['whois', '--json', addr], { timeout: timeoutMs });
+  const j = JSON.parse(stdout);
+  // Tagged nodes (CI runners, exit nodes) have no user — fall back to the
+  // node name so they are still attributable rather than anonymous.
+  return {
+    login: j?.UserProfile?.LoginName || j?.Node?.Name || 'tagged-device',
+    display: j?.UserProfile?.DisplayName || j?.Node?.Name || '',
+    node: (j?.Node?.Name || '').replace(/\.$/, ''),
+    nodeId: j?.Node?.ID != null ? String(j.Node.ID) : (j?.Node?.StableID || ''),
+    tags: j?.Node?.Tags || [],
+    addr,
+    source: 'whois',
+  };
+}
+
+async function whois(addr, { cliPath = 'tailscale', timeoutMs = 2500, retries = 1 } = {}) {
   const hit = whoisCache.get(addr);
   if (hit && hit.expires > Date.now()) return hit.value;
+  // A page waking up fires a burst of requests; they share one lookup.
+  if (inflight.has(addr)) return inflight.get(addr);
 
-  let value = null;
-  try {
-    const { stdout } = await exec(cliPath, ['whois', '--json', addr], { timeout: timeoutMs });
-    const j = JSON.parse(stdout);
-    // Tagged nodes (CI runners, exit nodes) have no user — fall back to the
-    // node name so they are still attributable rather than anonymous.
-    value = {
-      login: j?.UserProfile?.LoginName || j?.Node?.Name || 'tagged-device',
-      display: j?.UserProfile?.DisplayName || j?.Node?.Name || '',
-      node: (j?.Node?.Name || '').replace(/\.$/, ''),
-      nodeId: j?.Node?.ID != null ? String(j.Node.ID) : (j?.Node?.StableID || ''),
-      tags: j?.Node?.Tags || [],
-      source: 'whois',
-    };
-  } catch {
-    value = null;   // CLI missing, peer unknown, or timed out — all "no answer"
-  }
+  const run = (async () => {
+    let lastErr = null;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const value = await whoisOnce(addr, { cliPath, timeoutMs });
+        whoisCache.set(addr, { value, expires: Date.now() + WHOIS_TTL_MS });
+        lastGood.set(addr, { value, until: Date.now() + LAST_GOOD_MS });
+        failLogged.delete(addr);
+        return value;
+      } catch (err) {
+        lastErr = err;
+        if (err?.code === 'ENOENT' || isNoMatch(err)) break;   // retrying will not change it
+      }
+    }
 
-  whoisCache.set(addr, { value, expires: Date.now() + WHOIS_TTL_MS });
-  return value;
+    if (isNoMatch(lastErr)) {
+      lastGood.delete(addr);
+    } else {
+      const lg = lastGood.get(addr);
+      if (lg && lg.until > Date.now()) {
+        logFailure(addr, lastErr);
+        // Not cached as fresh: the next request asks the daemon again.
+        return lg.value;
+      }
+      // No CLI at all is the normal containerised setup; nothing to report.
+      if (lastErr?.code !== 'ENOENT') logFailure(addr, lastErr);
+    }
+    whoisCache.set(addr, { value: null, expires: Date.now() + NEGATIVE_TTL_MS });
+    return null;
+  })();
+
+  inflight.set(addr, run);
+  try { return await run; } finally { inflight.delete(addr); }
 }
 
 export function clearWhoisCache() {
   whoisCache.clear();
+  lastGood.clear();
+  inflight.clear();
+  failLogged.clear();
+}
+
+/* ── peer identity matching ─────────────────────────────────────────────── */
+
+const CIDR_PREFIX = 'tailnet:';
+const isCidrLogin = (l) => typeof l === 'string' && l.startsWith(CIDR_PREFIX);
+
+/**
+ * Is `peer` (this request) the same tailnet peer as `bound` (whoever a
+ * session or device was issued to)? Both are `{login, nodeId, addr}`.
+ *
+ * One rule used by sessions, device trust and the WebSocket upgrade, so they
+ * cannot disagree about who someone is.
+ *
+ *   - Both identified by whois: same login, and same node when both name one.
+ *   - Either side identified only by CIDR fallback (`tailnet:<addr>`): the
+ *     tailnet ADDRESS is the identity, and it must match exactly. A tailnet
+ *     address is one node's, authenticated by WireGuard, so this is the same
+ *     machine seen through a weaker lens — not a looser rule. Without this a
+ *     whois blip turned the owner's own laptop into a stranger.
+ *   - A binding with no recorded address cannot be matched to a CIDR peer:
+ *     fail closed.
+ *
+ * Only recorded fields are enforced, as before, so a binding made with no
+ * identity at all is not permanently unusable.
+ */
+export function samePeer(bound = {}, peer = {}) {
+  const bLogin = bound?.login || '';
+  const pLogin = peer?.login || '';
+  if (!bLogin && !bound?.nodeId && !bound?.addr) return true;
+
+  if (isCidrLogin(bLogin) || isCidrLogin(pLogin)) {
+    const bAddr = bound?.addr || (isCidrLogin(bLogin) ? bLogin.slice(CIDR_PREFIX.length) : '');
+    const pAddr = peer?.addr || (isCidrLogin(pLogin) ? pLogin.slice(CIDR_PREFIX.length) : '');
+    return !!bAddr && bAddr === pAddr;
+  }
+
+  if (bLogin && pLogin && bLogin !== pLogin) return false;
+  if (bound?.nodeId && peer?.nodeId && bound.nodeId !== peer.nodeId) return false;
+  return true;
 }
 
 /* ── the gate ───────────────────────────────────────────────────────────── */
@@ -204,6 +313,7 @@ export function tailnetGate({
           node: req.get('Tailscale-Node-Name') || '',
           nodeId: '',
           tags: [],
+          addr,
           source: 'proxy-header',
         };
         return next();
@@ -211,7 +321,7 @@ export function tailnetGate({
     }
 
     if (allowLoopback && (addr === '127.0.0.1' || addr === '::1')) {
-      req.peer = { login: 'local-dev', display: 'Local development', node: 'loopback', nodeId: 'loopback', tags: [], source: 'loopback' };
+      req.peer = { login: 'local-dev', display: 'Local development', node: 'loopback', nodeId: 'loopback', tags: [], addr, source: 'loopback' };
       return next();
     }
 
@@ -224,7 +334,7 @@ export function tailnetGate({
     // No authoritative answer. Fall back to range membership — weaker, but it
     // is what a containerised console without the CLI has to work with.
     if (trustedCidrs.some((c) => inCidr(addr, c))) {
-      req.peer = { login: `tailnet:${addr}`, display: '', node: addr, nodeId: addr, tags: [], source: 'cidr' };
+      req.peer = { login: `${CIDR_PREFIX}${addr}`, display: '', node: addr, nodeId: addr, tags: [], addr, source: 'cidr' };
       return next();
     }
 
@@ -233,4 +343,4 @@ export function tailnetGate({
   };
 }
 
-export const _internals = { inCidr, addrToBigInt };
+export const _internals = { inCidr, addrToBigInt, whois, whoisCache };

@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
 import { loadConfig, ROOT } from './config.js';
-import { tailnetGate, peerAddress } from './auth/tailscale.js';
+import { tailnetGate, peerAddress, samePeer } from './auth/tailscale.js';
 import { TotpVerifier } from './auth/totp.js';
 import { DeviceStore } from './auth/devices.js';
 import { SessionCodec, parseCookies, cookieHeader } from './auth/session.js';
@@ -142,6 +142,9 @@ function issueSession(res, peer, via, deviceId = null) {
     display: peer?.display || '',
     node: peer?.node || '',
     nodeId: peer?.nodeId || '',
+    // The tailnet address, so the session survives a whois outage on the
+    // same node (see samePeer).
+    addr: peer?.addr || '',
     via,
     // Present only on the device-trust path. Its presence is what lets
     // revoking a device kill the sessions it minted — see sessionStillValid.
@@ -162,10 +165,26 @@ function issueSession(res, peer, via, deviceId = null) {
  * minted by TOTP carry no deviceId and are deliberately unaffected — they are
  * not tied to a device in the first place.
  */
+/**
+ * Why a trusted device was asked for TOTP used to be invisible: the reason
+ * went to the 401 body and nowhere else. One line per cause per minute.
+ */
+const authLogged = new Map();
+function authLog(key, msg) {
+  const now = Date.now();
+  if ((authLogged.get(key) || 0) > now) return;
+  if (authLogged.size > 500) authLogged.clear();
+  authLogged.set(key, now + 60_000);
+  console.warn(`[auth] ${msg}`);
+}
+
 function sessionStillValid(session, peer) {
   // A session must still belong to the peer presenting it, or a cookie copied
   // to another tailnet machine would keep working until it expired.
-  if (session.user && peer?.login && session.user !== peer.login) return false;
+  if (!samePeer({ login: session.user, nodeId: session.nodeId, addr: session.addr }, peer)) {
+    authLog(`session:${session.jti}`, `session dropped: issued to ${session.user} (${session.addr || 'no addr'}), presented by ${peer?.login} (${peer?.source}, ${peer?.addr})`);
+    return false;
+  }
   if (session.deviceId && !devices.exists(session.deviceId)) return false;
   // Issued before the last revoke-all. This is what reaches the sessions that
   // carry no deviceId — without it, "revoke all" left them running.
@@ -200,6 +219,7 @@ function tryDeviceTrust(req, res) {
       setCookie(res, DEVICE_COOKIE, '', 0);
     }
     req.deviceTrustFailure = r.reason;
+    authLog(`device:${raw.split('.')[0].slice(0, 24)}:${r.reason}`, `device trust failed: ${r.reason} (device ${raw.split('.')[0].slice(0, 24)}, peer ${req.peer?.login} via ${req.peer?.source}, ${req.peer?.addr})`);
     return false;
   }
 
@@ -718,7 +738,9 @@ server.on('upgrade', async (req, socket, head) => {
 
   const cookies = parseCookies(req.headers.cookie);
   const v = sessions.verify(cookies[SESSION_COOKIE]);
-  if (!v.ok || (v.session.user && req.peer?.login && v.session.user !== req.peer.login)) {
+  // The same checks as every other request: the peer, a revoked device, the
+  // revoke-all epoch.
+  if (!v.ok || !sessionStillValid(v.session, req.peer)) {
     return deny(401, 'Unauthorized');
   }
 
